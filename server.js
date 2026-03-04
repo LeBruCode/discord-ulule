@@ -185,42 +185,67 @@ app.post("/admin/import", requireAdmin, async (req, res) => {
 });
 
 app.post("/admin/send-emails", requireAdmin, async (req, res) => {
+  try {
 
-  const { data: pending } = await supabase
-    .from("access_tokens")
-    .select("*")
-    .eq("email_sent", false)
-    .limit(50);
+    if (!process.env.BREVO_API_KEY) {
+      console.error("BREVO_API_KEY manquante");
+      return res.status(500).json({ error: "BREVO not configured" });
+    }
 
-  for (const row of pending) {
-
-    const activationLink =
-      `https://discord-oauth-ulule.onrender.com/login?token=${row.token}`;
-
-    await axios.post(
-      "https://api.brevo.com/v3/smtp/email",
-      {
-        to: [{ email: row.email }],
-        templateId: 130,
-        params: { activation_link: activationLink }
-      },
-      {
-        headers: {
-          "api-key": process.env.BREVO_API_KEY,
-          "Content-Type": "application/json"
-        }
-      }
-    );
-
-    await supabase
+    const { data: pending, error } = await supabase
       .from("access_tokens")
-      .update({ email_sent: true })
-      .eq("id", row.id);
+      .select("*")
+      .eq("email_sent", false)
+      .limit(50);
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (!pending || pending.length === 0) {
+      return res.json({ success: true, message: "Aucun email à envoyer" });
+    }
+
+    for (const row of pending) {
+      try {
+
+        const activationLink =
+          `https://discord-oauth-ulule.onrender.com/login?token=${row.token}`;
+
+        await axios.post(
+          "https://api.brevo.com/v3/smtp/email",
+          {
+            to: [{ email: row.email }],
+            templateId: 130,
+            params: { activation_link: activationLink }
+          },
+          {
+            headers: {
+              "api-key": process.env.BREVO_API_KEY,
+              "Content-Type": "application/json"
+            },
+            timeout: 10000
+          }
+        );
+
+        await supabase
+          .from("access_tokens")
+          .update({ email_sent: true })
+          .eq("id", row.id);
+
+      } catch (emailErr) {
+        console.error("Erreur envoi email:", emailErr.response?.data || emailErr.message);
+      }
+    }
+
+    return res.json({ success: true });
+
+  } catch (err) {
+    console.error("CRITICAL ERROR:", err);
+    return res.status(500).json({ error: "Server error" });
   }
-
-  res.json({ success: true });
 });
-
 app.post("/admin/resend-emails", requireAdmin, async (req, res) => {
 
   const { data: pending } = await supabase
