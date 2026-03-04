@@ -1,0 +1,12 @@
+body{margin:0;font-family:sans-serif;background:#0f172a;color:white}
+.container{max-width:1100px;margin:auto;padding:30px}
+.card{background:#1e293b;padding:16px;border-radius:12px;margin-bottom:20px}
+button{background:#6366f1;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer}
+button.secondary{background:#f59e0b}
+textarea{width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px;border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 0;border-top:1px solid #334155}
+.badge-ok{color:#22c55e}
+.badge-wait{color:#f59e0b}
+.grid{display:grid;grid-template-columns:1fr 260px;gap:20px}
+.chart-card{width:220px;height:220px;margin:auto}

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="/css/admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="container">
+  <h1>Dashboard</h1>
+
+  <div class="card">
+    <h3>Importer des emails</h3>
+    <form method="POST" action="/admin/import">
+      <textarea name="emails" rows="4"></textarea>
+      <button type="submit">Importer</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <button onclick="sendEmails()">Envoyer nouveaux emails</button>
+    <button onclick="resendEmails()" class="secondary">
+      Renvoyer mails non activés
+    </button>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Envoyé</th>
+            <th>Activé</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="card chart-card">
+      <canvas id="chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="/js/admin.js"></script>
+</body>
+</html>
