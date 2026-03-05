@@ -39,7 +39,7 @@ function token(){
  return crypto.randomBytes(32).toString("hex");
 }
 
-/* LOGIN */
+/* ===== LOGIN ===== */
 
 app.get("/admin/login",(req,res)=>{
  res.sendFile(path.join(__dirname,"views/login.html"));
@@ -57,7 +57,7 @@ app.get("/admin",requireAdmin,(req,res)=>{
  res.sendFile(path.join(__dirname,"views/admin.html"));
 });
 
-/* LIST */
+/* ===== LIST ===== */
 
 app.get("/admin/api/list",requireAdmin,async(req,res)=>{
 
@@ -76,7 +76,7 @@ app.get("/admin/api/list",requireAdmin,async(req,res)=>{
  res.json({data,total:count});
 });
 
-/* STATS */
+/* ===== STATS ===== */
 
 app.get("/admin/api/stats",requireAdmin,async(req,res)=>{
 
@@ -89,10 +89,15 @@ app.get("/admin/api/stats",requireAdmin,async(req,res)=>{
   .select("*",{count:"exact",head:true})
   .eq("used",true);
 
- res.json({total,activated});
+ const {count:sent}=await supabase
+  .from("access_tokens")
+  .select("*",{count:"exact",head:true})
+  .eq("email_sent",true);
+
+ res.json({total,activated,sent});
 });
 
-/* IMPORT */
+/* ===== IMPORT ===== */
 
 app.post("/admin/import",requireAdmin,async(req,res)=>{
 
@@ -102,18 +107,20 @@ app.post("/admin/import",requireAdmin,async(req,res)=>{
   .filter(e=>e.length>3);
 
  for(const email of emails){
+
   await supabase.from("access_tokens").insert({
    email,
    token:token(),
    used:false,
    email_sent:false
   });
+
  }
 
  res.redirect("/admin");
 });
 
-/* EMAIL */
+/* ===== EMAIL ===== */
 
 async function sendActivation(email,tokenValue){
 
@@ -135,34 +142,66 @@ async function sendActivation(email,tokenValue){
  );
 }
 
-app.post("/admin/send",requireAdmin,async(req,res)=>{
+/* ===== PARALLEL SENDER ===== */
 
- const {data}=await supabase
-  .from("access_tokens")
-  .select("*")
-  .eq("email_sent",false)
-  .limit(100);
+const CONCURRENCY = 10;
 
- for(const row of data){
+async function sendBatch(rows){
 
-  try{
-   await sendActivation(row.email,row.token);
+ const chunks=[];
+ for(let i=0;i<rows.length;i+=CONCURRENCY){
+  chunks.push(rows.slice(i,i+CONCURRENCY));
+ }
 
-   await supabase
-    .from("access_tokens")
-    .update({email_sent:true})
-    .eq("id",row.id);
+ for(const chunk of chunks){
 
-  }catch(e){
-   console.error(e.message);
-  }
+  await Promise.all(chunk.map(async row=>{
+
+   try{
+
+    await sendActivation(row.email,row.token);
+
+    await supabase
+     .from("access_tokens")
+     .update({email_sent:true})
+     .eq("id",row.id);
+
+   }catch(e){
+    console.error("email error",row.email,e.message);
+   }
+
+  }));
 
  }
 
- res.json({success:true});
+}
+
+/* ===== SEND ALL ===== */
+
+app.post("/admin/send-all",requireAdmin,async(req,res)=>{
+
+ let processed=0;
+
+ while(true){
+
+  const {data}=await supabase
+   .from("access_tokens")
+   .select("*")
+   .eq("email_sent",false)
+   .limit(200);
+
+  if(!data || data.length===0) break;
+
+  await sendBatch(data);
+
+  processed+=data.length;
+
+ }
+
+ res.json({processed});
 });
 
-/* DELETE */
+/* ===== DELETE ===== */
 
 app.post("/admin/delete-all",requireAdmin,async(req,res)=>{
 
@@ -188,7 +227,7 @@ app.post("/admin/delete-selected",requireAdmin,async(req,res)=>{
  res.json({success:true});
 });
 
-/* EXPORT */
+/* ===== EXPORT ===== */
 
 app.get("/admin/export",requireAdmin,async(req,res)=>{
 

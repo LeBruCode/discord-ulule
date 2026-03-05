@@ -30,8 +30,8 @@ function renderTable(){
   <tr>
    <td><input type="checkbox" value="${r.id}" class="row"></td>
    <td>${r.email}</td>
-   <td>${r.email_sent?'Oui':'Non'}</td>
-   <td>${r.used?'Oui':'Non'}</td>
+   <td>${r.email_sent?'Yes':'No'}</td>
+   <td>${r.used?'Yes':'No'}</td>
   </tr>
   `
 
@@ -45,6 +45,7 @@ function renderStats(s){
  const rate=s.total?Math.round((s.activated/s.total)*100):0
 
  document.getElementById("total").innerText=s.total
+ document.getElementById("sent").innerText=s.sent
  document.getElementById("activated").innerText=s.activated
  document.getElementById("rate").innerText=rate+"%"
 }
@@ -52,8 +53,14 @@ function renderStats(s){
 function prev(){ if(page>1){page--;fetchData()} }
 function next(){ page++;fetchData() }
 
-function sendEmails(){
- fetch("/admin/send",{method:"POST"}).then(fetchData)
+async function sendAll(){
+
+ const res=await fetch("/admin/send-all",{method:"POST"})
+ const j=await res.json()
+
+ alert("Emails processed: "+j.processed)
+
+ fetchData()
 }
 
 function deleteAll(){
