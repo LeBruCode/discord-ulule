@@ -1,50 +1,64 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Dashboard</title>
+<meta charset="UTF-8">
+<title>Discord Access</title>
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
+<div class="container">
+
 <h1>Discord Access Dashboard</h1>
 
 <div class="stats">
-<div>Total: <span id="total"></span></div>
-<div>Sent: <span id="sent"></span></div>
-<div>Activated: <span id="activated"></span></div>
-<div>Activation rate: <span id="rate"></span></div>
+<div class="card"><span>Total</span><b id="total">0</b></div>
+<div class="card"><span>Sent</span><b id="sent">0</b></div>
+<div class="card"><span>Activated</span><b id="activated">0</b></div>
+<div class="card"><span>Rate</span><b id="rate">0%</b></div>
 </div>
 
-<div class="actions">
-<button onclick="sendAll()">Send All Emails</button>
-<button onclick="deleteAll()">Delete All</button>
-<button onclick="deleteSelected()">Delete Selected</button>
-<button onclick="exportCsv()">Export Activated</button>
+<div class="progress"><div id="bar"></div></div>
+
+<textarea id="emails" placeholder="paste emails"></textarea>
+
+<div class="buttons">
+<button onclick="importEmails()">Import</button>
+<button onclick="sendEmails()">Send Emails</button>
 </div>
 
-<form method="POST" action="/admin/import">
-<textarea name="emails" rows="6" placeholder="paste emails"></textarea>
-<button>Import Emails</button>
-</form>
+<h2>Email list</h2>
+
+<div class="controls">
+<select id="limit" onchange="changeLimit()">
+<option value="50">50</option>
+<option value="250">250</option>
+<option value="500">500</option>
+</select>
+</div>
 
 <table>
 <thead>
 <tr>
-<th></th>
 <th>Email</th>
 <th>Sent</th>
 <th>Activated</th>
 </tr>
 </thead>
-<tbody id="tbody"></tbody>
+<tbody id="table"></tbody>
 </table>
 
-<div class="pager">
+<div class="pagination">
 <button onclick="prev()">Prev</button>
-<span id="pageInfo"></span>
+<span id="page">1</span>
 <button onclick="next()">Next</button>
 </div>
 
-<script src="/js/admin.js"></script>
+<pre id="log"></pre>
+
+</div>
+
+<script src="/js/app.js"></script>
+
 </body>
 </html>
