@@ -1,21 +1,20 @@
+
 let page=1
 let limit=50
 let dataStore=[]
-let totalRows=0
 
-async function fetchData(){
+async function refresh(){
 
  const list=await fetch(`/admin/api/list?page=${page}&limit=${limit}`)
- const json=await list.json()
+ const listJson=await list.json()
 
  const stats=await fetch(`/admin/api/stats`)
- const s=await stats.json()
+ const statsJson=await stats.json()
 
- dataStore=json.data
- totalRows=json.total
+ dataStore=listJson.data
 
  renderTable()
- renderStats(s)
+ renderStats(statsJson)
 }
 
 function renderTable(){
@@ -26,17 +25,18 @@ function renderTable(){
  dataStore.forEach(r=>{
 
   tbody.innerHTML+=`
-  <tr>
-   <td><input type="checkbox" value="${r.id}" class="row"></td>
-   <td>${r.email}</td>
-   <td>${r.email_sent?'Yes':'No'}</td>
-   <td>${r.used?'Yes':'No'}</td>
-  </tr>
+   <tr>
+    <td><input type="checkbox" value="${r.id}" class="row"></td>
+    <td>${r.email}</td>
+    <td>${r.email_sent?'Yes':'No'}</td>
+    <td>${r.used?'Yes':'No'}</td>
+    <td><button onclick="resend('${r.id}')">Resend</button></td>
+   </tr>
   `
 
  })
 
- document.getElementById("pageInfo").innerText="Page "+page
+ document.getElementById("page").innerText="Page "+page
 }
 
 function renderStats(s){
@@ -49,39 +49,37 @@ function renderStats(s){
  document.getElementById("rate").innerText=rate+"%"
 }
 
-function prev(){ if(page>1){page--;fetchData()} }
-function next(){ page++;fetchData() }
+function next(){page++;refresh()}
+function prev(){if(page>1){page--;refresh()}}
 
-async function sendAll(){
+function sendAll(){
+ fetch("/admin/api/send-all",{method:"POST"}).then(refresh)
+}
 
- const res=await fetch("/admin/send-all",{method:"POST"})
- const j=await res.json()
-
- alert("Emails processed: "+j.processed)
-
- fetchData()
+function resend(id){
+ fetch("/admin/api/resend/"+id,{method:"POST"}).then(refresh)
 }
 
 function deleteAll(){
 
- if(!confirm("Delete all?")) return
+ if(!confirm("Delete all emails?")) return
 
- fetch("/admin/delete-all",{method:"POST"}).then(()=>fetchData())
+ fetch("/admin/api/delete-all",{method:"POST"}).then(refresh)
 }
 
 function deleteSelected(){
 
  const ids=[...document.querySelectorAll(".row:checked")].map(x=>x.value)
 
- fetch("/admin/delete-selected",{
+ fetch("/admin/api/delete-selected",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({ids})
- }).then(()=>fetchData())
+ }).then(refresh)
 }
 
 function exportCsv(){
- window.location="/admin/export"
+ window.location="/admin/api/export"
 }
 
-fetchData()
+refresh()
