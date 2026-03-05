@@ -1,49 +1,86 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dashboard</title>
-  <link rel="stylesheet" href="/css/admin.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>Dashboard</title>
+<link rel="stylesheet" href="/css/admin.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body{background:#0f172a;color:white;font-family:system-ui;margin:0}
+.container{max-width:1100px;margin:auto;padding:30px}
+h1{margin-bottom:20px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.stat{background:#1e293b;padding:18px;border-radius:10px}
+.stat h2{margin:0;font-size:28px}
+.stat p{margin:4px 0 0;color:#94a3b8}
+.card{background:#1e293b;padding:16px;border-radius:10px;margin-bottom:20px}
+button{background:#6366f1;border:none;color:white;padding:8px 14px;border-radius:6px;margin-right:8px;cursor:pointer}
+button.danger{background:#ef4444}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px;border-bottom:1px solid #334155}
+.chart-card{height:260px}
+</style>
 </head>
 <body>
+
 <div class="container">
-  <h1>Dashboard</h1>
 
-  <div class="card">
-    <h3>Importer des emails</h3>
-    <form method="POST" action="/admin/import">
-      <textarea name="emails" rows="4"></textarea>
-      <button type="submit">Importer</button>
-    </form>
-  </div>
+<h1>Dashboard</h1>
 
-  <div class="card">
-    <button onclick="sendEmails()">Envoyer nouveaux emails</button>
-    <button onclick="resendEmails()" class="secondary">
-      Renvoyer mails non activés
-    </button>
-  </div>
+<div class="stats">
+<div class="stat">
+<h2 id="totalEmails">0</h2>
+<p>Total emails</p>
+</div>
 
-  <div class="grid">
-    <div class="card">
-      <table>
-        <thead>
-          <tr>
-            <th>Email</th>
-            <th>Envoyé</th>
-            <th>Activé</th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
-    </div>
+<div class="stat">
+<h2 id="activated">0</h2>
+<p>Activations</p>
+</div>
 
-    <div class="card chart-card">
-      <canvas id="chart"></canvas>
-    </div>
-  </div>
+<div class="stat">
+<h2 id="rate">0%</h2>
+<p>Taux activation</p>
+</div>
+</div>
+
+<div class="card chart-card">
+<canvas id="chart"></canvas>
+</div>
+
+<div class="card">
+<h3>Importer emails</h3>
+<form method="POST" action="/admin/import">
+<textarea name="emails" rows="4" style="width:100%"></textarea>
+<br><br>
+<button type="submit">Importer</button>
+</form>
+</div>
+
+<div class="card">
+<button onclick="sendEmails()">Envoyer nouveaux emails</button>
+<button onclick="resendEmails()">Renvoyer non activés</button>
+<button onclick="deleteSelected()" class="danger">Supprimer sélection</button>
+<button onclick="deleteAll()" class="danger">Supprimer tous</button>
+</div>
+
+<div class="card">
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Email</th>
+<th>Envoyé</th>
+<th>Activé</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+
 </div>
 
 <script src="/js/admin.js"></script>
+
 </body>
 </html>

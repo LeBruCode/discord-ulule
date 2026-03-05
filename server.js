@@ -1,3 +1,4 @@
+
 import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
@@ -44,9 +45,41 @@ function generateToken() {
   return crypto.randomBytes(32).toString("hex");
 }
 
-/* ================= DISCORD LOGIN ================= */
+/* ---------------- DISCORD QUEUE ---------------- */
+/* prevents hitting global rate limits */
+
+const discordQueue = [];
+let queueRunning = false;
+
+async function processQueue() {
+  if (queueRunning) return;
+  queueRunning = true;
+
+  while (discordQueue.length > 0) {
+    const job = discordQueue.shift();
+
+    try {
+      await job();
+    } catch (err) {
+      console.error("Discord job error:", err.response?.data || err.message);
+    }
+
+    await new Promise(r => setTimeout(r, 300)); 
+    // ~3 requests/sec safe margin
+  }
+
+  queueRunning = false;
+}
+
+function enqueueDiscordJob(fn) {
+  discordQueue.push(fn);
+  processQueue();
+}
+
+/* ---------------- DISCORD LOGIN ---------------- */
 
 app.get("/login", async (req, res) => {
+
   const token = req.query.token;
   if (!token) return res.status(403).send("Token manquant.");
 
@@ -54,10 +87,11 @@ app.get("/login", async (req, res) => {
     .from("access_tokens")
     .select("*")
     .eq("token", token)
-    .eq("used", false)
     .single();
 
-  if (!data) return res.status(403).send("Token invalide.");
+  if (!data || data.used) {
+    return res.status(403).send("Token invalide.");
+  }
 
   const redirect = encodeURIComponent(process.env.REDIRECT_URI);
 
@@ -72,18 +106,23 @@ app.get("/login", async (req, res) => {
   res.redirect(url);
 });
 
+/* ---------------- CALLBACK ---------------- */
+
 app.get("/callback", async (req, res) => {
+
   try {
+
     const { code, state: token } = req.query;
 
     const { data } = await supabase
       .from("access_tokens")
       .select("*")
       .eq("token", token)
-      .eq("used", false)
       .single();
 
-    if (!data) return res.status(403).send("Token invalide.");
+    if (!data || data.used) {
+      return res.send("Lien déjà utilisé.");
+    }
 
     const params = new URLSearchParams({
       client_id: process.env.CLIENT_ID,
@@ -108,36 +147,51 @@ app.get("/callback", async (req, res) => {
 
     const user = userRes.data;
 
-    await axios.put(
-      `https://discord.com/api/guilds/${process.env.GUILD_ID}/members/${user.id}`,
-      { access_token: accessToken },
-      { headers: { Authorization: `Bot ${process.env.BOT_TOKEN}` } }
-    );
-
-    await axios.put(
-      `https://discord.com/api/guilds/${process.env.GUILD_ID}/members/${user.id}/roles/${process.env.ROLE_ID}`,
-      {},
-      { headers: { Authorization: `Bot ${process.env.BOT_TOKEN}` } }
-    );
-
-    await supabase
+    /* atomic token usage */
+    const { data: updateCheck } = await supabase
       .from("access_tokens")
       .update({
         used: true,
         discord_id: user.id,
         used_at: new Date().toISOString()
       })
-      .eq("token", token);
+      .eq("token", token)
+      .eq("used", false)
+      .select();
 
-    res.redirect(`https://discord.com/channels/${process.env.GUILD_ID}/${process.env.CHANNEL_ID}`);
+    if (!updateCheck || updateCheck.length === 0) {
+      return res.send("Lien déjà utilisé.");
+    }
+
+    enqueueDiscordJob(async () => {
+
+      await axios.put(
+        `https://discord.com/api/guilds/${process.env.GUILD_ID}/members/${user.id}`,
+        {
+          access_token: accessToken,
+          roles: [process.env.ROLE_ID]
+        },
+        {
+          headers: { Authorization: `Bot ${process.env.BOT_TOKEN}` }
+        }
+      );
+
+    });
+
+    res.redirect(
+      `https://discord.com/channels/${process.env.GUILD_ID}/${process.env.CHANNEL_ID}`
+    );
 
   } catch (err) {
-    console.error(err.response?.data || err.message);
+
+    console.error("Discord error:", err.response?.data || err.message);
     res.status(500).send("Erreur activation.");
+
   }
+
 });
 
-/* ================= ADMIN ================= */
+/* ---------------- ADMIN ---------------- */
 
 app.get("/admin/login", (req, res) => {
   res.sendFile(path.join(__dirname, "views/login.html"));
@@ -155,131 +209,145 @@ app.get("/admin", requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, "views/admin.html"));
 });
 
-/* ================= API ================= */
+/* ---------------- API ---------------- */
 
 app.get("/admin/api/data", requireAdmin, async (req, res) => {
+
   const { data } = await supabase
     .from("access_tokens")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(200);
 
   res.json({ data });
+
 });
 
 app.post("/admin/import", requireAdmin, async (req, res) => {
+
   const emails = req.body.emails
     .split("\n")
     .map(e => e.trim().toLowerCase())
     .filter(e => e.length > 3);
 
   for (const email of emails) {
+
     await supabase.from("access_tokens").insert({
       email,
       token: generateToken(),
       used: false,
       email_sent: false
     });
+
   }
 
   res.redirect("/admin");
+
 });
 
-app.post("/admin/send-emails", requireAdmin, async (req, res) => {
-  try {
+/* ---------------- EMAILS ---------------- */
 
-    if (!process.env.BREVO_API_KEY) {
-      console.error("BREVO_API_KEY manquante");
-      return res.status(500).json({ error: "BREVO not configured" });
-    }
+async function sendActivation(email, token) {
 
-    const { data: pending, error } = await supabase
-      .from("access_tokens")
-      .select("*")
-      .eq("email_sent", false)
-      .limit(50);
+  const activationLink =
+    `${process.env.PUBLIC_URL}/login?token=${token}`;
 
-    if (error) {
-      console.error("Supabase error:", error);
-      return res.status(500).json({ error: "Database error" });
-    }
-
-    if (!pending || pending.length === 0) {
-      return res.json({ success: true, message: "Aucun email à envoyer" });
-    }
-
-    for (const row of pending) {
-      try {
-
-        const activationLink =
-          `https://discord-oauth-ulule.onrender.com/login?token=${row.token}`;
-
-        await axios.post(
-          "https://api.brevo.com/v3/smtp/email",
-          {
-            to: [{ email: row.email }],
-            templateId: 130,
-            params: { activation_link: activationLink }
-          },
-          {
-            headers: {
-              "api-key": process.env.BREVO_API_KEY,
-              "Content-Type": "application/json"
-            },
-            timeout: 10000
-          }
-        );
-
-        await supabase
-          .from("access_tokens")
-          .update({ email_sent: true })
-          .eq("id", row.id);
-
-      } catch (emailErr) {
-        console.error("Erreur envoi email:", emailErr.response?.data || emailErr.message);
+  await axios.post(
+    "https://api.brevo.com/v3/smtp/email",
+    {
+      to: [{ email }],
+      templateId: Number(process.env.BREVO_TEMPLATE_ID),
+      params: { activation_link: activationLink }
+    },
+    {
+      headers: {
+        "api-key": process.env.BREVO_API_KEY,
+        "Content-Type": "application/json"
       }
     }
+  );
 
-    return res.json({ success: true });
+}
 
-  } catch (err) {
-    console.error("CRITICAL ERROR:", err);
-    return res.status(500).json({ error: "Server error" });
+app.post("/admin/send-emails", requireAdmin, async (req, res) => {
+
+  const { data } = await supabase
+    .from("access_tokens")
+    .select("*")
+    .eq("email_sent", false)
+    .limit(50);
+
+  for (const row of data) {
+
+    try {
+
+      await sendActivation(row.email, row.token);
+
+      await supabase
+        .from("access_tokens")
+        .update({ email_sent: true })
+        .eq("id", row.id);
+
+    } catch (err) {
+
+      console.error("Email error:", err.response?.data || err.message);
+
+    }
+
   }
+
+  res.json({ success: true });
+
 });
+
 app.post("/admin/resend-emails", requireAdmin, async (req, res) => {
 
-  const { data: pending } = await supabase
+  const { data } = await supabase
     .from("access_tokens")
     .select("*")
     .eq("used", false)
     .eq("email_sent", true)
     .limit(50);
 
-  for (const row of pending) {
+  for (const row of data) {
 
-    const activationLink =
-      `https://discord-oauth-ulule.onrender.com/login?token=${row.token}`;
+    await sendActivation(row.email, row.token);
 
-    await axios.post(
-      "https://api.brevo.com/v3/smtp/email",
-      {
-        to: [{ email: row.email }],
-        templateId: 130,
-        params: { activation_link: activationLink }
-      },
-      {
-        headers: {
-          "api-key": process.env.BREVO_API_KEY,
-          "Content-Type": "application/json"
-        }
-      }
-    );
   }
 
   res.json({ success: true });
+
 });
 
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
 });
+
+
+app.post("/admin/delete-all", requireAdmin, async (req,res)=>{
+
+  await supabase
+    .from("access_tokens")
+    .delete()
+    .neq("id",0)
+
+  res.json({success:true})
+
+})
+
+app.post("/admin/delete-selected", requireAdmin, async (req,res)=>{
+
+  const ids=req.body.ids||[]
+
+  if(ids.length===0) return res.json({success:true})
+
+  await supabase
+    .from("access_tokens")
+    .delete()
+    .in("id",ids)
+
+  res.json({success:true})
+
+})
