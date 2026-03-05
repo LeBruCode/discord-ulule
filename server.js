@@ -1,4 +1,3 @@
-
 import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
@@ -39,8 +38,6 @@ function token(){
  return crypto.randomBytes(32).toString("hex");
 }
 
-/* ===== LOGIN ===== */
-
 app.get("/admin/login",(req,res)=>{
  res.sendFile(path.join(__dirname,"views/login.html"));
 });
@@ -56,8 +53,6 @@ app.post("/admin/login",(req,res)=>{
 app.get("/admin",requireAdmin,(req,res)=>{
  res.sendFile(path.join(__dirname,"views/admin.html"));
 });
-
-/* ===== LIST ===== */
 
 app.get("/admin/api/list",requireAdmin,async(req,res)=>{
 
@@ -75,8 +70,6 @@ app.get("/admin/api/list",requireAdmin,async(req,res)=>{
 
  res.json({data,total:count});
 });
-
-/* ===== STATS ===== */
 
 app.get("/admin/api/stats",requireAdmin,async(req,res)=>{
 
@@ -97,8 +90,6 @@ app.get("/admin/api/stats",requireAdmin,async(req,res)=>{
  res.json({total,activated,sent});
 });
 
-/* ===== IMPORT ===== */
-
 app.post("/admin/import",requireAdmin,async(req,res)=>{
 
  const emails=req.body.emails
@@ -107,20 +98,16 @@ app.post("/admin/import",requireAdmin,async(req,res)=>{
   .filter(e=>e.length>3);
 
  for(const email of emails){
-
   await supabase.from("access_tokens").insert({
    email,
    token:token(),
    used:false,
    email_sent:false
   });
-
  }
 
  res.redirect("/admin");
 });
-
-/* ===== EMAIL ===== */
 
 async function sendActivation(email,tokenValue){
 
@@ -141,8 +128,6 @@ async function sendActivation(email,tokenValue){
   }
  );
 }
-
-/* ===== PARALLEL SENDER ===== */
 
 const CONCURRENCY = 10;
 
@@ -176,8 +161,6 @@ async function sendBatch(rows){
 
 }
 
-/* ===== SEND ALL ===== */
-
 app.post("/admin/send-all",requireAdmin,async(req,res)=>{
 
  let processed=0;
@@ -200,8 +183,6 @@ app.post("/admin/send-all",requireAdmin,async(req,res)=>{
 
  res.json({processed});
 });
-
-/* ===== DELETE ===== */
 
 app.post("/admin/delete-all",requireAdmin,async(req,res)=>{
 
@@ -227,8 +208,6 @@ app.post("/admin/delete-selected",requireAdmin,async(req,res)=>{
  res.json({success:true});
 });
 
-/* ===== EXPORT ===== */
-
 app.get("/admin/export",requireAdmin,async(req,res)=>{
 
  const {data}=await supabase
@@ -247,4 +226,4 @@ app.get("/admin/export",requireAdmin,async(req,res)=>{
 });
 
 const PORT=process.env.PORT||3000;
-app.listen(PORT,()=>console.log("Server running"));
+app.listen(PORT,()=>console.log("Server running on "+PORT));

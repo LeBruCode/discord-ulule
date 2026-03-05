@@ -1,4 +1,3 @@
-
 let page=1
 let limit=50
 let dataStore=[]
@@ -67,7 +66,7 @@ function deleteAll(){
 
  if(!confirm("Delete all?")) return
 
- fetch("/admin/delete-all",{method:"POST"}).then(fetchData)
+ fetch("/admin/delete-all",{method:"POST"}).then(()=>fetchData())
 }
 
 function deleteSelected(){
@@ -78,7 +77,7 @@ function deleteSelected(){
   method:"POST",
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({ids})
- }).then(fetchData)
+ }).then(()=>fetchData())
 }
 
 function exportCsv(){
