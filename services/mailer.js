@@ -18,5 +18,4 @@ export async function sendMail(email,token){
    }
   }
  )
-
 }

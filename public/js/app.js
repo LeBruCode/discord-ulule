@@ -13,7 +13,6 @@ async function refresh(){
  document.getElementById("sent").innerText=s.sent
  document.getElementById("activated").innerText=s.activated
  document.getElementById("rate").innerText=s.rate+"%"
-
  document.getElementById("bar").style.width=s.rate+"%"
 }
 
@@ -33,11 +32,10 @@ async function load(){
    <td>${r.email}</td>
    <td>${bool(r.email_sent)}</td>
    <td>${bool(r.used)}</td>
-   <td><button data-email="${r.email}" class="resend">Resend</button></td>
+   <td><button class="resend" data-email="${r.email}">Resend</button></td>
   `
 
   tbody.appendChild(tr)
-
  })
 
  document.querySelectorAll(".resend").forEach(btn=>{
@@ -82,6 +80,24 @@ document.getElementById("importBtn").addEventListener("click",importEmails)
 document.getElementById("sendBtn").addEventListener("click",sendEmails)
 document.getElementById("nextBtn").addEventListener("click",next)
 document.getElementById("prevBtn").addEventListener("click",prev)
+
+document.getElementById("search").addEventListener("input",e=>{
+ search=e.target.value
+ page=1
+ load()
+})
+
+document.getElementById("status").addEventListener("change",e=>{
+ status=e.target.value
+ page=1
+ load()
+})
+
+document.getElementById("limit").addEventListener("change",e=>{
+ limit=e.target.value
+ page=1
+ load()
+})
 
 setInterval(refresh,3000)
 refresh()

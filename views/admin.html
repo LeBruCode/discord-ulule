@@ -1,80 +1,66 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-<title>Dashboard</title>
+<meta charset="UTF-8">
+<title>Discord Access Dashboard</title>
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
 <div class="container">
 
-<h1>Discord Dashboard</h1>
+<h1>Discord Access Dashboard</h1>
 
 <div class="stats">
-<div>Total: <span id="total"></span></div>
-<div>Sent: <span id="sent"></span></div>
-<div>Activated: <span id="activated"></span></div>
-<div>Rate: <span id="rate"></span></div>
+<div class="card"><span>Total</span><b id="total">0</b></div>
+<div class="card"><span>Sent</span><b id="sent">0</b></div>
+<div class="card"><span>Activated</span><b id="activated">0</b></div>
+<div class="card"><span>Rate</span><b id="rate">0%</b></div>
 </div>
 
-<div class="actions">
+<div class="progress"><div id="bar"></div></div>
 
-<button onclick="sendAll()">Send Emails</button>
-<button onclick="deleteAll()">Delete All</button>
-<button onclick="deleteSelected()">Delete Selected</button>
-<button onclick="exportCsv()">Export Activated</button>
+<textarea id="emails" placeholder="paste emails"></textarea>
 
-</div>
+<div class="controls">
+<button id="importBtn">Import</button>
+<button id="sendBtn">Send Emails</button>
 
-<div class="pagination-top">
+<input id="search" placeholder="Search email">
 
-<label>Pagination:</label>
+<select id="status">
+<option value="all">All</option>
+<option value="sent">Sent</option>
+<option value="activated">Activated</option>
+</select>
 
-<select id="limit" onchange="changeLimit()">
+<select id="limit">
 <option value="50">50</option>
-<option value="100">100</option>
 <option value="250">250</option>
 <option value="500">500</option>
 </select>
-
 </div>
 
-<form method="POST" action="/admin/import">
-
-<textarea name="emails" rows="6" placeholder="paste emails"></textarea>
-
-<button>Import</button>
-
-</form>
-
 <table>
-
 <thead>
 <tr>
-<th></th>
 <th>Email</th>
 <th>Sent</th>
 <th>Activated</th>
 <th>Action</th>
 </tr>
 </thead>
-
-<tbody id="tbody"></tbody>
-
+<tbody id="table"></tbody>
 </table>
 
 <div class="pagination">
-
-<button onclick="prev()">Prev</button>
-<span id="page"></span>
-<button onclick="next()">Next</button>
-
+<button id="prevBtn">Prev</button>
+<span id="page">1</span>
+<button id="nextBtn">Next</button>
 </div>
 
 </div>
 
-<script src="/js/admin.js"></script>
-
+<script src="/js/app.js"></script>
 </body>
 </html>

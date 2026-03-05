@@ -17,14 +17,12 @@ router.post("/import",async(req,res)=>{
   .filter(e=>e)
 
  for(const email of emails){
-
   await supabase.from("access_tokens").insert({
    email,
    token:token(),
    used:false,
    email_sent:false
   })
-
  }
 
  res.json({imported:emails.length})
@@ -59,7 +57,7 @@ router.post("/send",async(req,res)=>{
 
 router.post("/resend",async(req,res)=>{
 
- const email=req.body.email
+ const {email}=req.body
 
  const {data}=await supabase
   .from("access_tokens")
