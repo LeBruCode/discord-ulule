@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Activation</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="container">
+<h1>Activation</h1>
+<p id="status">Checking link...</p>
+</div>
+
+<script>
+
+const token=new URLSearchParams(window.location.search).get("token")
+
+fetch("/admin/api/activate",{
+ method:"POST",
+ headers:{"Content-Type":"application/json"},
+ body:JSON.stringify({token})
+})
+.then(r=>r.json())
+.then(data=>{
+
+ const s=document.getElementById("status")
+
+ if(data.success){
+
+  s.innerText="Access activated. Redirecting..."
+
+  setTimeout(()=>{
+   window.location.href=process.env?.DISCORD_INVITE_URL || "https://discord.com"
+  },2000)
+
+ }else{
+
+  s.innerText="Link invalid or expired."
+
+ }
+
+})
+
+</script>
+
+</body>
+</html>

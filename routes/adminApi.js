@@ -11,18 +11,18 @@ function token(){
 
 router.post("/import",async(req,res)=>{
 
- const emails=req.body.emails
-  .split("\n")
-  .map(e=>e.trim())
-  .filter(e=>e)
+ const emails=req.body.emails.split("\n").map(e=>e.trim()).filter(e=>e)
 
  for(const email of emails){
+
   await supabase.from("access_tokens").insert({
    email,
    token:token(),
    used:false,
-   email_sent:false
+   email_sent:false,
+   expires_at:new Date(Date.now()+1000*60*60*24*7) // 7 days
   })
+
  }
 
  res.json({imported:emails.length})
@@ -65,9 +65,7 @@ router.post("/resend",async(req,res)=>{
   .eq("email",email)
   .single()
 
- if(!data){
-  return res.status(404).json({error:"email not found"})
- }
+ if(!data) return res.status(404).json({error:"not found"})
 
  await sendMail(data.email,data.token)
 
@@ -86,17 +84,10 @@ router.get("/list",async(req,res)=>{
   .select("*",{count:"exact"})
   .order("id",{ascending:false})
 
- if(search){
-  query=query.ilike("email",`%${search}%`)
- }
+ if(search) query=query.ilike("email",`%${search}%`)
 
- if(status==="sent"){
-  query=query.eq("email_sent",true)
- }
-
- if(status==="activated"){
-  query=query.eq("used",true)
- }
+ if(status==="sent") query=query.eq("email_sent",true)
+ if(status==="activated") query=query.eq("used",true)
 
  const start=(page-1)*limit
  const end=start+limit-1
@@ -104,6 +95,31 @@ router.get("/list",async(req,res)=>{
  const {data,count}=await query.range(start,end)
 
  res.json({data,total:count})
+})
+
+router.post("/activate",async(req,res)=>{
+
+ const {token}=req.body
+
+ const {data}=await supabase
+  .from("access_tokens")
+  .select("*")
+  .eq("token",token)
+  .single()
+
+ if(!data) return res.json({success:false})
+
+ if(data.used) return res.json({success:false,message:"already used"})
+
+ if(new Date(data.expires_at)<new Date())
+  return res.json({success:false,message:"expired"})
+
+ await supabase
+  .from("access_tokens")
+  .update({used:true})
+  .eq("id",data.id)
+
+ res.json({success:true})
 })
 
 export default router
