@@ -23,6 +23,10 @@ async function refresh(){
  document.getElementById("bar").style.width=s.rate+"%"
 }
 
+function bool(v){
+ return v ? "Oui" : "Non"
+}
+
 async function load(){
 
  const res=await fetch(`/admin/api/list?page=${page}&limit=${limit}&search=${search}&status=${status}`)
@@ -32,48 +36,57 @@ async function load(){
  tbody.innerHTML=""
 
  j.data.forEach(r=>{
-  tbody.innerHTML+=`<tr>
+
+  const tr=document.createElement("tr")
+
+  tr.innerHTML=`
    <td>${r.email}</td>
-   <td>${r.email_sent}</td>
-   <td>${r.used}</td>
-  </tr>`
+   <td>${bool(r.email_sent)}</td>
+   <td>${bool(r.used)}</td>
+   <td><button class="resend" data-email="${r.email}">Resend</button></td>
+  `
+
+  tbody.appendChild(tr)
+ })
+
+ document.querySelectorAll(".resend").forEach(btn=>{
+  btn.addEventListener("click",()=>resend(btn.dataset.email))
  })
 
  document.getElementById("page").innerText=page
+}
+
+async function resend(email){
+
+ await fetch("/admin/api/resend",{
+  method:"POST",
+  headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({email})
+ })
+
+ alert("Email renvoyé")
 }
 
 async function importEmails(){
 
  const emails=document.getElementById("emails").value
 
- const res=await fetch("/admin/api/import",{
+ await fetch("/admin/api/import",{
   method:"POST",
   headers:{"Content-Type":"application/json"},
   body:JSON.stringify({emails})
  })
 
- const j=await res.json()
- console.log("imported",j.imported)
  load()
 }
 
 async function sendEmails(){
 
- const res=await fetch("/admin/api/send",{method:"POST"})
- const j=await res.json()
-
- console.log("queued",j.queued)
+ await fetch("/admin/api/send",{method:"POST"})
 }
 
-function next(){
- page++
- load()
-}
-
-function prev(){
- if(page>1) page--
- load()
-}
+function next(){ page++; load() }
+function prev(){ if(page>1) page--; load() }
 
 function changeLimit(){
  limit=parseInt(document.getElementById("limit").value)

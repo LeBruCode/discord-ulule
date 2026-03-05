@@ -1,14 +1,12 @@
 {
-  "name": "discord-access-v7_3",
+  "name": "discord-access-v8-no-redis",
   "type": "module",
   "dependencies": {
     "axios": "^1.6.0",
-    "bullmq": "^5.7.0",
     "dotenv": "^16.0.0",
     "express": "^4.18.0",
     "express-session": "^1.17.3",
     "helmet": "^7.0.0",
-    "ioredis": "^5.3.2",
     "@supabase/supabase-js": "^2.39.0",
     "express-rate-limit": "^7.0.0"
   }

@@ -27,7 +27,6 @@ body{
 
 .card span{
  color:#8b949e;
- display:block;
 }
 
 .card b{
@@ -62,11 +61,10 @@ textarea{
 button{
  background:#7c5cff;
  border:none;
- padding:10px 16px;
- border-radius:8px;
+ padding:8px 14px;
+ border-radius:6px;
  color:white;
  cursor:pointer;
- margin-right:10px;
 }
 
 input,select{
@@ -82,9 +80,14 @@ input,select{
 table{
  width:100%;
  border-collapse:collapse;
+ margin-top:20px;
 }
 
 th,td{
  padding:12px;
  border-bottom:1px solid #2a3038;
+}
+
+.resend{
+ background:#2ea043;
 }
