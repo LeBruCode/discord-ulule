@@ -321,7 +321,26 @@ app.post("/admin/resend-emails", requireAdmin, async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+
+
+/* ================= LIVE DASHBOARD ================= */
+
+import { Server } from "socket.io";
+import http from "http";
+
+const serverHttp = http.createServer(app);
+const io = new Server(serverHttp);
+
+io.on("connection",(socket)=>{
+  console.log("dashboard connected")
+})
+
+function notifyDashboard(){
+  io.emit("refresh")
+}
+
+
+serverHttp.listen(PORT, () => {
   console.log("Server running on port", PORT);
 });
 
@@ -603,6 +622,81 @@ app.post("/admin/send-all-parallel", requireAdmin, async (req,res)=>{
     })
 
     await Promise.all(jobs)
+
+  }
+
+  res.json({processed})
+
+})
+
+
+
+/* ================= EMAIL QUEUE (PARALLEL CONTROLLED) ================= */
+
+const EMAIL_CONCURRENCY = 10
+
+async function sendEmailBatch(rows){
+
+  const chunks=[]
+  for(let i=0;i<rows.length;i+=EMAIL_CONCURRENCY){
+    chunks.push(rows.slice(i,i+EMAIL_CONCURRENCY))
+  }
+
+  for(const chunk of chunks){
+
+    await Promise.all(chunk.map(async row=>{
+
+      const activationLink=`${process.env.PUBLIC_URL}/login?token=${row.token}`
+
+      try{
+
+        await axios.post(
+          "https://api.brevo.com/v3/smtp/email",
+          {
+            to:[{email:row.email}],
+            templateId:Number(process.env.BREVO_TEMPLATE_ID),
+            params:{activation_link:activationLink}
+          },
+          {
+            headers:{
+              "api-key":process.env.BREVO_API_KEY,
+              "Content-Type":"application/json"
+            }
+          }
+        )
+
+        await supabase
+          .from("access_tokens")
+          .update({email_sent:true})
+          .eq("id",row.id)
+
+      }catch(err){
+        console.error("email error",row.email,err.response?.data||err.message)
+      }
+
+    }))
+
+  }
+
+}
+
+app.post("/admin/send-all-fast", requireAdmin, async (req,res)=>{
+
+  let processed=0
+
+  while(true){
+
+    const {data}=await supabase
+      .from("access_tokens")
+      .select("*")
+      .eq("email_sent",false)
+      .limit(200)
+
+    if(!data || data.length===0) break
+
+    await sendEmailBatch(data)
+
+    processed+=data.length
 
   }
 

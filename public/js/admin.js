@@ -141,3 +141,10 @@ function deleteAll(){
 
 }
 
+
+
+/* ===== REALTIME DASHBOARD ===== */
+const socket = io();
+socket.on("refresh", ()=>{
+  fetchData()
+});
