@@ -2,12 +2,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Discord Dashboard</title>
+<title>Dashboard</title>
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-<h1>Discord Access Dashboard</h1>
+<div class="container">
+
+<h1>Discord Dashboard</h1>
 
 <div class="stats">
 <div>Total: <span id="total"></span></div>
@@ -17,18 +19,37 @@
 </div>
 
 <div class="actions">
+
 <button onclick="sendAll()">Send Emails</button>
 <button onclick="deleteAll()">Delete All</button>
 <button onclick="deleteSelected()">Delete Selected</button>
 <button onclick="exportCsv()">Export Activated</button>
+
+</div>
+
+<div class="pagination-top">
+
+<label>Pagination:</label>
+
+<select id="limit" onchange="changeLimit()">
+<option value="50">50</option>
+<option value="100">100</option>
+<option value="250">250</option>
+<option value="500">500</option>
+</select>
+
 </div>
 
 <form method="POST" action="/admin/import">
+
 <textarea name="emails" rows="6" placeholder="paste emails"></textarea>
+
 <button>Import</button>
+
 </form>
 
 <table>
+
 <thead>
 <tr>
 <th></th>
@@ -38,13 +59,19 @@
 <th>Action</th>
 </tr>
 </thead>
+
 <tbody id="tbody"></tbody>
+
 </table>
 
-<div>
+<div class="pagination">
+
 <button onclick="prev()">Prev</button>
 <span id="page"></span>
 <button onclick="next()">Next</button>
+
+</div>
+
 </div>
 
 <script src="/js/admin.js"></script>

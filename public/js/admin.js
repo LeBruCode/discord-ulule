@@ -3,6 +3,8 @@ let page=1
 let limit=50
 let dataStore=[]
 
+const limitSelect=document.getElementById("limit")
+
 async function refresh(){
 
  const list=await fetch(`/admin/api/list?page=${page}&limit=${limit}`)
@@ -15,6 +17,7 @@ async function refresh(){
 
  renderTable()
  renderStats(statsJson)
+
 }
 
 function renderTable(){
@@ -25,18 +28,19 @@ function renderTable(){
  dataStore.forEach(r=>{
 
   tbody.innerHTML+=`
-   <tr>
-    <td><input type="checkbox" value="${r.id}" class="row"></td>
-    <td>${r.email}</td>
-    <td>${r.email_sent?'Yes':'No'}</td>
-    <td>${r.used?'Yes':'No'}</td>
-    <td><button onclick="resend('${r.id}')">Resend</button></td>
-   </tr>
+  <tr>
+   <td><input type="checkbox" value="${r.id}" class="row"></td>
+   <td>${r.email}</td>
+   <td>${r.email_sent?'Yes':'No'}</td>
+   <td>${r.used?'Yes':'Yes':'No'}</td>
+   <td><button onclick="resend('${r.id}')">Resend</button></td>
+  </tr>
   `
 
  })
 
  document.getElementById("page").innerText="Page "+page
+
 }
 
 function renderStats(s){
@@ -47,24 +51,29 @@ function renderStats(s){
  document.getElementById("sent").innerText=s.sent
  document.getElementById("activated").innerText=s.activated
  document.getElementById("rate").innerText=rate+"%"
+
+}
+
+function changeLimit(){
+
+ limit=parseInt(document.getElementById("limit").value)
+ page=1
+ refresh()
+
 }
 
 function next(){page++;refresh()}
 function prev(){if(page>1){page--;refresh()}}
 
-function sendAll(){
- fetch("/admin/api/send-all",{method:"POST"}).then(refresh)
-}
-
-function resend(id){
- fetch("/admin/api/resend/"+id,{method:"POST"}).then(refresh)
-}
+function sendAll(){fetch("/admin/api/send-all",{method:"POST"}).then(refresh)}
+function resend(id){fetch("/admin/api/resend/"+id,{method:"POST"}).then(refresh)}
 
 function deleteAll(){
 
  if(!confirm("Delete all emails?")) return
 
  fetch("/admin/api/delete-all",{method:"POST"}).then(refresh)
+
 }
 
 function deleteSelected(){
@@ -76,10 +85,9 @@ function deleteSelected(){
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({ids})
  }).then(refresh)
+
 }
 
-function exportCsv(){
- window.location="/admin/api/export"
-}
+function exportCsv(){window.location="/admin/api/export"}
 
 refresh()
