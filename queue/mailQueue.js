@@ -3,24 +3,43 @@ import IORedis from "ioredis"
 import { sendMail } from "../services/mailer.js"
 import { supabase } from "../services/supabase.js"
 
-const connection=new IORedis(process.env.REDIS_URL)
+/*
+IMPORTANT FIX FOR RENDER + BULLMQ
+maxRetriesPerRequest must be null
+enableReadyCheck false prevents startup issues on managed Redis
+*/
 
-export const mailQueue=new Queue("mail",{connection})
+const connection = new IORedis(process.env.REDIS_URL, {
+ maxRetriesPerRequest: null,
+ enableReadyCheck: false
+})
 
-export const worker=new Worker("mail",async job=>{
+export const mailQueue = new Queue("mail", { connection })
 
- const {email,token,id}=job.data
+export const worker = new Worker(
+ "mail",
+ async job => {
 
- try{
+  const {email,token,id} = job.data
 
-  await sendMail(email,token)
+  try{
 
-  await supabase.from("access_tokens")
-   .update({email_sent:true})
-   .eq("id",id)
+   await sendMail(email,token)
 
- }catch(e){
-  console.log("mail error",email)
+   await supabase
+    .from("access_tokens")
+    .update({email_sent:true})
+    .eq("id",id)
+
+  }catch(e){
+
+   console.error("Mail failed:", email, e.message)
+
+  }
+
+ },
+ {
+  connection,
+  concurrency: 10
  }
-
-},{connection,concurrency:10})
+)

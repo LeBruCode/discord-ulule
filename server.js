@@ -26,7 +26,7 @@ app.use(rateLimit({
 }))
 
 app.use(session({
- secret:process.env.SESSION_SECRET,
+ secret:process.env.SESSION_SECRET || "devsecret",
  resave:false,
  saveUninitialized:false
 }))
@@ -41,4 +41,4 @@ app.use("/admin",adminRoutes)
 app.use("/stats",statsRoutes)
 
 const PORT=process.env.PORT||3000
-app.listen(PORT,()=>console.log("running "+PORT))
+app.listen(PORT,()=>console.log("Server running on",PORT))

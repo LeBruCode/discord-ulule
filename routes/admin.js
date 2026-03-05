@@ -65,7 +65,6 @@ router.get("/list",async(req,res)=>{
   .order("id",{ascending:false})
 
  res.json({data,total:count})
-
 })
 
 export default router
