@@ -25,7 +25,7 @@ export const worker = new Worker(
     .eq("id",id)
 
   }catch(e){
-   console.error("mail failed",email)
+   console.error("mail failed",email,e.message)
   }
 
  },

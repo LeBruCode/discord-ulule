@@ -27,19 +27,19 @@
 <textarea id="emails" placeholder="paste emails"></textarea>
 
 <div class="buttons">
-<button onclick="importEmails()">Import</button>
-<button onclick="sendEmails()">Send Emails</button>
+<button id="importBtn">Import</button>
+<button id="sendBtn">Send Emails</button>
 </div>
 
-<input id="search" placeholder="Search email" oninput="searchEmail()">
+<input id="search" placeholder="Search email">
 
-<select id="status" onchange="changeStatus()">
+<select id="status">
 <option value="all">All</option>
 <option value="sent">Sent</option>
 <option value="activated">Activated</option>
 </select>
 
-<select id="limit" onchange="changeLimit()">
+<select id="limit">
 <option value="50">50</option>
 <option value="250">250</option>
 <option value="500">500</option>
@@ -59,9 +59,9 @@
 </table>
 
 <div class="pagination">
-<button onclick="prev()">Prev</button>
+<button id="prevBtn">Prev</button>
 <span id="page">1</span>
-<button onclick="next()">Next</button>
+<button id="nextBtn">Next</button>
 </div>
 
 </div>

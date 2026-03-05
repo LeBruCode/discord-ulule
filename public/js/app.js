@@ -3,6 +3,14 @@ let limit=50
 let search=""
 let status="all"
 
+function debounce(fn,delay){
+ let t
+ return (...args)=>{
+  clearTimeout(t)
+  t=setTimeout(()=>fn(...args),delay)
+ }
+}
+
 async function refresh(){
 
  const s=await fetch("/stats").then(r=>r.json())
@@ -34,34 +42,6 @@ async function load(){
  document.getElementById("page").innerText=page
 }
 
-function changeLimit(){
- limit=parseInt(document.getElementById("limit").value)
- page=1
- load()
-}
-
-function changeStatus(){
- status=document.getElementById("status").value
- page=1
- load()
-}
-
-function searchEmail(){
- search=document.getElementById("search").value
- page=1
- load()
-}
-
-function next(){
- page++
- load()
-}
-
-function prev(){
- if(page>1){page--}
- load()
-}
-
 async function importEmails(){
 
  const emails=document.getElementById("emails").value
@@ -84,6 +64,45 @@ async function sendEmails(){
 
  console.log("queued",j.queued)
 }
+
+function next(){
+ page++
+ load()
+}
+
+function prev(){
+ if(page>1) page--
+ load()
+}
+
+function changeLimit(){
+ limit=parseInt(document.getElementById("limit").value)
+ page=1
+ load()
+}
+
+function changeStatus(){
+ status=document.getElementById("status").value
+ page=1
+ load()
+}
+
+function searchEmail(v){
+ search=v
+ page=1
+ load()
+}
+
+document.getElementById("importBtn").addEventListener("click",importEmails)
+document.getElementById("sendBtn").addEventListener("click",sendEmails)
+document.getElementById("nextBtn").addEventListener("click",next)
+document.getElementById("prevBtn").addEventListener("click",prev)
+document.getElementById("limit").addEventListener("change",changeLimit)
+document.getElementById("status").addEventListener("change",changeStatus)
+
+document.getElementById("search").addEventListener("input",debounce(e=>{
+ searchEmail(e.target.value)
+},300))
 
 setInterval(refresh,3000)
 refresh()

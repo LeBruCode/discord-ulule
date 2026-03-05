@@ -1,5 +1,5 @@
 {
-  "name": "discord-access-v7_2",
+  "name": "discord-access-v7_3",
   "type": "module",
   "dependencies": {
     "axios": "^1.6.0",

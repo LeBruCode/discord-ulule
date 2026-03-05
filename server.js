@@ -17,6 +17,7 @@ const __dirname = path.dirname(__filename)
 const app = express()
 
 app.use(helmet())
+
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
 
@@ -33,7 +34,6 @@ app.use(session({
 
 app.use(express.static(path.join(__dirname,"public")))
 
-// UI
 app.get("/",(req,res)=>{
  res.redirect("/admin")
 })
@@ -42,7 +42,6 @@ app.get("/admin",(req,res)=>{
  res.sendFile(path.join(__dirname,"views/admin.html"))
 })
 
-// API
 app.use("/admin/api",adminApi)
 app.use("/stats",statsRoutes)
 

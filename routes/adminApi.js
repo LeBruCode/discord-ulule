@@ -58,7 +58,7 @@ router.get("/list",async(req,res)=>{
  const search=req.query.search||""
  const status=req.query.status||"all"
 
- let query = supabase
+ let query=supabase
   .from("access_tokens")
   .select("*",{count:"exact"})
   .order("id",{ascending:false})
