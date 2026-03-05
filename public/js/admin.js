@@ -123,3 +123,21 @@ function deleteSelected(){
 function exportActivated(){ window.location='/admin/export-activated' }
 
 fetchData()
+
+
+/* ===== AUTO REFRESH DASHBOARD ===== */
+
+setInterval(fetchData,5000)
+
+function deleteAll(){
+
+ if(!confirm("Supprimer tous les emails ?")) return
+
+ fetch('/admin/delete-all',{method:'POST'})
+ .then(()=>{
+   page=1
+   fetchData()
+ })
+
+}
+

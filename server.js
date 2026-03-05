@@ -506,3 +506,107 @@ app.post("/admin/send-all", requireAdmin, async (req,res)=>{
  res.json({processed})
 
 })
+
+
+/* ================= DELETE ALL EMAILS (FIXED) ================= */
+
+app.post("/admin/delete-all", requireAdmin, async (req,res)=>{
+
+  const { error } = await supabase
+    .from("access_tokens")
+    .delete()
+    .not("id","is",null)
+
+  if(error){
+    console.error("delete-all error",error)
+    return res.status(500).json({error})
+  }
+
+  res.json({success:true})
+
+})
+
+/* ================= DELETE SELECTED EMAILS ================= */
+
+app.post("/admin/delete-selected", requireAdmin, async (req,res)=>{
+
+  const ids=req.body.ids || []
+
+  if(ids.length===0){
+    return res.json({success:true})
+  }
+
+  const { error } = await supabase
+    .from("access_tokens")
+    .delete()
+    .in("id",ids)
+
+  if(error){
+    console.error("delete-selected error",error)
+    return res.status(500).json({error})
+  }
+
+  res.json({success:true})
+
+})
+
+/* ================= PARALLEL EMAIL SENDER ================= */
+
+app.post("/admin/send-all-parallel", requireAdmin, async (req,res)=>{
+
+  let processed=0
+
+  while(true){
+
+    const {data}=await supabase
+      .from("access_tokens")
+      .select("*")
+      .eq("email_sent",false)
+      .limit(100)
+
+    if(!data || data.length===0) break
+
+    const jobs=data.map(async (row)=>{
+
+      const activationLink=`${process.env.PUBLIC_URL}/login?token=${row.token}`
+
+      try{
+
+        await axios.post(
+          "https://api.brevo.com/v3/smtp/email",
+          {
+            to:[{email:row.email}],
+            templateId:Number(process.env.BREVO_TEMPLATE_ID),
+            params:{activation_link:activationLink}
+          },
+          {
+            headers:{
+              "api-key":process.env.BREVO_API_KEY,
+              "Content-Type":"application/json"
+            }
+          }
+        )
+
+        await supabase
+          .from("access_tokens")
+          .update({email_sent:true})
+          .eq("id",row.id)
+
+        processed++
+
+      }catch(err){
+
+        console.error("email error",row.email,err.response?.data||err.message)
+
+      }
+
+    })
+
+    await Promise.all(jobs)
+
+  }
+
+  res.json({processed})
+
+})
+
