@@ -1,5 +1,7 @@
 let page=1
 let limit=50
+let search=""
+let status="all"
 
 async function refresh(){
 
@@ -15,7 +17,7 @@ async function refresh(){
 
 async function load(){
 
- const res=await fetch(`/admin/list?page=${page}&limit=${limit}`)
+ const res=await fetch(`/admin/api/list?page=${page}&limit=${limit}&search=${search}&status=${status}`)
  const j=await res.json()
 
  const tbody=document.getElementById("table")
@@ -38,6 +40,18 @@ function changeLimit(){
  load()
 }
 
+function changeStatus(){
+ status=document.getElementById("status").value
+ page=1
+ load()
+}
+
+function searchEmail(){
+ search=document.getElementById("search").value
+ page=1
+ load()
+}
+
 function next(){
  page++
  load()
@@ -52,27 +66,23 @@ async function importEmails(){
 
  const emails=document.getElementById("emails").value
 
- const res=await fetch("/admin/import",{
+ const res=await fetch("/admin/api/import",{
   method:"POST",
   headers:{"Content-Type":"application/json"},
   body:JSON.stringify({emails})
  })
 
  const j=await res.json()
- log("imported "+j.imported)
+ console.log("imported",j.imported)
  load()
 }
 
 async function sendEmails(){
 
- const res=await fetch("/admin/send",{method:"POST"})
+ const res=await fetch("/admin/api/send",{method:"POST"})
  const j=await res.json()
 
- log("queued "+j.queued)
-}
-
-function log(t){
- document.getElementById("log").innerText+=t+"\n"
+ console.log("queued",j.queued)
 }
 
 setInterval(refresh,3000)

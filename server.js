@@ -6,7 +6,7 @@ import rateLimit from "express-rate-limit"
 import path from "path"
 import { fileURLToPath } from "url"
 
-import adminRoutes from "./routes/admin.js"
+import adminApi from "./routes/adminApi.js"
 import statsRoutes from "./routes/stats.js"
 
 dotenv.config()
@@ -33,11 +33,17 @@ app.use(session({
 
 app.use(express.static(path.join(__dirname,"public")))
 
+// UI
 app.get("/",(req,res)=>{
+ res.redirect("/admin")
+})
+
+app.get("/admin",(req,res)=>{
  res.sendFile(path.join(__dirname,"views/admin.html"))
 })
 
-app.use("/admin",adminRoutes)
+// API
+app.use("/admin/api",adminApi)
 app.use("/stats",statsRoutes)
 
 const PORT=process.env.PORT||3000

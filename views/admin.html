@@ -2,23 +2,27 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Discord Access</title>
+<title>Discord Access Dashboard</title>
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-<div class="container">
+<div class="layout">
 
-<h1>Discord Access Dashboard</h1>
+<header>
+<h1>Discord Access</h1>
+</header>
 
-<div class="stats">
+<section class="stats">
 <div class="card"><span>Total</span><b id="total">0</b></div>
 <div class="card"><span>Sent</span><b id="sent">0</b></div>
 <div class="card"><span>Activated</span><b id="activated">0</b></div>
 <div class="card"><span>Rate</span><b id="rate">0%</b></div>
-</div>
+</section>
 
 <div class="progress"><div id="bar"></div></div>
+
+<section class="controls">
 
 <textarea id="emails" placeholder="paste emails"></textarea>
 
@@ -27,15 +31,21 @@
 <button onclick="sendEmails()">Send Emails</button>
 </div>
 
-<h2>Email list</h2>
+<input id="search" placeholder="Search email" oninput="searchEmail()">
 
-<div class="controls">
+<select id="status" onchange="changeStatus()">
+<option value="all">All</option>
+<option value="sent">Sent</option>
+<option value="activated">Activated</option>
+</select>
+
 <select id="limit" onchange="changeLimit()">
 <option value="50">50</option>
 <option value="250">250</option>
 <option value="500">500</option>
 </select>
-</div>
+
+</section>
 
 <table>
 <thead>
@@ -53,8 +63,6 @@
 <span id="page">1</span>
 <button onclick="next()">Next</button>
 </div>
-
-<pre id="log"></pre>
 
 </div>
 

@@ -6,18 +6,18 @@ const router=express.Router()
 router.get("/",async(req,res)=>{
 
  const {count:total}=await supabase
- .from("access_tokens")
- .select("*",{count:"exact",head:true})
+  .from("access_tokens")
+  .select("*",{count:"exact",head:true})
 
  const {count:sent}=await supabase
- .from("access_tokens")
- .select("*",{count:"exact",head:true})
- .eq("email_sent",true)
+  .from("access_tokens")
+  .select("*",{count:"exact",head:true})
+  .eq("email_sent",true)
 
  const {count:activated}=await supabase
- .from("access_tokens")
- .select("*",{count:"exact",head:true})
- .eq("used",true)
+  .from("access_tokens")
+  .select("*",{count:"exact",head:true})
+  .eq("used",true)
 
  res.json({
   total,

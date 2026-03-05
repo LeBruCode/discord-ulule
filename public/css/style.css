@@ -1,14 +1,18 @@
 body{
- background:#0f1117;
+ background:#0b0f14;
  color:#e6edf3;
  font-family:Inter,system-ui;
  margin:0;
 }
 
-.container{
- max-width:1100px;
+.layout{
+ max-width:1200px;
  margin:auto;
  padding:40px;
+}
+
+header{
+ margin-bottom:20px;
 }
 
 .stats{
@@ -19,9 +23,10 @@ body{
 }
 
 .card{
- background:#161b22;
+ background:#151b23;
  padding:20px;
- border-radius:10px;
+ border-radius:12px;
+ box-shadow:0 4px 20px rgba(0,0,0,0.4);
 }
 
 .card span{
@@ -30,15 +35,15 @@ body{
 }
 
 .card b{
- font-size:26px;
+ font-size:28px;
 }
 
 .progress{
- height:10px;
- background:#30363d;
+ height:8px;
+ background:#2a3038;
  border-radius:6px;
  overflow:hidden;
- margin-bottom:25px;
+ margin-bottom:30px;
 }
 
 #bar{
@@ -55,32 +60,39 @@ textarea{
  color:white;
  border-radius:8px;
  padding:12px;
- margin-bottom:15px;
+ margin-bottom:10px;
+}
+
+.controls{
+ margin-bottom:20px;
 }
 
 button{
  background:#7c5cff;
  border:none;
  padding:10px 16px;
- border-radius:6px;
+ border-radius:8px;
  color:white;
  cursor:pointer;
+ margin-right:10px;
+}
+
+input,select{
+ background:#0d1117;
+ border:1px solid #30363d;
+ color:white;
+ padding:8px;
+ border-radius:6px;
+ margin-right:10px;
+ margin-top:10px;
 }
 
 table{
  width:100%;
  border-collapse:collapse;
- margin-top:20px;
 }
 
 th,td{
- border-bottom:1px solid #30363d;
- padding:10px;
-}
-
-#log{
- background:black;
- color:#00ff9c;
- padding:10px;
- margin-top:20px;
+ padding:12px;
+ border-bottom:1px solid #2a3038;
 }
