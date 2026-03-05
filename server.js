@@ -211,7 +211,7 @@ app.get("/admin", requireAdmin, (req, res) => {
 
 /* ---------------- API ---------------- */
 
-app.get("/admin/api/data", requireAdmin, async (req, res) => {
+app.get("/admin/api/list", requireAdmin, async (req, res) => {
 
   const { data } = await supabase
     .from("access_tokens")
@@ -349,5 +349,160 @@ app.post("/admin/delete-selected", requireAdmin, async (req,res)=>{
     .in("id",ids)
 
   res.json({success:true})
+
+})
+
+
+/* ---- EXPORT ACTIVATED CSV ---- */
+
+app.get("/admin/export-activated", requireAdmin, async (req,res)=>{
+
+ const { data } = await supabase
+  .from("access_tokens")
+  .select("*")
+  .eq("used",true)
+
+ let csv="email,activated_at\n"
+
+ data.forEach(r=>{
+  csv+=`${r.email},${r.used_at}\n`
+ })
+
+ res.setHeader("Content-Type","text/csv")
+ res.send(csv)
+
+})
+
+/* ---- RESEND SINGLE EMAIL ---- */
+
+app.post("/admin/resend-one/:id", requireAdmin, async (req,res)=>{
+
+ const id=req.params.id
+
+ const { data } = await supabase
+  .from("access_tokens")
+  .select("*")
+  .eq("id",id)
+  .single()
+
+ if(!data) return res.json({})
+
+ const activationLink=`${process.env.PUBLIC_URL}/login?token=${data.token}`
+
+ await axios.post(
+  "https://api.brevo.com/v3/smtp/email",
+  {
+   to:[{email:data.email}],
+   templateId:Number(process.env.BREVO_TEMPLATE_ID),
+   params:{activation_link:activationLink}
+  },
+  {
+   headers:{
+    "api-key":process.env.BREVO_API_KEY,
+    "Content-Type":"application/json"
+   }
+  }
+ )
+
+ res.json({success:true})
+
+})
+
+/* ================= PAGINATED LIST ================= */
+
+app.get("/admin/api/list", requireAdmin, async (req,res)=>{
+
+ const page=parseInt(req.query.page||"1")
+ const limit=parseInt(req.query.limit||"50")
+
+ const start=(page-1)*limit
+ const end=start+limit-1
+
+ const {data,count}=await supabase
+  .from("access_tokens")
+  .select("*",{count:"exact"})
+  .order("created_at",{ascending:false})
+  .range(start,end)
+
+ res.json({data,total:count})
+
+})
+
+/* ================= STATS ================= */
+
+app.get("/admin/api/stats", requireAdmin, async (req,res)=>{
+
+ const {count:total}=await supabase
+  .from("access_tokens")
+  .select("*",{count:"exact",head:true})
+
+ const {count:activated}=await supabase
+  .from("access_tokens")
+  .select("*",{count:"exact",head:true})
+  .eq("used",true)
+
+ const {data:timeline}=await supabase
+  .from("access_tokens")
+  .select("used_at")
+  .not("used_at","is",null)
+
+ res.json({total,activated,timeline})
+
+})
+
+
+/* ================= SEND ALL EMAILS BATCH ================= */
+
+app.post("/admin/send-all", requireAdmin, async (req,res)=>{
+
+ let processed=0
+
+ while(true){
+
+  const {data}=await supabase
+   .from("access_tokens")
+   .select("*")
+   .eq("email_sent",false)
+   .limit(100)
+
+  if(!data || data.length===0) break
+
+  for(const row of data){
+
+   const activationLink=`${process.env.PUBLIC_URL}/login?token=${row.token}`
+
+   try{
+
+    await axios.post(
+     "https://api.brevo.com/v3/smtp/email",
+     {
+      to:[{email:row.email}],
+      templateId:Number(process.env.BREVO_TEMPLATE_ID),
+      params:{activation_link:activationLink}
+     },
+     {
+      headers:{
+       "api-key":process.env.BREVO_API_KEY,
+       "Content-Type":"application/json"
+      }
+     }
+    )
+
+    await supabase
+     .from("access_tokens")
+     .update({email_sent:true})
+     .eq("id",row.id)
+
+    processed++
+
+   }catch(err){
+    console.error("email error",row.email,err.response?.data||err.message)
+   }
+
+  }
+
+ }
+
+ res.json({processed})
 
 })

@@ -3,11 +3,10 @@
 <html>
 <head>
 <title>Dashboard</title>
-<link rel="stylesheet" href="/css/admin.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 body{background:#0f172a;color:white;font-family:system-ui;margin:0}
-.container{max-width:1100px;margin:auto;padding:30px}
+.container{max-width:1200px;margin:auto;padding:30px}
 h1{margin-bottom:20px}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
 .stat{background:#1e293b;padding:18px;border-radius:10px}
@@ -18,7 +17,9 @@ button{background:#6366f1;border:none;color:white;padding:8px 14px;border-radius
 button.danger{background:#ef4444}
 table{width:100%;border-collapse:collapse}
 th,td{padding:10px;border-bottom:1px solid #334155}
-.chart-card{height:260px}
+.chart-card{height:260px;margin-bottom:20px}
+.search{margin-bottom:15px}
+.pagination{margin-top:15px}
 </style>
 </head>
 <body>
@@ -28,33 +29,17 @@ th,td{padding:10px;border-bottom:1px solid #334155}
 <h1>Dashboard</h1>
 
 <div class="stats">
-<div class="stat">
-<h2 id="totalEmails">0</h2>
-<p>Total emails</p>
+<div class="stat"><h2 id="totalEmails">0</h2><p>Total emails</p></div>
+<div class="stat"><h2 id="activated">0</h2><p>Activations</p></div>
+<div class="stat"><h2 id="rate">0%</h2><p>Taux activation</p></div>
 </div>
 
-<div class="stat">
-<h2 id="activated">0</h2>
-<p>Activations</p>
-</div>
-
-<div class="stat">
-<h2 id="rate">0%</h2>
-<p>Taux activation</p>
-</div>
-</div>
-
-<div class="card chart-card">
-<canvas id="chart"></canvas>
-</div>
+<div class="card chart-card"><canvas id="chart"></canvas></div>
+<div class="card chart-card"><canvas id="timeline"></canvas></div>
 
 <div class="card">
-<h3>Importer emails</h3>
-<form method="POST" action="/admin/import">
-<textarea name="emails" rows="4" style="width:100%"></textarea>
-<br><br>
-<button type="submit">Importer</button>
-</form>
+<input class="search" id="search" placeholder="Recherche email..." oninput="render()">
+<button onclick="exportActivated()">Exporter activés (CSV)</button>
 </div>
 
 <div class="card">
@@ -72,15 +57,20 @@ th,td{padding:10px;border-bottom:1px solid #334155}
 <th>Email</th>
 <th>Envoyé</th>
 <th>Activé</th>
+<th>Action</th>
 </tr>
 </thead>
 <tbody id="tbody"></tbody>
-</table>
+</table><div><button onclick='prevPage()'>Prev</button> <span id='pageInfo'></span> <button onclick='nextPage()'>Next</button></div>
+<div class="pagination">
+<button onclick="prev<select onchange='changeLimit(this.value)'><option>50</option><option>100</option><option>250</option><option>500</option></select> Page()">Prev</button>
+<span id="page"></span>
+<button onclick="next<select onchange='changeLimit(this.value)'><option>50</option><option>100</option><option>250</option><option>500</option></select> Page()">Next</button>
+</div>
 </div>
 
 </div>
 
 <script src="/js/admin.js"></script>
-
 </body>
 </html>
