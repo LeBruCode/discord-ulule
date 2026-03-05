@@ -3,13 +3,7 @@ let limit=50
 let search=""
 let status="all"
 
-function debounce(fn,delay){
- let t
- return (...args)=>{
-  clearTimeout(t)
-  t=setTimeout(()=>fn(...args),delay)
- }
-}
+function bool(v){ return v ? "Oui" : "Non" }
 
 async function refresh(){
 
@@ -21,10 +15,6 @@ async function refresh(){
  document.getElementById("rate").innerText=s.rate+"%"
 
  document.getElementById("bar").style.width=s.rate+"%"
-}
-
-function bool(v){
- return v ? "Oui" : "Non"
 }
 
 async function load(){
@@ -43,10 +33,11 @@ async function load(){
    <td>${r.email}</td>
    <td>${bool(r.email_sent)}</td>
    <td>${bool(r.used)}</td>
-   <td><button class="resend" data-email="${r.email}">Resend</button></td>
+   <td><button data-email="${r.email}" class="resend">Resend</button></td>
   `
 
   tbody.appendChild(tr)
+
  })
 
  document.querySelectorAll(".resend").forEach(btn=>{
@@ -81,41 +72,16 @@ async function importEmails(){
 }
 
 async function sendEmails(){
-
  await fetch("/admin/api/send",{method:"POST"})
 }
 
 function next(){ page++; load() }
 function prev(){ if(page>1) page--; load() }
 
-function changeLimit(){
- limit=parseInt(document.getElementById("limit").value)
- page=1
- load()
-}
-
-function changeStatus(){
- status=document.getElementById("status").value
- page=1
- load()
-}
-
-function searchEmail(v){
- search=v
- page=1
- load()
-}
-
 document.getElementById("importBtn").addEventListener("click",importEmails)
 document.getElementById("sendBtn").addEventListener("click",sendEmails)
 document.getElementById("nextBtn").addEventListener("click",next)
 document.getElementById("prevBtn").addEventListener("click",prev)
-document.getElementById("limit").addEventListener("change",changeLimit)
-document.getElementById("status").addEventListener("change",changeStatus)
-
-document.getElementById("search").addEventListener("input",debounce(e=>{
- searchEmail(e.target.value)
-},300))
 
 setInterval(refresh,3000)
 refresh()

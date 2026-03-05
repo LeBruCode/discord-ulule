@@ -3,13 +3,12 @@ import crypto from "crypto"
 import { supabase } from "../services/supabase.js"
 import { sendMail } from "../services/mailer.js"
 
-const router=express.Router()
+const router = express.Router()
 
 function token(){
  return crypto.randomBytes(32).toString("hex")
 }
 
-// Import emails
 router.post("/import",async(req,res)=>{
 
  const emails=req.body.emails
@@ -31,7 +30,6 @@ router.post("/import",async(req,res)=>{
  res.json({imported:emails.length})
 })
 
-// Send batch emails
 router.post("/send",async(req,res)=>{
 
  const {data}=await supabase
@@ -59,7 +57,6 @@ router.post("/send",async(req,res)=>{
  res.json({processed:data.length})
 })
 
-// Resend to specific email
 router.post("/resend",async(req,res)=>{
 
  const email=req.body.email
@@ -74,24 +71,11 @@ router.post("/resend",async(req,res)=>{
   return res.status(404).json({error:"email not found"})
  }
 
- try{
+ await sendMail(data.email,data.token)
 
-  await sendMail(data.email,data.token)
-
-  await supabase
-   .from("access_tokens")
-   .update({email_sent:true})
-   .eq("id",data.id)
-
-  res.json({success:true})
-
- }catch(e){
-  res.status(500).json({error:"send failed"})
- }
-
+ res.json({success:true})
 })
 
-// List with filters
 router.get("/list",async(req,res)=>{
 
  const page=parseInt(req.query.page)||1

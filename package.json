@@ -1,5 +1,5 @@
 {
-  "name": "discord-access-v8-no-redis",
+  "name": "discord-access-clean",
   "type": "module",
   "dependencies": {
     "axios": "^1.6.0",

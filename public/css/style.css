@@ -1,12 +1,12 @@
 body{
  background:#0b0f14;
  color:#e6edf3;
- font-family:Inter,system-ui;
+ font-family:system-ui;
  margin:0;
 }
 
 .layout{
- max-width:1200px;
+ max-width:1100px;
  margin:auto;
  padding:40px;
 }
@@ -22,15 +22,6 @@ body{
  background:#151b23;
  padding:20px;
  border-radius:12px;
- box-shadow:0 4px 20px rgba(0,0,0,0.4);
-}
-
-.card span{
- color:#8b949e;
-}
-
-.card b{
- font-size:28px;
 }
 
 .progress{
@@ -67,16 +58,6 @@ button{
  cursor:pointer;
 }
 
-input,select{
- background:#0d1117;
- border:1px solid #30363d;
- color:white;
- padding:8px;
- border-radius:6px;
- margin-right:10px;
- margin-top:10px;
-}
-
 table{
  width:100%;
  border-collapse:collapse;
@@ -86,8 +67,4 @@ table{
 th,td{
  padding:12px;
  border-bottom:1px solid #2a3038;
-}
-
-.resend{
- background:#2ea043;
 }

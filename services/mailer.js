@@ -2,7 +2,7 @@ import axios from "axios"
 
 export async function sendMail(email,token){
 
- const link=`${process.env.PUBLIC_URL}/login?token=${token}`
+ const link = `${process.env.PUBLIC_URL}/login?token=${token}`
 
  await axios.post(
   "https://api.brevo.com/v3/smtp/email",
@@ -18,4 +18,5 @@ export async function sendMail(email,token){
    }
   }
  )
+
 }
