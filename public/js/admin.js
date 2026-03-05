@@ -4,7 +4,7 @@ let page=1
 let limit=50
 let totalRows=0
 
-let chartInstance=null
+
 
 async function fetchData(){
 
@@ -19,7 +19,7 @@ async function fetchData(){
 
  renderTable()
  renderStats(statsJson)
- renderCharts(statsJson)
+ 
 
 }
 
@@ -56,19 +56,6 @@ function renderStats(s){
 
 }
 
-function renderCharts(s){
-
- const activated=s.activated
- const notActivated=s.total-activated
-
- if(chartInstance) chartInstance.destroy()
-
- chartInstance=new Chart(document.getElementById("chart"),{
-  type:"doughnut",
-  data:{
-   labels:["Activé","Non activé"],
-   datasets:[{data:[activated,notActivated],backgroundColor:["#22c55e","#ef4444"]}]
-  }
  })
 
 }
@@ -128,4 +115,6 @@ function exportActivated(){
 }
 
 /* refresh dashboard */
+
+
 fetchData()
