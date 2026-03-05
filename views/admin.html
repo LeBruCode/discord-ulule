@@ -3,77 +3,48 @@
 <html>
 <head>
 <title>Dashboard</title>
-<link rel="stylesheet" href="/css/admin.css">
+<link rel="stylesheet" href="/css/style.css">
 </head>
-
 <body>
-
-<div class="container">
 
 <h1>Dashboard</h1>
 
 <div class="stats">
-<div class="stat"><h2 id="totalEmails">0</h2>Total emails</div>
-<div class="stat"><h2 id="activated">0</h2>Activations</div>
-<div class="stat"><h2 id="rate">0%</h2>Taux activation</div>
+<div>Total: <span id="total"></span></div>
+<div>Activated: <span id="activated"></span></div>
+<div>Rate: <span id="rate"></span></div>
 </div>
 
+<div class="actions">
+<button onclick="sendEmails()">Send Emails</button>
+<button onclick="deleteAll()">Delete All</button>
+<button onclick="deleteSelected()">Delete Selected</button>
+<button onclick="exportCsv()">Export</button>
+</div>
 
-<div class="card">
-<h3>Importer des emails</h3>
 <form method="POST" action="/admin/import">
-<textarea name="emails" rows="6" placeholder="email1@email.com
-email2@email.com"></textarea>
-<br><br>
-<button type="submit">Importer</button>
+<textarea name="emails" rows="5" placeholder="email list"></textarea>
+<button>Import</button>
 </form>
-</div>
-
-<div class="card">
-<input class="search" id="search" placeholder="Recherche email..." oninput="render()">
-</div>
-
-<div class="card">
-<button onclick="sendEmails()">Envoyer nouveaux emails</button>
-<button onclick="resendEmails()">Renvoyer non activés</button>
-<button onclick="deleteSelected()" class="danger">Supprimer sélection</button>
-<button onclick="deleteAll()" class="danger">Supprimer tous</button>
-<button onclick="exportActivated()">Export CSV</button>
-</div>
-
-<div class="card">
 
 <table>
 <thead>
 <tr>
 <th></th>
 <th>Email</th>
-<th>Envoyé</th>
-<th>Activé</th>
-<th>Action</th>
+<th>Sent</th>
+<th>Activated</th>
 </tr>
 </thead>
 <tbody id="tbody"></tbody>
 </table>
 
-<div class="pagination">
-<button onclick="prevPage()">Prev</button>
+<div>
+<button onclick="prev()">Prev</button>
 <span id="pageInfo"></span>
-<button onclick="nextPage()">Next</button>
-
-<select onchange="changeLimit(this.value)">
-<option value="50">50</option>
-<option value="100">100</option>
-<option value="250">250</option>
-<option value="500">500</option>
-</select>
-</div>
-
-</div>
-
+<button onclick="next()">Next</button>
 </div>
 
 <script src="/js/admin.js"></script>
-
 </body>
 </html>
