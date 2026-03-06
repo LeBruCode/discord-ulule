@@ -72,29 +72,39 @@ router.post("/resend",async(req,res)=>{
  res.json({success:true})
 })
 
-router.get("/list",async(req,res)=>{
+router.get("/list", async (req,res)=>{
 
- const page=parseInt(req.query.page)||1
- const limit=parseInt(req.query.limit)||50
- const search=req.query.search||""
- const status=req.query.status||"all"
+ const page = parseInt(req.query.page) || 1
+ const limit = parseInt(req.query.limit) || 50
+ const search = req.query.search || ""
+ const status = req.query.status || "all"
+ const sort = req.query.sort || "id"
+ const order = req.query.order || "desc"
 
- let query=supabase
+ let query = supabase
   .from("access_tokens")
   .select("*",{count:"exact"})
-  .order("id",{ascending:false})
+  .order(sort,{ascending:order==="asc"})
 
- if(search) query=query.ilike("email",`%${search}%`)
+ if(search){
+  query = query.ilike("email", `%${search}%`)
+ }
 
- if(status==="sent") query=query.eq("email_sent",true)
- if(status==="activated") query=query.eq("used",true)
+ if(status==="sent"){
+  query = query.eq("email_sent",true)
+ }
 
- const start=(page-1)*limit
- const end=start+limit-1
+ if(status==="activated"){
+  query = query.eq("used",true)
+ }
 
- const {data,count}=await query.range(start,end)
+ const start = (page-1)*limit
+ const end = start + limit - 1
+
+ const {data,count} = await query.range(start,end)
 
  res.json({data,total:count})
+
 })
 
 router.post("/activate",async(req,res)=>{
