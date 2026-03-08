@@ -1,9 +1,18 @@
 async function runActivation() {
  const statusEl = document.getElementById("status")
  const token = new URLSearchParams(window.location.search).get("token")
+ const translateMessage = (message) => {
+  if (!message) return ""
+  const lower = String(message).toLowerCase()
+  if (lower.includes("already used")) return "Lien déjà utilisé."
+  if (lower.includes("expired")) return "Lien expiré."
+  if (lower.includes("invalid")) return "Lien invalide."
+  if (lower.includes("server error")) return "Erreur serveur."
+  return String(message)
+ }
 
  if (!token) {
-  statusEl.innerText = "Missing token."
+  statusEl.innerText = "Jeton manquant."
   return
  }
 
@@ -29,20 +38,20 @@ async function runActivation() {
 
   if (activation.success) {
    if (!targetUrl) {
-    statusEl.innerText = "Discord OAuth is not configured on server."
+    statusEl.innerText = "OAuth Discord n'est pas configuré sur le serveur."
     return
    }
-   statusEl.innerText = "Access activated. Redirecting..."
+   statusEl.innerText = "Accès activé. Redirection en cours..."
    setTimeout(() => {
     window.location.href = targetUrl
    }, 2000)
    return
   }
 
-  statusEl.innerText = activation.message ? `Link ${activation.message}.` : "Link invalid or expired."
+  statusEl.innerText = activation.message ? translateMessage(activation.message) : "Lien invalide ou expiré."
  } catch (error) {
   console.error("activation error", error)
-  statusEl.innerText = "Server error. Please retry."
+  statusEl.innerText = "Erreur serveur. Merci de réessayer."
  }
 }
 
