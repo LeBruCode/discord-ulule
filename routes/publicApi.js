@@ -34,20 +34,34 @@ function getAxiosErrorDetails(error) {
  return { status, description }
 }
 
-async function isMemberOfGuild(discordId) {
- const { botToken, guildId } = getDiscordConfig()
- if (!discordId || !botToken || !guildId) return null
+function sleep(ms) {
+ return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
- try {
-  await axios.get(`${DISCORD_API}/guilds/${guildId}/members/${discordId}`, {
-   headers: { Authorization: `Bot ${botToken}` }
-  })
-  return true
- } catch (error) {
-  if (error?.response?.status === 404) return false
-  console.error("guild member check error", error?.response?.data || error.message)
-  return null
+async function discordApiRequest(config, maxRetries = 3) {
+ let attempt = 0
+ let lastError = null
+
+ while (attempt <= maxRetries) {
+  try {
+   return await axios(config)
+  } catch (error) {
+   lastError = error
+   const status = error?.response?.status
+   const retryAfterRaw = error?.response?.data?.retry_after
+   const retryAfterSec = Number(retryAfterRaw)
+   const retryAfterMs = Number.isFinite(retryAfterSec) ? Math.ceil(retryAfterSec * 1000) : 0
+   const shouldRetry = status === 429 || status === 500 || status === 502 || status === 503 || status === 504
+   if (!shouldRetry || attempt === maxRetries) break
+
+   const jitter = Math.floor(Math.random() * 250)
+   const backoffMs = 400 * (2 ** attempt)
+   await sleep(Math.max(retryAfterMs, backoffMs) + jitter)
+   attempt += 1
+  }
  }
+
+ throw lastError
 }
 
 async function getAccessTokenRecord(token) {
@@ -60,21 +74,8 @@ async function getAccessTokenRecord(token) {
  if (error || !data) return null
  if (getTokenExpiry(data.created_at) < new Date()) return null
 
- if (data.used && data.discord_id) {
-  const stillMember = await isMemberOfGuild(data.discord_id)
-  if (stillMember === false) {
-   const { error: resetError } = await supabase
-    .from("access_tokens")
-    .update({ used: false, used_at: null, discord_id: null })
-    .eq("id", data.id)
-   if (resetError) {
-    console.error("token reset error", resetError)
-    return null
-   }
-   return { ...data, used: false, discord_id: null }
-  }
-  return null
- }
+ // Re-activation on member leave is now handled by the native Discord listener.
+ if (data.used && data.discord_id) return null
 
  return data
 }
@@ -146,21 +147,24 @@ router.get("/callback", async (req, res) => {
    return res.status(500).send("Discord OAuth env vars are missing")
   }
 
-  const tokenResponse = await axios.post(
-   `${DISCORD_API}/oauth2/token`,
-   new URLSearchParams({
+  const tokenResponse = await discordApiRequest({
+   method: "POST",
+   url: `${DISCORD_API}/oauth2/token`,
+   data: new URLSearchParams({
     client_id: clientId,
     client_secret: clientSecret,
     grant_type: "authorization_code",
     code,
     redirect_uri: redirectUri
    }).toString(),
-   { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
-  )
+   headers: { "Content-Type": "application/x-www-form-urlencoded" }
+  })
   const accessToken = tokenResponse.data?.access_token
   if (!accessToken) return res.status(502).send("Discord token exchange failed")
 
-  const userResponse = await axios.get(`${DISCORD_API}/users/@me`, {
+  const userResponse = await discordApiRequest({
+   method: "GET",
+   url: `${DISCORD_API}/users/@me`,
    headers: { Authorization: `Bearer ${accessToken}` }
   })
   const discordId = userResponse.data?.id
@@ -168,11 +172,12 @@ router.get("/callback", async (req, res) => {
 
   if (guildId && botToken) {
    try {
-    await axios.put(
-     `${DISCORD_API}/guilds/${guildId}/members/${discordId}`,
-     { access_token: accessToken },
-     { headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" } }
-    )
+    await discordApiRequest({
+     method: "PUT",
+     url: `${DISCORD_API}/guilds/${guildId}/members/${discordId}`,
+     data: { access_token: accessToken },
+     headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" }
+    })
    } catch (error) {
     const status = error?.response?.status
     if (status !== 204 && status !== 201) {
@@ -183,11 +188,12 @@ router.get("/callback", async (req, res) => {
 
   if (guildId && roleId && botToken) {
    try {
-    await axios.put(
-     `${DISCORD_API}/guilds/${guildId}/members/${discordId}/roles/${roleId}`,
-     {},
-     { headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" } }
-    )
+    await discordApiRequest({
+     method: "PUT",
+     url: `${DISCORD_API}/guilds/${guildId}/members/${discordId}/roles/${roleId}`,
+     data: {},
+     headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" }
+    })
    } catch (error) {
     console.error("role assign error", error?.response?.data || error.message)
    }
