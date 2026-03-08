@@ -4,6 +4,7 @@ import { supabase } from "../services/supabase.js"
 import { sendMail } from "../services/mailer.js"
 
 const router = express.Router()
+const UUID_V4_OR_V7_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 function token(){
  return crypto.randomBytes(32).toString("hex")
@@ -107,9 +108,9 @@ router.post("/resend",async(req,res)=>{
 router.post("/delete", async (req, res) => {
  try {
   const rawId = req.body?.id
-  const id = Number(rawId)
-  if (!Number.isInteger(id) || id <= 0) {
-   return res.status(400).json({ error: "valid id required" })
+  const id = String(rawId || "").trim()
+  if (!UUID_V4_OR_V7_REGEX.test(id)) {
+   return res.status(400).json({ error: "valid uuid id required" })
   }
 
   const { error } = await supabase

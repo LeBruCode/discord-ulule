@@ -52,7 +52,7 @@ function renderRows(rows) {
 
  table.innerHTML = rows
   .map((row) => {
-   const id = Number(row.id)
+   const id = row.id == null ? "" : String(row.id)
    const email = escapeHtml(row.email || "")
    const sent = row.email_sent ? "Yes" : "No"
    const used = row.used ? "Yes" : "No"
@@ -186,9 +186,9 @@ document.getElementById("table").addEventListener("click", async (event) => {
 
  const deleteButton = event.target.closest(".delete-btn")
  if (!deleteButton) return
- const id = Number(deleteButton.getAttribute("data-id"))
+ const id = deleteButton.getAttribute("data-id")
  const email = deleteButton.getAttribute("data-email")
- if (!Number.isInteger(id) || !email) return
+ if (!id || !email) return
  await deleteRow(id, email)
 })
 
