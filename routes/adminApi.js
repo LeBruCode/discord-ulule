@@ -6,7 +6,15 @@ import { sendMail } from "../services/mailer.js"
 const router = express.Router()
 const UUID_V4_OR_V7_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-function token(){
+const rateLimitStore = new Map()
+const sendQueueState = {
+ running: false,
+ lastStartedAt: null,
+ lastFinishedAt: null,
+ lastStats: { processed: 0, sent: 0, failed: 0 }
+}
+
+function token() {
  return crypto.randomBytes(32).toString("hex")
 }
 
@@ -14,7 +22,109 @@ function errorMessage(error) {
  return error?.message || "unknown error"
 }
 
-router.post("/import",async(req,res)=>{
+function createRateLimiter({ windowMs, max, keyPrefix }) {
+ return (req, res, next) => {
+  const identity = req.sessionID || req.ip || "anonymous"
+  const key = `${keyPrefix}:${identity}`
+  const now = Date.now()
+
+  const current = rateLimitStore.get(key) || { count: 0, resetAt: now + windowMs }
+  if (now > current.resetAt) {
+   current.count = 0
+   current.resetAt = now + windowMs
+  }
+
+  if (current.count >= max) {
+   return res.status(429).json({ error: "too many requests" })
+  }
+
+  current.count += 1
+  rateLimitStore.set(key, current)
+  return next()
+ }
+}
+
+const limitImport = createRateLimiter({ windowMs: 60 * 1000, max: 10, keyPrefix: "import" })
+const limitSend = createRateLimiter({ windowMs: 60 * 1000, max: 5, keyPrefix: "send" })
+const limitResend = createRateLimiter({ windowMs: 60 * 1000, max: 60, keyPrefix: "resend" })
+const limitDelete = createRateLimiter({ windowMs: 60 * 1000, max: 60, keyPrefix: "delete" })
+const limitList = createRateLimiter({ windowMs: 60 * 1000, max: 180, keyPrefix: "list" })
+
+async function sendOneAccessToken(row) {
+ try {
+  await sendMail(row.email, row.token)
+
+  const { error: updateError } = await supabase
+   .from("access_tokens")
+   .update({
+    email_sent: true,
+    email_sent_at: new Date().toISOString(),
+    email_error: null
+   })
+   .eq("id", row.id)
+
+  if (updateError) {
+   console.error("send update error", row.email, updateError)
+   return { sent: 0, failed: 1 }
+  }
+
+  return { sent: 1, failed: 0 }
+ } catch (error) {
+  console.error("mail error", row.email, error)
+  await supabase
+   .from("access_tokens")
+   .update({ email_error: errorMessage(error) })
+   .eq("id", row.id)
+  return { sent: 0, failed: 1 }
+ }
+}
+
+async function processSendQueue() {
+ if (sendQueueState.running) return
+
+ sendQueueState.running = true
+ sendQueueState.lastStartedAt = new Date().toISOString()
+ const stats = { processed: 0, sent: 0, failed: 0 }
+
+ try {
+  while (true) {
+   const { data, error } = await supabase
+    .from("access_tokens")
+    .select("id,email,token")
+    .or("email_sent.eq.false,email_sent.is.null")
+    .order("created_at", { ascending: true })
+    .limit(100)
+
+   if (error) {
+    console.error("send queue fetch error", error)
+    break
+   }
+
+   const rows = Array.isArray(data) ? data : []
+   if (!rows.length) break
+
+   for (const row of rows) {
+    const result = await sendOneAccessToken(row)
+    stats.processed += 1
+    stats.sent += result.sent
+    stats.failed += result.failed
+   }
+  }
+ } finally {
+  sendQueueState.running = false
+  sendQueueState.lastFinishedAt = new Date().toISOString()
+  sendQueueState.lastStats = stats
+ }
+}
+
+function normalizeIdList(ids) {
+ if (!Array.isArray(ids)) return []
+ return ids
+  .map((id) => String(id || "").trim())
+  .filter((id) => UUID_V4_OR_V7_REGEX.test(id))
+}
+
+router.post("/import", limitImport, async (req, res) => {
  try {
   const rawEmails = req.body?.emails
   if (typeof rawEmails !== "string") {
@@ -28,12 +138,12 @@ router.post("/import",async(req,res)=>{
 
   let inserted = 0
   let failed = 0
-  for(const email of emails){
+  for (const email of emails) {
    const { error } = await supabase.from("access_tokens").insert({
     email,
-    token:token(),
-    used:false,
-    email_sent:false
+    token: token(),
+    used: false,
+    email_sent: false
    })
 
    if (error) {
@@ -42,112 +152,115 @@ router.post("/import",async(req,res)=>{
    } else {
     inserted += 1
    }
- }
+  }
 
-  res.json({imported:inserted, failed})
+  return res.json({ imported: inserted, failed })
  } catch (error) {
   console.error("import route error", error)
   return res.status(500).json({ error: "server error" })
  }
 })
 
-router.post("/send",async(req,res)=>{
+router.post("/send", limitSend, async (req, res) => {
  try {
-  const {data,error}=await supabase
+  const { count, error } = await supabase
    .from("access_tokens")
-   .select("*")
+   .select("id", { count: "exact", head: true })
    .or("email_sent.eq.false,email_sent.is.null")
-   .limit(500)
 
   if (error) {
-   console.error("send fetch error", error)
+   console.error("send count error", error)
    return res.status(500).json({ error: "server error" })
   }
 
-  const rows = Array.isArray(data) ? data : []
-  let sent = 0
-  let failed = 0
-  for(const r of rows){
-
-   try{
-    await sendMail(r.email,r.token)
-
-    const { error: updateError } = await supabase
-     .from("access_tokens")
-     .update({
-      email_sent:true,
-      email_sent_at:new Date().toISOString(),
-      email_error:null
-     })
-     .eq("id",r.id)
-
-    if (updateError) console.error("send update error", r.email, updateError)
-    sent += 1
-   }catch(e){
-    console.error("mail error",r.email,e)
-    failed += 1
-    await supabase
-     .from("access_tokens")
-     .update({ email_error: errorMessage(e) })
-     .eq("id", r.id)
-   }
-
+  if (!sendQueueState.running) {
+   processSendQueue().catch((queueError) => {
+    console.error("send queue crash", queueError)
+    sendQueueState.running = false
+   })
   }
 
-  res.json({processed:rows.length, sent, failed})
+  return res.json({
+   queued: count || 0,
+   running: sendQueueState.running,
+   lastStats: sendQueueState.lastStats
+  })
  } catch (error) {
   console.error("send route error", error)
   return res.status(500).json({ error: "server error" })
  }
 })
 
-router.post("/resend",async(req,res)=>{
+router.get("/send-status", async (req, res) => {
+ return res.json({
+  running: sendQueueState.running,
+  lastStartedAt: sendQueueState.lastStartedAt,
+  lastFinishedAt: sendQueueState.lastFinishedAt,
+  lastStats: sendQueueState.lastStats
+ })
+})
+
+router.post("/resend", limitResend, async (req, res) => {
  try {
-  const {email}=req.body || {}
+  const { email } = req.body || {}
   if (typeof email !== "string" || !email.trim()) {
    return res.status(400).json({ error: "email required" })
   }
 
-  const {data,error}=await supabase
+  const { data, error } = await supabase
    .from("access_tokens")
-   .select("*")
-   .eq("email",email.trim().toLowerCase())
-   .order("created_at",{ascending:false})
+   .select("id,email,token")
+   .eq("email", email.trim().toLowerCase())
+   .order("created_at", { ascending: false })
    .limit(1)
    .maybeSingle()
 
-  if(error || !data) return res.status(404).json({error:"not found"})
+  if (error || !data) return res.status(404).json({ error: "not found" })
 
-  try {
-   await sendMail(data.email,data.token)
-  } catch (mailError) {
-   await supabase
-    .from("access_tokens")
-    .update({ email_error: errorMessage(mailError) })
-    .eq("id", data.id)
-   return res.status(502).json({
-    error: "mail provider error",
-    details: errorMessage(mailError)
-   })
+  const result = await sendOneAccessToken(data)
+  if (!result.sent) {
+   return res.status(502).json({ error: "mail provider error", details: "send failed" })
   }
 
-  await supabase
-   .from("access_tokens")
-   .update({
-    email_sent:true,
-    email_sent_at:new Date().toISOString(),
-    email_error:null
-   })
-   .eq("id",data.id)
-
-  res.json({success:true})
+  return res.json({ success: true })
  } catch (error) {
   console.error("resend route error", error)
   return res.status(500).json({ error: "server error", details: errorMessage(error) })
  }
 })
 
-router.post("/delete", async (req, res) => {
+router.post("/batch-resend", limitResend, async (req, res) => {
+ try {
+  const ids = normalizeIdList(req.body?.ids)
+  if (!ids.length) return res.status(400).json({ error: "valid ids required" })
+
+  const { data, error } = await supabase
+   .from("access_tokens")
+   .select("id,email,token")
+   .in("id", ids)
+
+  if (error) {
+   console.error("batch resend fetch error", error)
+   return res.status(500).json({ error: "server error" })
+  }
+
+  const rows = Array.isArray(data) ? data : []
+  let sent = 0
+  let failed = 0
+  for (const row of rows) {
+   const result = await sendOneAccessToken(row)
+   sent += result.sent
+   failed += result.failed
+  }
+
+  return res.json({ success: true, processed: rows.length, sent, failed })
+ } catch (error) {
+  console.error("batch resend route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.post("/delete", limitDelete, async (req, res) => {
  try {
   const rawId = req.body?.id
   const id = String(rawId || "").trim()
@@ -172,23 +285,45 @@ router.post("/delete", async (req, res) => {
  }
 })
 
-router.get("/list",async(req,res)=>{
+router.post("/batch-delete", limitDelete, async (req, res) => {
  try {
-  const page=Math.max(parseInt(req.query.page)||1,1)
-  const rawLimit=parseInt(req.query.limit)||50
-  const limit=Math.min(Math.max(rawLimit,1),200)
-  const search=typeof req.query.search==="string" ? req.query.search : ""
-  const status=req.query.status||"all"
-  const sort=typeof req.query.sort==="string" ? req.query.sort : "last_import_desc"
+  const ids = normalizeIdList(req.body?.ids)
+  if (!ids.length) return res.status(400).json({ error: "valid ids required" })
 
-  let query=supabase
+  const { error } = await supabase
    .from("access_tokens")
-   .select("*",{count:"exact"})
+   .delete()
+   .in("id", ids)
 
-  if(search) query=query.ilike("email",`%${search}%`)
+  if (error) {
+   console.error("batch delete route error", error)
+   return res.status(500).json({ error: "server error" })
+  }
 
-  if(status==="sent") query=query.eq("email_sent",true)
-  if(status==="activated") query=query.eq("used",true)
+  return res.json({ success: true, deleted: ids.length })
+ } catch (error) {
+  console.error("batch delete route unhandled error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.get("/list", limitList, async (req, res) => {
+ try {
+  const page = Math.max(parseInt(req.query.page) || 1, 1)
+  const rawLimit = parseInt(req.query.limit) || 50
+  const limit = Math.min(Math.max(rawLimit, 1), 200)
+  const search = typeof req.query.search === "string" ? req.query.search : ""
+  const status = req.query.status || "all"
+  const sort = typeof req.query.sort === "string" ? req.query.sort : "last_import_desc"
+
+  let query = supabase
+   .from("access_tokens")
+   .select("*", { count: "exact" })
+
+  if (search) query = query.ilike("email", `%${search}%`)
+
+  if (status === "sent") query = query.eq("email_sent", true)
+  if (status === "activated") query = query.eq("used", true)
 
   if (sort === "last_import_asc") {
    query = query.order("created_at", { ascending: true })
@@ -200,16 +335,16 @@ router.get("/list",async(req,res)=>{
    query = query.order("created_at", { ascending: false })
   }
 
-  const start=(page-1)*limit
-  const end=start+limit-1
+  const start = (page - 1) * limit
+  const end = start + limit - 1
 
-  const {data,count,error}=await query.range(start,end)
+  const { data, count, error } = await query.range(start, end)
   if (error) {
    console.error("list route error", error)
    return res.status(500).json({ error: "server error" })
   }
 
-  res.json({data,total:count})
+  return res.json({ data, total: count })
  } catch (error) {
   console.error("list route unhandled error", error)
   return res.status(500).json({ error: "server error" })

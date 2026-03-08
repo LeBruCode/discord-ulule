@@ -12,7 +12,8 @@ function getDiscordConfig() {
   redirectUri: process.env.REDIRECT_URI || process.env.DISCORD_REDIRECT_URI,
   botToken: process.env.BOT_TOKEN || process.env.DISCORD_BOT_TOKEN,
   guildId: process.env.GUILD_ID || process.env.DISCORD_GUILD_ID,
-  roleId: process.env.ROLE_ID || process.env.DISCORD_ROLE_ID
+  roleId: process.env.ROLE_ID || process.env.DISCORD_ROLE_ID,
+  webhookSecret: process.env.DISCORD_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET
  }
 }
 
@@ -195,6 +196,36 @@ router.get("/callback", async (req, res) => {
  } catch (error) {
   console.error("discord callback error", error?.response?.data || error.message || error)
   return res.status(500).send("Discord authentication failed")
+ }
+})
+
+router.post("/discord/member-left", async (req, res) => {
+ try {
+  const { webhookSecret, guildId } = getDiscordConfig()
+  if (!webhookSecret) return res.status(500).json({ error: "missing DISCORD_WEBHOOK_SECRET" })
+
+  const provided = String(req.headers["x-webhook-secret"] || "")
+  if (provided !== webhookSecret) return res.status(401).json({ error: "unauthorized" })
+
+  const eventGuildId = String(req.body?.guild_id || "")
+  const discordId = String(req.body?.user_id || "")
+  if (!eventGuildId || !discordId) return res.status(400).json({ error: "guild_id and user_id required" })
+  if (guildId && eventGuildId !== guildId) return res.status(400).json({ error: "guild mismatch" })
+
+  const { error } = await supabase
+   .from("access_tokens")
+   .update({ used: false, used_at: null, discord_id: null })
+   .eq("discord_id", discordId)
+
+  if (error) {
+   console.error("member-left update error", error)
+   return res.status(500).json({ error: "server error" })
+  }
+
+  return res.json({ success: true })
+ } catch (error) {
+  console.error("member-left route error", error)
+  return res.status(500).json({ error: "server error" })
  }
 })
 

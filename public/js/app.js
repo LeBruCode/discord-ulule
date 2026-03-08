@@ -3,6 +3,9 @@ let limit = 100
 let total = 0
 let loading = false
 
+const selectedIds = new Set()
+let currentRowIds = []
+
 function escapeHtml(value) {
  return String(value)
   .replaceAll("&", "&amp;")
@@ -10,6 +13,13 @@ function escapeHtml(value) {
   .replaceAll(">", "&gt;")
   .replaceAll('"', "&quot;")
   .replaceAll("'", "&#39;")
+}
+
+function formatDate(value) {
+ if (!value) return "-"
+ const date = new Date(value)
+ if (Number.isNaN(date.getTime())) return "-"
+ return date.toLocaleString("fr-FR")
 }
 
 function getFilters() {
@@ -31,9 +41,19 @@ function updatePaginationMeta() {
  page = clampedPage
 
  document.getElementById("pageInfo").innerText = `Page ${clampedPage} / ${totalPages}`
- document.getElementById("listMeta").innerText = `${total} résultat${total > 1 ? "s" : ""} • ${limit}/page`
+ document.getElementById("listMeta").innerText = `${total} résultat${total > 1 ? "s" : ""} • ${limit}/page • ${selectedIds.size} sélectionné${selectedIds.size > 1 ? "s" : ""}`
  document.getElementById("prevBtn").disabled = loading || clampedPage <= 1
  document.getElementById("nextBtn").disabled = loading || clampedPage >= totalPages
+}
+
+function updateSelectAllState() {
+ const selectAll = document.getElementById("selectAll")
+ if (!currentRowIds.length) {
+  selectAll.checked = false
+  return
+ }
+ const selectedOnPage = currentRowIds.filter((id) => selectedIds.has(id)).length
+ selectAll.checked = selectedOnPage === currentRowIds.length
 }
 
 async function refreshStats() {
@@ -44,12 +64,35 @@ async function refreshStats() {
  document.getElementById("rate").innerText = `${stats.rate || 0}%`
 }
 
+async function refreshQueueStatus() {
+ try {
+  const status = await fetch("/admin/api/send-status").then((r) => r.json())
+  const queueStatus = document.getElementById("queueStatus")
+  if (status.running) {
+   queueStatus.innerText = "File d'envoi: en cours"
+   return
+  }
+
+  const sent = status.lastStats?.sent || 0
+  const failed = status.lastStats?.failed || 0
+  const processed = status.lastStats?.processed || 0
+  queueStatus.innerText = `File d'envoi: inactive • dernier lot: traités ${processed}, envoyés ${sent}, échecs ${failed}`
+ } catch (error) {
+  document.getElementById("queueStatus").innerText = "File d'envoi: statut indisponible"
+ }
+}
+
 function renderRows(rows) {
  const table = document.getElementById("table")
  if (!rows.length) {
-  table.innerHTML = '<tr><td colspan="4">Aucun e-mail trouvé.</td></tr>'
+  currentRowIds = []
+  updateSelectAllState()
+  table.innerHTML = '<tr><td colspan="9">Aucun e-mail trouvé.</td></tr>'
   return
  }
+
+ currentRowIds = rows.map((row) => String(row.id || "")).filter((id) => id)
+ updateSelectAllState()
 
  table.innerHTML = rows
   .map((row) => {
@@ -57,10 +100,20 @@ function renderRows(rows) {
    const email = escapeHtml(row.email || "")
    const sent = row.email_sent ? "Oui" : "Non"
    const used = row.used ? "Oui" : "Non"
+   const sentAt = escapeHtml(formatDate(row.email_sent_at))
+   const usedAt = escapeHtml(formatDate(row.used_at))
+   const discordId = escapeHtml(row.discord_id || "-")
+   const error = escapeHtml(row.email_error || "-")
+   const checked = selectedIds.has(id) ? "checked" : ""
    return `<tr>
+    <td><input class="row-select" type="checkbox" data-id="${id}" ${checked}></td>
     <td>${email}</td>
     <td>${sent}</td>
     <td>${used}</td>
+    <td>${sentAt}</td>
+    <td>${usedAt}</td>
+    <td>${discordId}</td>
+    <td>${error}</td>
     <td>
      <button class="resend-btn" data-email="${email}">Renvoyer</button>
      <button class="delete-btn" data-id="${id}" data-email="${email}">Supprimer</button>
@@ -90,7 +143,7 @@ async function loadList() {
   updatePaginationMeta()
  } catch (error) {
   console.error("load list error", error)
-  document.getElementById("table").innerHTML = '<tr><td colspan="4">Erreur serveur lors du chargement.</td></tr>'
+  document.getElementById("table").innerHTML = '<tr><td colspan="9">Erreur serveur lors du chargement.</td></tr>'
  } finally {
   setLoading(false)
   updatePaginationMeta()
@@ -111,7 +164,7 @@ async function importEmails() {
   return
  }
  emailsInput.value = ""
- alert(`Importés : ${payload.imported || 0}`)
+ alert(`Importés : ${payload.imported || 0} | Échecs : ${payload.failed || 0}`)
  page = 1
  await refreshAll()
 }
@@ -123,7 +176,7 @@ async function sendEmails() {
   alert(payload.error || "Échec de l'envoi")
   return
  }
- alert(`Traités : ${payload.processed || 0} | Envoyés : ${payload.sent || 0} | Échecs : ${payload.failed || 0}`)
+ alert(`File lancée: ${payload.queued || 0} e-mails en attente`)
  await refreshAll()
 }
 
@@ -157,17 +210,69 @@ async function deleteRow(id, email) {
   return
  }
 
+ selectedIds.delete(id)
  alert(`Supprimé : ${email}`)
  page = 1
  await refreshAll()
 }
 
+async function batchResend() {
+ const ids = Array.from(selectedIds)
+ if (!ids.length) {
+  alert("Aucune ligne sélectionnée")
+  return
+ }
+
+ const response = await fetch("/admin/api/batch-resend", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ ids })
+ })
+  const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || "Échec du renvoi en lot")
+  return
+ }
+
+ alert(`Renvoi en lot: traités ${payload.processed || 0}, envoyés ${payload.sent || 0}, échecs ${payload.failed || 0}`)
+ await refreshAll()
+}
+
+async function batchDelete() {
+ const ids = Array.from(selectedIds)
+ if (!ids.length) {
+  alert("Aucune ligne sélectionnée")
+  return
+ }
+
+ const confirmed = window.confirm(`Supprimer ${ids.length} ligne(s) ?`)
+ if (!confirmed) return
+
+ const response = await fetch("/admin/api/batch-delete", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ ids })
+ })
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || "Échec de la suppression en lot")
+  return
+ }
+
+ ids.forEach((id) => selectedIds.delete(id))
+ alert(`Supprimées : ${payload.deleted || 0}`)
+ page = 1
+ await refreshAll()
+}
+
 async function refreshAll() {
- await Promise.all([refreshStats(), loadList()])
+ await Promise.all([refreshStats(), loadList(), refreshQueueStatus()])
 }
 
 document.getElementById("importBtn").addEventListener("click", importEmails)
 document.getElementById("sendBtn").addEventListener("click", sendEmails)
+document.getElementById("batchResendBtn").addEventListener("click", batchResend)
+document.getElementById("batchDeleteBtn").addEventListener("click", batchDelete)
 document.getElementById("status").addEventListener("change", async () => {
  page = 1
  await loadList()
@@ -197,6 +302,26 @@ document.getElementById("nextBtn").addEventListener("click", async () => {
  page += 1
  await loadList()
 })
+document.getElementById("selectAll").addEventListener("change", (event) => {
+ const shouldSelect = Boolean(event.target.checked)
+ for (const id of currentRowIds) {
+  if (shouldSelect) selectedIds.add(id)
+  else selectedIds.delete(id)
+ }
+ updatePaginationMeta()
+})
+
+document.getElementById("table").addEventListener("change", (event) => {
+ const checkbox = event.target.closest(".row-select")
+ if (!checkbox) return
+ const id = checkbox.getAttribute("data-id")
+ if (!id) return
+ if (checkbox.checked) selectedIds.add(id)
+ else selectedIds.delete(id)
+ updateSelectAllState()
+ updatePaginationMeta()
+})
+
 document.getElementById("table").addEventListener("click", async (event) => {
  const resendButton = event.target.closest(".resend-btn")
  if (resendButton) {
@@ -213,6 +338,10 @@ document.getElementById("table").addEventListener("click", async (event) => {
  if (!id || !email) return
  await deleteRow(id, email)
 })
+
+setInterval(() => {
+ refreshQueueStatus().catch(() => {})
+}, 10000)
 
 refreshAll().catch((error) => {
  console.error("dashboard init error", error)

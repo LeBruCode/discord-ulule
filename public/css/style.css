@@ -6,7 +6,7 @@ body{
 }
 
 .container{
- max-width:1000px;
+ max-width:1400px;
  margin:auto;
  padding:40px;
 }
@@ -58,9 +58,26 @@ button{
  cursor:pointer;
 }
 
+.resend-btn{
+ background:#345ea8;
+}
+
 .delete-btn{
  background:#c23b3b;
  margin-left:8px;
+}
+
+#batchResendBtn{
+ background:#2e7d32;
+}
+
+#batchDeleteBtn{
+ background:#a12b2b;
+}
+
+#queueStatus{
+ margin:0 0 12px;
+ color:#9fb0c0;
 }
 
 .table-footer{
@@ -84,11 +101,14 @@ button:disabled{
 table{
  width:100%;
  border-collapse:collapse;
+ table-layout:fixed;
 }
 
 th,td{
  padding:12px;
  border-bottom:1px solid #2a3038;
+ vertical-align:top;
+ word-break:break-word;
 }
 
 .login-box{
