@@ -2,6 +2,7 @@ let page = 1
 let limit = 100
 let total = 0
 let loading = false
+let importPollTimer = null
 
 const selectedIds = new Set()
 let currentRowIds = []
@@ -82,6 +83,49 @@ async function refreshQueueStatus() {
  }
 }
 
+function renderImportStatus(status) {
+ const importStatus = document.getElementById("importStatus")
+ const bar = document.getElementById("importProgressBar")
+ const progress = Number(status.progress) || 0
+ bar.style.width = `${Math.min(Math.max(progress, 0), 100)}%`
+
+ if (status.running) {
+  importStatus.innerText = `Import en cours: ${status.processed}/${status.total} (${progress}%) • ajoutés ${status.inserted} • échecs ${status.failed}`
+  return
+ }
+
+ if ((status.total || 0) > 0) {
+  importStatus.innerText = `Import terminé: ${status.processed}/${status.total} • ajoutés ${status.inserted} • échecs ${status.failed}`
+  return
+ }
+
+ importStatus.innerText = "Import: inactif"
+}
+
+async function refreshImportStatus() {
+ try {
+  const status = await fetch("/admin/api/import-status").then((r) => r.json())
+  renderImportStatus(status)
+  return status
+ } catch (error) {
+  document.getElementById("importStatus").innerText = "Import: statut indisponible"
+  return null
+ }
+}
+
+function startImportPolling() {
+ if (importPollTimer) clearInterval(importPollTimer)
+ importPollTimer = setInterval(async () => {
+  const status = await refreshImportStatus()
+  if (!status) return
+  if (!status.running) {
+   clearInterval(importPollTimer)
+   importPollTimer = null
+   await refreshAll()
+  }
+ }, 1500)
+}
+
 function renderRows(rows) {
  const table = document.getElementById("table")
  if (!rows.length) {
@@ -157,12 +201,18 @@ async function importEmails() {
   body: JSON.stringify({ emails })
  })
  const payload = await response.json()
+ if (response.status === 409) {
+  alert("Un import est déjà en cours")
+  startImportPolling()
+  return
+ }
  if (!response.ok) {
   alert(payload.error || "Échec de l'import")
   return
  }
  emailsInput.value = ""
- alert(`Importés : ${payload.imported || 0} | Échecs : ${payload.failed || 0}`)
+ alert(`Import lancé: ${payload.total || 0} e-mails en file`)
+ startImportPolling()
  page = 1
  await refreshAll()
 }
@@ -264,7 +314,7 @@ async function batchDelete() {
 }
 
 async function refreshAll() {
- await Promise.all([refreshStats(), loadList(), refreshQueueStatus()])
+ await Promise.all([refreshStats(), loadList(), refreshQueueStatus(), refreshImportStatus()])
 }
 
 document.getElementById("importBtn").addEventListener("click", importEmails)

@@ -7,6 +7,17 @@ const router = express.Router()
 const UUID_V4_OR_V7_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 const rateLimitStore = new Map()
+const importQueueState = {
+ running: false,
+ total: 0,
+ processed: 0,
+ inserted: 0,
+ failed: 0,
+ currentEmail: null,
+ lastError: null,
+ lastStartedAt: null,
+ lastFinishedAt: null
+}
 const sendQueueState = {
  running: false,
  lastStartedAt: null,
@@ -154,8 +165,58 @@ function normalizeIdList(ids) {
   .filter((id) => UUID_V4_OR_V7_REGEX.test(id))
 }
 
+async function processImportQueue(emails) {
+ if (importQueueState.running) return
+
+ importQueueState.running = true
+ importQueueState.total = emails.length
+ importQueueState.processed = 0
+ importQueueState.inserted = 0
+ importQueueState.failed = 0
+ importQueueState.currentEmail = null
+ importQueueState.lastError = null
+ importQueueState.lastStartedAt = new Date().toISOString()
+ importQueueState.lastFinishedAt = null
+
+ try {
+  for (const email of emails) {
+   importQueueState.currentEmail = email
+   const { error } = await supabase.from("access_tokens").insert({
+    email,
+    token: token(),
+    used: false,
+    email_sent: false
+   })
+
+   importQueueState.processed += 1
+   if (error) {
+    console.error("import error", email, error)
+    importQueueState.failed += 1
+    importQueueState.lastError = errorMessage(error)
+   } else {
+    importQueueState.inserted += 1
+   }
+
+   if (importQueueState.processed % 50 === 0) {
+    await sleep(20)
+   }
+  }
+ } finally {
+  importQueueState.running = false
+  importQueueState.currentEmail = null
+  importQueueState.lastFinishedAt = new Date().toISOString()
+ }
+}
+
 router.post("/import", limitImport, async (req, res) => {
  try {
+  if (importQueueState.running) {
+   return res.status(409).json({
+    error: "import already running",
+    status: importQueueState
+   })
+  }
+
   const rawEmails = req.body?.emails
   if (typeof rawEmails !== "string") {
    return res.status(400).json({ error: "emails is required" })
@@ -165,30 +226,37 @@ router.post("/import", limitImport, async (req, res) => {
    .split("\n")
    .map((e) => e.trim().toLowerCase())
    .filter((e) => e)
-
-  let inserted = 0
-  let failed = 0
-  for (const email of emails) {
-   const { error } = await supabase.from("access_tokens").insert({
-    email,
-    token: token(),
-    used: false,
-    email_sent: false
-   })
-
-   if (error) {
-    console.error("import error", email, error)
-    failed += 1
-   } else {
-    inserted += 1
-   }
+  const uniqueEmails = [...new Set(emails)]
+  if (!uniqueEmails.length) {
+   return res.status(400).json({ error: "no email to import" })
   }
 
-  return res.json({ imported: inserted, failed })
+  processImportQueue(uniqueEmails).catch((queueError) => {
+   console.error("import queue crash", queueError)
+   importQueueState.lastError = errorMessage(queueError)
+   importQueueState.running = false
+   importQueueState.currentEmail = null
+   importQueueState.lastFinishedAt = new Date().toISOString()
+  })
+
+  return res.status(202).json({
+   started: true,
+   total: uniqueEmails.length
+  })
  } catch (error) {
   console.error("import route error", error)
   return res.status(500).json({ error: "server error" })
  }
+})
+
+router.get("/import-status", async (req, res) => {
+ const progress = importQueueState.total
+  ? Math.round((importQueueState.processed / importQueueState.total) * 100)
+  : 0
+ return res.json({
+  ...importQueueState,
+  progress
+ })
 })
 
 router.post("/send", limitSend, async (req, res) => {
