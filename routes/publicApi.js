@@ -13,12 +13,14 @@ router.post("/activate", async (req, res) => {
 
   const { data, error } = await supabase
    .from("access_tokens")
-   .select("id, used, created_at")
+   .select("id, used, discord_id, created_at")
    .eq("token", token)
    .single()
 
   if (error || !data) return res.json({ success: false })
-  if (data.used) return res.json({ success: false, message: "already used" })
+  if (data.used && data.discord_id) {
+   return res.json({ success: false, message: "already used" })
+  }
 
   // Token validity: 7 days from creation time.
   const createdAt = new Date(data.created_at)
@@ -27,14 +29,16 @@ router.post("/activate", async (req, res) => {
    return res.json({ success: false, message: "expired" })
   }
 
-  const { error: updateError } = await supabase
-   .from("access_tokens")
-   .update({ used: true, used_at: new Date().toISOString() })
-   .eq("id", data.id)
+  if (!data.used) {
+   const { error: updateError } = await supabase
+    .from("access_tokens")
+    .update({ used: true, used_at: new Date().toISOString() })
+    .eq("id", data.id)
 
-  if (updateError) {
-   console.error("activate update error", updateError)
-   return res.status(500).json({ success: false, message: "server error" })
+   if (updateError) {
+    console.error("activate update error", updateError)
+    return res.status(500).json({ success: false, message: "server error" })
+   }
   }
 
   return res.json({ success: true })
