@@ -3,28 +3,41 @@
 <head>
 <meta charset="UTF-8">
 <title>Tableau de bord</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-<div class="container">
+<div class="background-glow" aria-hidden="true"></div>
 
+<main class="container">
 <div class="topbar">
+<div>
+<p class="eyebrow">Dark Ops Pro</p>
 <h1>Tableau de bord accès Discord</h1>
-<form method="POST" action="/logout">
-<button type="submit">Déconnexion</button>
+</div>
+<form method="POST" action="/logout" class="topbar-actions">
+<button type="submit" class="ghost">Déconnexion</button>
 </form>
 </div>
 
-<div class="stats">
+<section class="stats">
 <div class="card"><span>Total</span><b id="total">0</b></div>
 <div class="card"><span>Envoyés</span><b id="sent">0</b></div>
 <div class="card"><span>Activés</span><b id="activated">0</b></div>
 <div class="card"><span>Taux</span><b id="rate">0%</b></div>
-</div>
+</section>
 
+<section class="panel">
+<h2>Importer des e-mails</h2>
 <textarea id="emails" placeholder="collez les e-mails"></textarea>
+</section>
 
+<section class="panel">
+<h2>Actions & filtres</h2>
 <div class="controls">
 <button id="importBtn">Importer</button>
 <button id="sendBtn">Envoyer les e-mails</button>
@@ -50,7 +63,11 @@
 </select>
 </div>
 <p id="queueStatus">File d'envoi: inactive</p>
+</section>
 
+<section class="panel">
+<h2>Liste des accès</h2>
+<div class="table-wrap">
 <table>
 <thead>
 <tr>
@@ -67,6 +84,7 @@
 </thead>
 <tbody id="table"></tbody>
 </table>
+</div>
 <div class="table-footer">
 <span id="listMeta">0 résultat</span>
 <div class="pagination">
@@ -75,8 +93,9 @@
 <button id="nextBtn" type="button">Suivant</button>
 </div>
 </div>
+</section>
 
-</div>
+</main>
 
 <script src="/js/app.js"></script>
 
