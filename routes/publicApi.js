@@ -13,19 +13,23 @@ router.post("/activate", async (req, res) => {
 
   const { data, error } = await supabase
    .from("access_tokens")
-   .select("id, used, expires_at")
+   .select("id, used, created_at")
    .eq("token", token)
    .single()
 
   if (error || !data) return res.json({ success: false })
   if (data.used) return res.json({ success: false, message: "already used" })
-  if (new Date(data.expires_at) < new Date()) {
+
+  // Token validity: 7 days from creation time.
+  const createdAt = new Date(data.created_at)
+  const expiresAt = new Date(createdAt.getTime() + 1000 * 60 * 60 * 24 * 7)
+  if (expiresAt < new Date()) {
    return res.json({ success: false, message: "expired" })
   }
 
   const { error: updateError } = await supabase
    .from("access_tokens")
-   .update({ used: true })
+   .update({ used: true, used_at: new Date().toISOString() })
    .eq("id", data.id)
 
   if (updateError) {

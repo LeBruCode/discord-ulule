@@ -26,21 +26,25 @@ router.post("/import",async(req,res)=>{
    .map((e) => e.trim().toLowerCase())
    .filter((e) => e)
 
+  let inserted = 0
+  let failed = 0
   for(const email of emails){
    const { error } = await supabase.from("access_tokens").insert({
     email,
     token:token(),
     used:false,
-    email_sent:false,
-    expires_at:new Date(Date.now()+1000*60*60*24*7) // 7 days
+    email_sent:false
    })
 
    if (error) {
     console.error("import error", email, error)
+    failed += 1
+   } else {
+    inserted += 1
    }
  }
 
-  res.json({imported:emails.length})
+  res.json({imported:inserted, failed})
  } catch (error) {
   console.error("import route error", error)
   return res.status(500).json({ error: "server error" })
@@ -52,7 +56,7 @@ router.post("/send",async(req,res)=>{
   const {data,error}=await supabase
    .from("access_tokens")
    .select("*")
-   .eq("email_sent",false)
+   .or("email_sent.eq.false,email_sent.is.null")
    .limit(500)
 
   if (error) {
