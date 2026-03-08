@@ -98,6 +98,11 @@ app.post("/logout", authMiddleware, (req, res) => {
 app.use("/admin/api",authMiddleware,adminApi)
 app.use("/stats",authMiddleware,statsRoutes)
 app.use("/api", publicApi)
+app.get("/callback", (req, res) => {
+ const params = new URLSearchParams(req.query).toString()
+ const suffix = params ? `?${params}` : ""
+ return res.redirect(`/api/callback${suffix}`)
+})
 
 app.get("/activate",(req,res)=>{
  res.sendFile(path.join(__dirname,"views/activate.html"))

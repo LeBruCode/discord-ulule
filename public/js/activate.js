@@ -18,19 +18,23 @@ async function runActivation() {
   ])
 
   const activation = await activationRes.json()
-  let invite = "https://discord.com"
+  let targetUrl = ""
 
   if (configRes.ok) {
    const config = await configRes.json()
-   if (typeof config.discordInviteUrl === "string" && config.discordInviteUrl) {
-    invite = config.discordInviteUrl
+   if (config.discordOauthReady) {
+    targetUrl = `/api/discord/authorize?token=${encodeURIComponent(token)}`
    }
   }
 
   if (activation.success) {
+   if (!targetUrl) {
+    statusEl.innerText = "Discord OAuth is not configured on server."
+    return
+   }
    statusEl.innerText = "Access activated. Redirecting..."
    setTimeout(() => {
-    window.location.href = invite
+    window.location.href = targetUrl
    }, 2000)
    return
   }
