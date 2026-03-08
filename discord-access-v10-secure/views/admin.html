@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Dashboard</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="container">
+
+<h1>Discord Access Dashboard</h1>
+
+<div class="stats">
+<div class="card"><span>Total</span><b id="total">0</b></div>
+<div class="card"><span>Sent</span><b id="sent">0</b></div>
+<div class="card"><span>Activated</span><b id="activated">0</b></div>
+<div class="card"><span>Rate</span><b id="rate">0%</b></div>
+</div>
+
+<textarea id="emails" placeholder="paste emails"></textarea>
+
+<div class="controls">
+<button id="importBtn">Import</button>
+<button id="sendBtn">Send Emails</button>
+<input id="search" placeholder="Search email">
+<select id="status">
+<option value="all">All</option>
+<option value="sent">Sent</option>
+<option value="activated">Activated</option>
+</select>
+</div>
+
+<table>
+<thead>
+<tr>
+<th>Email</th>
+<th>Sent</th>
+<th>Activated</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
+
+</div>
+
+<script src="/js/app.js"></script>
+
+</body>
+</html>
