@@ -179,16 +179,26 @@ router.get("/list",async(req,res)=>{
   const limit=Math.min(Math.max(rawLimit,1),200)
   const search=typeof req.query.search==="string" ? req.query.search : ""
   const status=req.query.status||"all"
+  const sort=typeof req.query.sort==="string" ? req.query.sort : "last_import_desc"
 
   let query=supabase
    .from("access_tokens")
    .select("*",{count:"exact"})
-   .order("id",{ascending:false})
 
   if(search) query=query.ilike("email",`%${search}%`)
 
   if(status==="sent") query=query.eq("email_sent",true)
   if(status==="activated") query=query.eq("used",true)
+
+  if (sort === "last_import_asc") {
+   query = query.order("created_at", { ascending: true })
+  } else if (sort === "email_asc") {
+   query = query.order("email", { ascending: true })
+  } else if (sort === "email_desc") {
+   query = query.order("email", { ascending: false })
+  } else {
+   query = query.order("created_at", { ascending: false })
+  }
 
   const start=(page-1)*limit
   const end=start+limit-1

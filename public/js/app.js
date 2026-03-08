@@ -1,5 +1,5 @@
 let page = 1
-const limit = 100
+let limit = 100
 let total = 0
 let loading = false
 
@@ -15,7 +15,8 @@ function escapeHtml(value) {
 function getFilters() {
  const search = document.getElementById("search").value.trim()
  const status = document.getElementById("status").value
- return { search, status }
+ const sort = document.getElementById("sort").value
+ return { search, status, sort }
 }
 
 function setLoading(value) {
@@ -30,7 +31,7 @@ function updatePaginationMeta() {
  page = clampedPage
 
  document.getElementById("pageInfo").innerText = `Page ${clampedPage} / ${totalPages}`
- document.getElementById("listMeta").innerText = `${total} result${total > 1 ? "s" : ""}`
+ document.getElementById("listMeta").innerText = `${total} résultat${total > 1 ? "s" : ""} • ${limit}/page`
  document.getElementById("prevBtn").disabled = loading || clampedPage <= 1
  document.getElementById("nextBtn").disabled = loading || clampedPage >= totalPages
 }
@@ -46,7 +47,7 @@ async function refreshStats() {
 function renderRows(rows) {
  const table = document.getElementById("table")
  if (!rows.length) {
-  table.innerHTML = '<tr><td colspan="4">No emails found.</td></tr>'
+  table.innerHTML = '<tr><td colspan="4">Aucun e-mail trouvé.</td></tr>'
   return
  }
 
@@ -54,15 +55,15 @@ function renderRows(rows) {
   .map((row) => {
    const id = row.id == null ? "" : String(row.id)
    const email = escapeHtml(row.email || "")
-   const sent = row.email_sent ? "Yes" : "No"
-   const used = row.used ? "Yes" : "No"
+   const sent = row.email_sent ? "Oui" : "Non"
+   const used = row.used ? "Oui" : "Non"
    return `<tr>
     <td>${email}</td>
     <td>${sent}</td>
     <td>${used}</td>
     <td>
-     <button class="resend-btn" data-email="${email}">Resend</button>
-     <button class="delete-btn" data-id="${id}" data-email="${email}">Delete</button>
+     <button class="resend-btn" data-email="${email}">Renvoyer</button>
+     <button class="delete-btn" data-id="${id}" data-email="${email}">Supprimer</button>
     </td>
    </tr>`
   })
@@ -70,12 +71,13 @@ function renderRows(rows) {
 }
 
 async function loadList() {
- const { search, status } = getFilters()
+ const { search, status, sort } = getFilters()
  const params = new URLSearchParams({
   page: String(page),
   limit: String(limit),
   search,
-  status
+  status,
+  sort
  })
 
  setLoading(true)
@@ -88,7 +90,7 @@ async function loadList() {
   updatePaginationMeta()
  } catch (error) {
   console.error("load list error", error)
-  document.getElementById("table").innerHTML = '<tr><td colspan="4">Server error while loading list.</td></tr>'
+  document.getElementById("table").innerHTML = '<tr><td colspan="4">Erreur serveur lors du chargement.</td></tr>'
  } finally {
   setLoading(false)
   updatePaginationMeta()
@@ -96,14 +98,20 @@ async function loadList() {
 }
 
 async function importEmails() {
- const emails = document.getElementById("emails").value
+ const emailsInput = document.getElementById("emails")
+ const emails = emailsInput.value
  const response = await fetch("/admin/api/import", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ emails })
  })
  const payload = await response.json()
- alert(`Imported: ${payload.imported || 0}`)
+ if (!response.ok) {
+  alert(payload.error || "Échec de l'import")
+  return
+ }
+ emailsInput.value = ""
+ alert(`Importés : ${payload.imported || 0}`)
  page = 1
  await refreshAll()
 }
@@ -112,10 +120,10 @@ async function sendEmails() {
  const response = await fetch("/admin/api/send", { method: "POST" })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Send failed")
+  alert(payload.error || "Échec de l'envoi")
   return
  }
- alert(`Processed: ${payload.processed || 0} | Sent: ${payload.sent || 0} | Failed: ${payload.failed || 0}`)
+ alert(`Traités : ${payload.processed || 0} | Envoyés : ${payload.sent || 0} | Échecs : ${payload.failed || 0}`)
  await refreshAll()
 }
 
@@ -127,15 +135,15 @@ async function resendEmail(email) {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.details || payload.error || "Resend failed")
+  alert(payload.details || payload.error || "Échec du renvoi")
   return
  }
- alert(`Resent to ${email}`)
+ alert(`Renvoyé à ${email}`)
  await refreshAll()
 }
 
 async function deleteRow(id, email) {
- const confirmed = window.confirm(`Delete ${email} from database?`)
+ const confirmed = window.confirm(`Supprimer ${email} de la base de données ?`)
  if (!confirmed) return
 
  const response = await fetch("/admin/api/delete", {
@@ -145,11 +153,11 @@ async function deleteRow(id, email) {
  })
 
  if (!response.ok) {
-  alert("Delete failed")
+  alert("Échec de la suppression")
   return
  }
 
- alert(`Deleted ${email}`)
+ alert(`Supprimé : ${email}`)
  page = 1
  await refreshAll()
 }
@@ -161,6 +169,15 @@ async function refreshAll() {
 document.getElementById("importBtn").addEventListener("click", importEmails)
 document.getElementById("sendBtn").addEventListener("click", sendEmails)
 document.getElementById("status").addEventListener("change", async () => {
+ page = 1
+ await loadList()
+})
+document.getElementById("sort").addEventListener("change", async () => {
+ page = 1
+ await loadList()
+})
+document.getElementById("perPage").addEventListener("change", async (event) => {
+ limit = Math.min(Math.max(Number(event.target.value) || 100, 1), 200)
  page = 1
  await loadList()
 })

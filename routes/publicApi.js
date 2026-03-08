@@ -52,8 +52,8 @@ router.post("/activate", async (req, res) => {
 })
 
 router.get("/config", (req, res) => {
- const { clientId, redirectUri } = getDiscordConfig()
- const inviteUrl = process.env.DISCORD_INVITE_URL || "https://discord.com"
+ const { clientId, redirectUri, guildId } = getDiscordConfig()
+ const inviteUrl = process.env.DISCORD_INVITE_URL || (guildId ? `https://discord.com/channels/${guildId}` : "https://discord.com")
 
  return res.json({
   discordOauthReady: Boolean(clientId && redirectUri),
@@ -158,7 +158,7 @@ router.get("/callback", async (req, res) => {
    return res.status(500).send("Database update failed")
   }
 
-  const invite = process.env.DISCORD_INVITE_URL || "https://discord.com"
+  const invite = process.env.DISCORD_INVITE_URL || (guildId ? `https://discord.com/channels/${guildId}` : "https://discord.com")
   return res.redirect(invite)
  } catch (error) {
   console.error("discord callback error", error?.response?.data || error.message || error)

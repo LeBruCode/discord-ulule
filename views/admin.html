@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Dashboard</title>
+<title>Tableau de bord</title>
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -10,29 +10,41 @@
 <div class="container">
 
 <div class="topbar">
-<h1>Discord Access Dashboard</h1>
+<h1>Tableau de bord accès Discord</h1>
 <form method="POST" action="/logout">
-<button type="submit">Logout</button>
+<button type="submit">Déconnexion</button>
 </form>
 </div>
 
 <div class="stats">
 <div class="card"><span>Total</span><b id="total">0</b></div>
-<div class="card"><span>Sent</span><b id="sent">0</b></div>
-<div class="card"><span>Activated</span><b id="activated">0</b></div>
-<div class="card"><span>Rate</span><b id="rate">0%</b></div>
+<div class="card"><span>Envoyés</span><b id="sent">0</b></div>
+<div class="card"><span>Activés</span><b id="activated">0</b></div>
+<div class="card"><span>Taux</span><b id="rate">0%</b></div>
 </div>
 
-<textarea id="emails" placeholder="paste emails"></textarea>
+<textarea id="emails" placeholder="collez les e-mails"></textarea>
 
 <div class="controls">
-<button id="importBtn">Import</button>
-<button id="sendBtn">Send Emails</button>
-<input id="search" placeholder="Search email">
+<button id="importBtn">Importer</button>
+<button id="sendBtn">Envoyer les e-mails</button>
+<input id="search" placeholder="Rechercher un e-mail">
 <select id="status">
-<option value="all">All</option>
-<option value="sent">Sent</option>
-<option value="activated">Activated</option>
+<option value="all">Tous</option>
+<option value="sent">Envoyés</option>
+<option value="activated">Activés</option>
+</select>
+<select id="sort">
+<option value="last_import_desc">Dernier import (récent d'abord)</option>
+<option value="last_import_asc">Dernier import (ancien d'abord)</option>
+<option value="email_asc">E-mail (A-Z)</option>
+<option value="email_desc">E-mail (Z-A)</option>
+</select>
+<select id="perPage">
+<option value="25">25/page</option>
+<option value="50">50/page</option>
+<option value="100" selected>100/page</option>
+<option value="200">200/page</option>
 </select>
 </div>
 
@@ -40,19 +52,19 @@
 <thead>
 <tr>
 <th>Email</th>
-<th>Sent</th>
-<th>Activated</th>
+<th>Envoyé</th>
+<th>Activé</th>
 <th>Action</th>
 </tr>
 </thead>
 <tbody id="table"></tbody>
 </table>
 <div class="table-footer">
-<span id="listMeta">0 results</span>
+<span id="listMeta">0 résultat</span>
 <div class="pagination">
-<button id="prevBtn" type="button">Previous</button>
+<button id="prevBtn" type="button">Précédent</button>
 <span id="pageInfo">Page 1</span>
-<button id="nextBtn" type="button">Next</button>
+<button id="nextBtn" type="button">Suivant</button>
 </div>
 </div>
 
