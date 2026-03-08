@@ -33,6 +33,7 @@ function renderRows(rows) {
 
  table.innerHTML = rows
   .map((row) => {
+   const id = Number(row.id)
    const email = escapeHtml(row.email || "")
    const sent = row.email_sent ? "Yes" : "No"
    const used = row.used ? "Yes" : "No"
@@ -40,7 +41,10 @@ function renderRows(rows) {
     <td>${email}</td>
     <td>${sent}</td>
     <td>${used}</td>
-    <td><button class="resend-btn" data-email="${email}">Resend</button></td>
+    <td>
+     <button class="resend-btn" data-email="${email}">Resend</button>
+     <button class="delete-btn" data-id="${id}" data-email="${email}">Delete</button>
+    </td>
    </tr>`
   })
   .join("")
@@ -93,6 +97,25 @@ async function resendEmail(email) {
  await refreshAll()
 }
 
+async function deleteRow(id, email) {
+ const confirmed = window.confirm(`Delete ${email} from database?`)
+ if (!confirmed) return
+
+ const response = await fetch("/admin/api/delete", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ id })
+ })
+
+ if (!response.ok) {
+  alert("Delete failed")
+  return
+ }
+
+ alert(`Deleted ${email}`)
+ await refreshAll()
+}
+
 async function refreshAll() {
  await Promise.all([refreshStats(), loadList()])
 }
@@ -108,11 +131,20 @@ document.getElementById("search").addEventListener("input", async () => {
  await loadList()
 })
 document.getElementById("table").addEventListener("click", async (event) => {
- const button = event.target.closest(".resend-btn")
- if (!button) return
- const email = button.getAttribute("data-email")
- if (!email) return
- await resendEmail(email)
+ const resendButton = event.target.closest(".resend-btn")
+ if (resendButton) {
+  const email = resendButton.getAttribute("data-email")
+  if (!email) return
+  await resendEmail(email)
+  return
+ }
+
+ const deleteButton = event.target.closest(".delete-btn")
+ if (!deleteButton) return
+ const id = Number(deleteButton.getAttribute("data-id"))
+ const email = deleteButton.getAttribute("data-email")
+ if (!Number.isInteger(id) || !email) return
+ await deleteRow(id, email)
 })
 
 refreshAll().catch((error) => {

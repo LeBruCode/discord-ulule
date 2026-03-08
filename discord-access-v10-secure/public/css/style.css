@@ -49,6 +49,11 @@ button{
  cursor:pointer;
 }
 
+.delete-btn{
+ background:#c23b3b;
+ margin-left:8px;
+}
+
 table{
  width:100%;
  border-collapse:collapse;
