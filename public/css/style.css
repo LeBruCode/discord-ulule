@@ -11,6 +11,14 @@ body{
  padding:40px;
 }
 
+.topbar{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ gap:12px;
+ margin-bottom:8px;
+}
+
 .stats{
  display:grid;
  grid-template-columns:repeat(4,1fr);
@@ -47,6 +55,29 @@ button{
  border-radius:6px;
  color:white;
  cursor:pointer;
+}
+
+.delete-btn{
+ background:#c23b3b;
+ margin-left:8px;
+}
+
+.table-footer{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ margin-top:12px;
+}
+
+.pagination{
+ display:flex;
+ align-items:center;
+ gap:8px;
+}
+
+button:disabled{
+ opacity:0.5;
+ cursor:not-allowed;
 }
 
 table{

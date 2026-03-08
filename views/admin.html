@@ -9,7 +9,12 @@
 
 <div class="container">
 
+<div class="topbar">
 <h1>Discord Access Dashboard</h1>
+<form method="POST" action="/logout">
+<button type="submit">Logout</button>
+</form>
+</div>
 
 <div class="stats">
 <div class="card"><span>Total</span><b id="total">0</b></div>
@@ -42,6 +47,14 @@
 </thead>
 <tbody id="table"></tbody>
 </table>
+<div class="table-footer">
+<span id="listMeta">0 results</span>
+<div class="pagination">
+<button id="prevBtn" type="button">Previous</button>
+<span id="pageInfo">Page 1</span>
+<button id="nextBtn" type="button">Next</button>
+</div>
+</div>
 
 </div>
 

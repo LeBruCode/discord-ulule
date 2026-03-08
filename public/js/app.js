@@ -1,5 +1,7 @@
 let page = 1
 const limit = 100
+let total = 0
+let loading = false
 
 function escapeHtml(value) {
  return String(value)
@@ -14,6 +16,23 @@ function getFilters() {
  const search = document.getElementById("search").value.trim()
  const status = document.getElementById("status").value
  return { search, status }
+}
+
+function setLoading(value) {
+ loading = value
+ document.getElementById("prevBtn").disabled = value
+ document.getElementById("nextBtn").disabled = value
+}
+
+function updatePaginationMeta() {
+ const totalPages = Math.max(1, Math.ceil(total / limit))
+ const clampedPage = Math.min(page, totalPages)
+ page = clampedPage
+
+ document.getElementById("pageInfo").innerText = `Page ${clampedPage} / ${totalPages}`
+ document.getElementById("listMeta").innerText = `${total} result${total > 1 ? "s" : ""}`
+ document.getElementById("prevBtn").disabled = loading || clampedPage <= 1
+ document.getElementById("nextBtn").disabled = loading || clampedPage >= totalPages
 }
 
 async function refreshStats() {
@@ -33,6 +52,7 @@ function renderRows(rows) {
 
  table.innerHTML = rows
   .map((row) => {
+   const id = Number(row.id)
    const email = escapeHtml(row.email || "")
    const sent = row.email_sent ? "Yes" : "No"
    const used = row.used ? "Yes" : "No"
@@ -40,7 +60,10 @@ function renderRows(rows) {
     <td>${email}</td>
     <td>${sent}</td>
     <td>${used}</td>
-    <td><button class="resend-btn" data-email="${email}">Resend</button></td>
+    <td>
+     <button class="resend-btn" data-email="${email}">Resend</button>
+     <button class="delete-btn" data-id="${id}" data-email="${email}">Delete</button>
+    </td>
    </tr>`
   })
   .join("")
@@ -55,9 +78,21 @@ async function loadList() {
   status
  })
 
- const response = await fetch(`/admin/api/list?${params.toString()}`)
- const payload = await response.json()
- renderRows(Array.isArray(payload.data) ? payload.data : [])
+ setLoading(true)
+ try {
+  const response = await fetch(`/admin/api/list?${params.toString()}`)
+  if (!response.ok) throw new Error("list request failed")
+  const payload = await response.json()
+  total = Number(payload.total) || 0
+  renderRows(Array.isArray(payload.data) ? payload.data : [])
+  updatePaginationMeta()
+ } catch (error) {
+  console.error("load list error", error)
+  document.getElementById("table").innerHTML = '<tr><td colspan="4">Server error while loading list.</td></tr>'
+ } finally {
+  setLoading(false)
+  updatePaginationMeta()
+ }
 }
 
 async function importEmails() {
@@ -69,6 +104,7 @@ async function importEmails() {
  })
  const payload = await response.json()
  alert(`Imported: ${payload.imported || 0}`)
+ page = 1
  await refreshAll()
 }
 
@@ -93,6 +129,26 @@ async function resendEmail(email) {
  await refreshAll()
 }
 
+async function deleteRow(id, email) {
+ const confirmed = window.confirm(`Delete ${email} from database?`)
+ if (!confirmed) return
+
+ const response = await fetch("/admin/api/delete", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ id })
+ })
+
+ if (!response.ok) {
+  alert("Delete failed")
+  return
+ }
+
+ alert(`Deleted ${email}`)
+ page = 1
+ await refreshAll()
+}
+
 async function refreshAll() {
  await Promise.all([refreshStats(), loadList()])
 }
@@ -107,12 +163,33 @@ document.getElementById("search").addEventListener("input", async () => {
  page = 1
  await loadList()
 })
+document.getElementById("prevBtn").addEventListener("click", async () => {
+ if (loading || page <= 1) return
+ page -= 1
+ await loadList()
+})
+document.getElementById("nextBtn").addEventListener("click", async () => {
+ if (loading) return
+ const totalPages = Math.max(1, Math.ceil(total / limit))
+ if (page >= totalPages) return
+ page += 1
+ await loadList()
+})
 document.getElementById("table").addEventListener("click", async (event) => {
- const button = event.target.closest(".resend-btn")
- if (!button) return
- const email = button.getAttribute("data-email")
- if (!email) return
- await resendEmail(email)
+ const resendButton = event.target.closest(".resend-btn")
+ if (resendButton) {
+  const email = resendButton.getAttribute("data-email")
+  if (!email) return
+  await resendEmail(email)
+  return
+ }
+
+ const deleteButton = event.target.closest(".delete-btn")
+ if (!deleteButton) return
+ const id = Number(deleteButton.getAttribute("data-id"))
+ const email = deleteButton.getAttribute("data-email")
+ if (!Number.isInteger(id) || !email) return
+ await deleteRow(id, email)
 })
 
 refreshAll().catch((error) => {

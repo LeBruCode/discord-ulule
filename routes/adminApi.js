@@ -104,6 +104,31 @@ router.post("/resend",async(req,res)=>{
  }
 })
 
+router.post("/delete", async (req, res) => {
+ try {
+  const rawId = req.body?.id
+  const id = Number(rawId)
+  if (!Number.isInteger(id) || id <= 0) {
+   return res.status(400).json({ error: "valid id required" })
+  }
+
+  const { error } = await supabase
+   .from("access_tokens")
+   .delete()
+   .eq("id", id)
+
+  if (error) {
+   console.error("delete route error", error)
+   return res.status(500).json({ error: "server error" })
+  }
+
+  return res.json({ success: true })
+ } catch (error) {
+  console.error("delete route unhandled error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
 router.get("/list",async(req,res)=>{
  try {
   const page=Math.max(parseInt(req.query.page)||1,1)

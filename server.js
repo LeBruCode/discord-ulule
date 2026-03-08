@@ -89,6 +89,12 @@ app.get("/admin",authMiddleware,(req,res)=>{
  res.sendFile(path.join(__dirname,"views/admin.html"))
 })
 
+app.post("/logout", authMiddleware, (req, res) => {
+ req.session.destroy(() => {
+  res.redirect("/login")
+ })
+})
+
 app.use("/admin/api",authMiddleware,adminApi)
 app.use("/stats",authMiddleware,statsRoutes)
 app.use("/api", publicApi)
