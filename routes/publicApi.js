@@ -64,6 +64,24 @@ async function discordApiRequest(config, maxRetries = 3) {
  throw lastError
 }
 
+async function isMemberOfGuild(discordId) {
+ const { botToken, guildId } = getDiscordConfig()
+ if (!discordId || !botToken || !guildId) return null
+
+ try {
+  await discordApiRequest({
+   method: "GET",
+   url: `${DISCORD_API}/guilds/${guildId}/members/${discordId}`,
+   headers: { Authorization: `Bot ${botToken}` }
+  }, 2)
+  return true
+ } catch (error) {
+  if (error?.response?.status === 404) return false
+  console.error("guild member check error", error?.response?.data || error?.message || error)
+  return null
+ }
+}
+
 async function getAccessTokenRecord(token) {
  const { data, error } = await supabase
   .from("access_tokens")
@@ -74,8 +92,23 @@ async function getAccessTokenRecord(token) {
  if (error || !data) return null
  if (getTokenExpiry(data.created_at) < new Date()) return null
 
- // Re-activation on member leave is now handled by the native Discord listener.
- if (data.used && data.discord_id) return null
+ // Main path: native Discord listener should reset this on member leave.
+ // Fallback path: verify membership on activation request to auto-heal stale rows.
+ if (data.used && data.discord_id) {
+  const stillMember = await isMemberOfGuild(data.discord_id)
+  if (stillMember === false) {
+   const { error: resetError } = await supabase
+    .from("access_tokens")
+    .update({ used: false, used_at: null, discord_id: null })
+    .eq("id", data.id)
+   if (resetError) {
+    console.error("token fallback reset error", resetError)
+    return null
+   }
+   return { ...data, used: false, discord_id: null }
+  }
+  return null
+ }
 
  return data
 }
