@@ -35,8 +35,8 @@ const loginAttempts = new Map()
 const sessionMaxAgeMs = 1000 * 60 * 60 * 24 * 7
 
 app.use(helmet())
-app.use(express.json())
-app.use(express.urlencoded({extended:true}))
+app.use(express.json({ limit: "2mb" }))
+app.use(express.urlencoded({ extended: true, limit: "2mb" }))
 
 app.use(session({
  name:"discord_access_admin",
