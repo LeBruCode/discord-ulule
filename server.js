@@ -32,20 +32,24 @@ app.set("trust proxy", 1)
 
 const isProd = process.env.NODE_ENV === "production"
 const loginAttempts = new Map()
+const sessionMaxAgeMs = 1000 * 60 * 60 * 24 * 7
 
 app.use(helmet())
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
 
 app.use(session({
+ name:"discord_access_admin",
  secret:process.env.SESSION_SECRET,
+ proxy: isProd,
  resave:false,
  saveUninitialized:false,
+ rolling:true,
  cookie: {
   httpOnly: true,
   secure: isProd,
   sameSite: "lax",
-  maxAge: 1000 * 60 * 60 * 8
+  maxAge: sessionMaxAgeMs
  }
 }))
 
@@ -76,8 +80,20 @@ app.post("/login",(req,res)=>{
 
  if(password===process.env.ADMIN_PASSWORD){
   loginAttempts.delete(ip)
-  req.session.auth=true
-  return res.redirect("/admin")
+  return req.session.regenerate((err) => {
+   if (err) {
+    console.error("session regenerate error", err)
+    return res.status(500).send("Session error")
+   }
+   req.session.auth = true
+   req.session.save((saveErr) => {
+    if (saveErr) {
+     console.error("session save error", saveErr)
+     return res.status(500).send("Session error")
+    }
+    return res.redirect("/admin")
+   })
+  })
  }
 
  entry.count += 1
@@ -91,6 +107,7 @@ app.get("/admin",authMiddleware,(req,res)=>{
 
 app.post("/logout", authMiddleware, (req, res) => {
  req.session.destroy(() => {
+  res.clearCookie("discord_access_admin")
   res.redirect("/login")
  })
 })
