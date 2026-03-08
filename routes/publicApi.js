@@ -21,6 +21,22 @@ function getTokenExpiry(createdAt) {
  return new Date(created.getTime() + 1000 * 60 * 60 * 24 * 7)
 }
 
+async function isMemberOfGuild(discordId) {
+ const { botToken, guildId } = getDiscordConfig()
+ if (!discordId || !botToken || !guildId) return null
+
+ try {
+  await axios.get(`${DISCORD_API}/guilds/${guildId}/members/${discordId}`, {
+   headers: { Authorization: `Bot ${botToken}` }
+  })
+  return true
+ } catch (error) {
+  if (error?.response?.status === 404) return false
+  console.error("guild member check error", error?.response?.data || error.message)
+  return null
+ }
+}
+
 async function getAccessTokenRecord(token) {
  const { data, error } = await supabase
   .from("access_tokens")
@@ -29,8 +45,24 @@ async function getAccessTokenRecord(token) {
   .single()
 
  if (error || !data) return null
- if (data.used && data.discord_id) return null
  if (getTokenExpiry(data.created_at) < new Date()) return null
+
+ if (data.used && data.discord_id) {
+  const stillMember = await isMemberOfGuild(data.discord_id)
+  if (stillMember === false) {
+   const { error: resetError } = await supabase
+    .from("access_tokens")
+    .update({ used: false, used_at: null, discord_id: null })
+    .eq("id", data.id)
+   if (resetError) {
+    console.error("token reset error", resetError)
+    return null
+   }
+   return { ...data, used: false, discord_id: null }
+  }
+  return null
+ }
+
  return data
 }
 
