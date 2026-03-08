@@ -13,6 +13,9 @@ const sendQueueState = {
  lastFinishedAt: null,
  lastStats: { processed: 0, sent: 0, failed: 0 }
 }
+const BREVO_MAX_RETRIES = 4
+const BREVO_BASE_DELAY_MS = 800
+const BREVO_INTER_SEND_DELAY_MS = 400
 
 function token() {
  return crypto.randomBytes(32).toString("hex")
@@ -50,9 +53,35 @@ const limitResend = createRateLimiter({ windowMs: 60 * 1000, max: 60, keyPrefix:
 const limitDelete = createRateLimiter({ windowMs: 60 * 1000, max: 60, keyPrefix: "delete" })
 const limitList = createRateLimiter({ windowMs: 60 * 1000, max: 180, keyPrefix: "list" })
 
+function sleep(ms) {
+ return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function isRetryableMailError(error) {
+ const msg = String(errorMessage(error)).toLowerCase()
+ return msg.includes("(429)") || msg.includes("(500)") || msg.includes("(502)") || msg.includes("(503)") || msg.includes("(504)") || msg.includes("timeout") || msg.includes("network")
+}
+
+async function sendMailWithRetry(email, accessToken) {
+ let lastError = null
+ for (let attempt = 0; attempt <= BREVO_MAX_RETRIES; attempt += 1) {
+  try {
+   await sendMail(email, accessToken)
+   return
+  } catch (error) {
+   lastError = error
+   if (!isRetryableMailError(error) || attempt === BREVO_MAX_RETRIES) break
+   const jitter = Math.floor(Math.random() * 250)
+   const waitMs = BREVO_BASE_DELAY_MS * (2 ** attempt) + jitter
+   await sleep(waitMs)
+  }
+ }
+ throw lastError || new Error("mail send failed")
+}
+
 async function sendOneAccessToken(row) {
  try {
-  await sendMail(row.email, row.token)
+  await sendMailWithRetry(row.email, row.token)
 
   const { error: updateError } = await supabase
    .from("access_tokens")
@@ -108,6 +137,7 @@ async function processSendQueue() {
     stats.processed += 1
     stats.sent += result.sent
     stats.failed += result.failed
+    await sleep(BREVO_INTER_SEND_DELAY_MS)
    }
   }
  } finally {
