@@ -197,10 +197,19 @@ button.ghost{
 table{
  width:100%;
  border-collapse:collapse;
- table-layout:auto;
+ table-layout:fixed;
  min-width:1120px;
  background:#0b1322;
 }
+
+.col-select{ width:42px; }
+.col-email{ width:32%; }
+.col-sent{ width:9%; }
+.col-activated{ width:9%; }
+.col-sent-at{ width:13%; }
+.col-used-at{ width:13%; }
+.col-error{ width:17%; }
+.col-actions{ width:120px; }
 
 thead th{
  position:sticky;
@@ -228,13 +237,18 @@ td:nth-child(7){
 
 .select-col{
  width:42px;
+ min-width:42px;
  max-width:42px;
- text-align:left;
+ text-align:center;
+ padding-left:8px;
+ padding-right:8px;
 }
 
 .select-col input{
  width:15px;
  height:15px;
+ display:block;
+ margin:0 auto;
 }
 
 .email-cell{
