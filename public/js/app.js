@@ -126,6 +126,12 @@ function startImportPolling() {
  }, 1500)
 }
 
+function stopImportPolling() {
+ if (!importPollTimer) return
+ clearInterval(importPollTimer)
+ importPollTimer = null
+}
+
 function renderRows(rows) {
  const table = document.getElementById("table")
  if (!rows.length) {
@@ -314,7 +320,18 @@ async function batchDelete() {
 }
 
 async function refreshAll() {
- await Promise.all([refreshStats(), loadList(), refreshQueueStatus(), refreshImportStatus()])
+ const [importStatus] = await Promise.all([
+  refreshImportStatus(),
+  refreshStats(),
+  loadList(),
+  refreshQueueStatus()
+ ])
+
+ if (importStatus?.running) {
+  if (!importPollTimer) startImportPolling()
+ } else {
+  stopImportPolling()
+ }
 }
 
 document.getElementById("importBtn").addEventListener("click", importEmails)

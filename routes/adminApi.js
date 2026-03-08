@@ -27,6 +27,7 @@ const sendQueueState = {
 const BREVO_MAX_RETRIES = 4
 const BREVO_BASE_DELAY_MS = 800
 const BREVO_INTER_SEND_DELAY_MS = 400
+const IMPORT_CHUNK_SIZE = 250
 
 function token() {
  return crypto.randomBytes(32).toString("hex")
@@ -179,26 +180,44 @@ async function processImportQueue(emails) {
  importQueueState.lastFinishedAt = null
 
  try {
-  for (const email of emails) {
-   importQueueState.currentEmail = email
-   const { error } = await supabase.from("access_tokens").insert({
+  for (let i = 0; i < emails.length; i += IMPORT_CHUNK_SIZE) {
+   const chunk = emails.slice(i, i + IMPORT_CHUNK_SIZE)
+   const payload = chunk.map((email) => ({
     email,
     token: token(),
     used: false,
     email_sent: false
-   })
+   }))
 
-   importQueueState.processed += 1
-   if (error) {
-    console.error("import error", email, error)
-    importQueueState.failed += 1
-    importQueueState.lastError = errorMessage(error)
-   } else {
-    importQueueState.inserted += 1
+   importQueueState.currentEmail = chunk[chunk.length - 1] || null
+   const { error } = await supabase.from("access_tokens").insert(payload)
+
+   if (!error) {
+    importQueueState.processed += chunk.length
+    importQueueState.inserted += chunk.length
+    continue
    }
 
-   if (importQueueState.processed % 50 === 0) {
-    await sleep(20)
+   // If a bulk insert fails, fall back to row-by-row for this chunk to keep progress accurate.
+   console.error("import chunk error, fallback row-by-row", error)
+   importQueueState.lastError = errorMessage(error)
+   for (const email of chunk) {
+    importQueueState.currentEmail = email
+    const { error: rowError } = await supabase.from("access_tokens").insert({
+     email,
+     token: token(),
+     used: false,
+     email_sent: false
+    })
+
+    importQueueState.processed += 1
+    if (rowError) {
+     console.error("import row error", email, rowError)
+     importQueueState.failed += 1
+     importQueueState.lastError = errorMessage(rowError)
+    } else {
+     importQueueState.inserted += 1
+    }
    }
   }
  } finally {
