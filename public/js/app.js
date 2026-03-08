@@ -87,7 +87,7 @@ function renderRows(rows) {
  if (!rows.length) {
   currentRowIds = []
   updateSelectAllState()
-  table.innerHTML = '<tr><td colspan="9">Aucun e-mail trouvé.</td></tr>'
+  table.innerHTML = '<tr><td colspan="8">Aucun e-mail trouvé.</td></tr>'
   return
  }
 
@@ -102,21 +102,19 @@ function renderRows(rows) {
    const used = row.used ? "Oui" : "Non"
    const sentAt = escapeHtml(formatDate(row.email_sent_at))
    const usedAt = escapeHtml(formatDate(row.used_at))
-   const discordId = escapeHtml(row.discord_id || "-")
    const error = escapeHtml(row.email_error || "-")
    const checked = selectedIds.has(id) ? "checked" : ""
    return `<tr>
-    <td><input class="row-select" type="checkbox" data-id="${id}" ${checked}></td>
-    <td>${email}</td>
-    <td>${sent}</td>
-    <td>${used}</td>
-    <td>${sentAt}</td>
-    <td>${usedAt}</td>
-    <td>${discordId}</td>
-    <td>${error}</td>
-    <td>
-     <button class="resend-btn" data-email="${email}">Renvoyer</button>
-     <button class="delete-btn" data-id="${id}" data-email="${email}">Supprimer</button>
+    <td class="select-col"><input class="row-select" type="checkbox" data-id="${id}" ${checked}></td>
+    <td class="email-cell" title="${email}">${email}</td>
+    <td class="status-cell">${sent}</td>
+    <td class="status-cell">${used}</td>
+    <td class="datetime-cell">${sentAt}</td>
+    <td class="datetime-cell">${usedAt}</td>
+    <td class="error-cell">${error}</td>
+    <td class="actions-cell">
+     <button class="icon-btn resend-btn" data-email="${email}" title="Renvoyer" aria-label="Renvoyer">✉</button>
+     <button class="icon-btn delete-btn" data-id="${id}" data-email="${email}" title="Supprimer" aria-label="Supprimer">🗑</button>
     </td>
    </tr>`
   })
@@ -143,7 +141,7 @@ async function loadList() {
   updatePaginationMeta()
  } catch (error) {
   console.error("load list error", error)
-  document.getElementById("table").innerHTML = '<tr><td colspan="9">Erreur serveur lors du chargement.</td></tr>'
+  document.getElementById("table").innerHTML = '<tr><td colspan="8">Erreur serveur lors du chargement.</td></tr>'
  } finally {
   setLoading(false)
   updatePaginationMeta()

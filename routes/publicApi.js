@@ -22,6 +22,18 @@ function getTokenExpiry(createdAt) {
  return new Date(created.getTime() + 1000 * 60 * 60 * 24 * 7)
 }
 
+function getAxiosErrorDetails(error) {
+ const status = error?.response?.status
+ const data = error?.response?.data
+ const description =
+  data?.error_description ||
+  data?.message ||
+  data?.error ||
+  error?.message ||
+  "unknown error"
+ return { status, description }
+}
+
 async function isMemberOfGuild(discordId) {
  const { botToken, guildId } = getDiscordConfig()
  if (!discordId || !botToken || !guildId) return null
@@ -194,8 +206,13 @@ router.get("/callback", async (req, res) => {
   const invite = process.env.DISCORD_INVITE_URL || (guildId ? `https://discord.com/channels/${guildId}` : "https://discord.com")
   return res.redirect(invite)
  } catch (error) {
-  console.error("discord callback error", error?.response?.data || error.message || error)
-  return res.status(500).send("Discord authentication failed")
+  const { status, description } = getAxiosErrorDetails(error)
+  console.error("discord callback error", {
+   status,
+   description,
+   raw: error?.response?.data || error?.message || error
+  })
+  return res.status(500).send(`Discord authentication failed: ${description}`)
  }
 })
 
