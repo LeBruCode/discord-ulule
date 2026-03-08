@@ -10,6 +10,10 @@ function token(){
  return crypto.randomBytes(32).toString("hex")
 }
 
+function errorMessage(error) {
+ return error?.message || "unknown error"
+}
+
 router.post("/import",async(req,res)=>{
  try {
   const rawEmails = req.body?.emails
@@ -57,6 +61,8 @@ router.post("/send",async(req,res)=>{
   }
 
   const rows = Array.isArray(data) ? data : []
+  let sent = 0
+  let failed = 0
   for(const r of rows){
 
    try{
@@ -64,17 +70,27 @@ router.post("/send",async(req,res)=>{
 
     const { error: updateError } = await supabase
      .from("access_tokens")
-     .update({email_sent:true})
+     .update({
+      email_sent:true,
+      email_sent_at:new Date().toISOString(),
+      email_error:null
+     })
      .eq("id",r.id)
 
     if (updateError) console.error("send update error", r.email, updateError)
+    sent += 1
    }catch(e){
     console.error("mail error",r.email,e)
+    failed += 1
+    await supabase
+     .from("access_tokens")
+     .update({ email_error: errorMessage(e) })
+     .eq("id", r.id)
    }
 
   }
 
-  res.json({processed:rows.length})
+  res.json({processed:rows.length, sent, failed})
  } catch (error) {
   console.error("send route error", error)
   return res.status(500).json({ error: "server error" })
@@ -92,16 +108,38 @@ router.post("/resend",async(req,res)=>{
    .from("access_tokens")
    .select("*")
    .eq("email",email.trim().toLowerCase())
-   .single()
+   .order("created_at",{ascending:false})
+   .limit(1)
+   .maybeSingle()
 
   if(error || !data) return res.status(404).json({error:"not found"})
 
-  await sendMail(data.email,data.token)
+  try {
+   await sendMail(data.email,data.token)
+  } catch (mailError) {
+   await supabase
+    .from("access_tokens")
+    .update({ email_error: errorMessage(mailError) })
+    .eq("id", data.id)
+   return res.status(502).json({
+    error: "mail provider error",
+    details: errorMessage(mailError)
+   })
+  }
+
+  await supabase
+   .from("access_tokens")
+   .update({
+    email_sent:true,
+    email_sent_at:new Date().toISOString(),
+    email_error:null
+   })
+   .eq("id",data.id)
 
   res.json({success:true})
  } catch (error) {
   console.error("resend route error", error)
-  return res.status(500).json({ error: "server error" })
+  return res.status(500).json({ error: "server error", details: errorMessage(error) })
  }
 })
 

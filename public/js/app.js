@@ -111,7 +111,11 @@ async function importEmails() {
 async function sendEmails() {
  const response = await fetch("/admin/api/send", { method: "POST" })
  const payload = await response.json()
- alert(`Processed: ${payload.processed || 0}`)
+ if (!response.ok) {
+  alert(payload.error || "Send failed")
+  return
+ }
+ alert(`Processed: ${payload.processed || 0} | Sent: ${payload.sent || 0} | Failed: ${payload.failed || 0}`)
  await refreshAll()
 }
 
@@ -121,8 +125,9 @@ async function resendEmail(email) {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ email })
  })
+ const payload = await response.json()
  if (!response.ok) {
-  alert("Resend failed")
+  alert(payload.details || payload.error || "Resend failed")
   return
  }
  alert(`Resent to ${email}`)
