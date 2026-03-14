@@ -361,6 +361,32 @@ async function batchResend() {
  await refreshAll()
 }
 
+async function resendFiltered() {
+ const { search, status, brevoStatus } = getFilters()
+ const labelParts = []
+ if (status !== "all") labelParts.push(`statut=${status}`)
+ if (brevoStatus !== "all") labelParts.push(`Brevo=${brevoStatus}`)
+ if (search) labelParts.push(`recherche=${search}`)
+ const label = labelParts.length ? ` (${labelParts.join(", ")})` : ""
+
+ const confirmed = window.confirm(`Renvoyer toutes les lignes du filtre actuel${label} ?`)
+ if (!confirmed) return
+
+ const response = await fetch("/admin/api/resend-filtered", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ search, status, brevoStatus })
+ })
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || "Échec du renvoi filtré")
+  return
+ }
+
+ alert(`Renvoi filtré: traités ${payload.processed || 0}, envoyés ${payload.sent || 0}, échecs ${payload.failed || 0}`)
+ await refreshAll()
+}
+
 async function batchDelete() {
  const ids = Array.from(selectedIds)
  if (!ids.length) {
@@ -407,6 +433,7 @@ document.getElementById("importBtn").addEventListener("click", importEmails)
 document.getElementById("sendBtn").addEventListener("click", sendEmails)
 document.getElementById("reconcileBtn").addEventListener("click", reconcileSentEmails)
 document.getElementById("batchResendBtn").addEventListener("click", batchResend)
+document.getElementById("filterResendBtn").addEventListener("click", resendFiltered)
 document.getElementById("batchDeleteBtn").addEventListener("click", batchDelete)
 document.getElementById("status").addEventListener("change", async () => {
  page = 1

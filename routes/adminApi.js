@@ -189,6 +189,15 @@ function normalizeEmailList(rawValue) {
  )]
 }
 
+function applyListFilters(query, { search = "", status = "all", brevoStatus = "all" }) {
+ if (search) query = query.ilike("email", `%${search}%`)
+ if (status === "sent") query = query.eq("email_sent", true)
+ if (status === "unsent") query = query.or("email_sent.eq.false,email_sent.is.null")
+ if (status === "activated") query = query.eq("used", true)
+ if (brevoStatus && brevoStatus !== "all") query = query.eq("brevo_status", brevoStatus)
+ return query
+}
+
 async function processImportQueue(emails) {
  if (importQueueState.running) return
 
@@ -467,9 +476,44 @@ router.post("/batch-resend", limitResend, async (req, res) => {
    failed += result.failed
   }
 
+ return res.json({ success: true, processed: rows.length, sent, failed })
+} catch (error) {
+ console.error("batch resend route error", error)
+ return res.status(500).json({ error: "server error" })
+}
+})
+
+router.post("/resend-filtered", limitResend, async (req, res) => {
+ try {
+  const search = typeof req.body?.search === "string" ? req.body.search.trim() : ""
+  const status = typeof req.body?.status === "string" ? req.body.status : "all"
+  const brevoStatus = typeof req.body?.brevoStatus === "string" ? req.body.brevoStatus.trim().toLowerCase() : "all"
+
+  let query = supabase
+   .from("access_tokens")
+   .select("id,email,token,email_sent,brevo_status")
+
+  query = applyListFilters(query, { search, status, brevoStatus })
+  query = query.order("created_at", { ascending: true }).limit(1000)
+
+  const { data, error } = await query
+  if (error) {
+   console.error("filtered resend fetch error", error)
+   return res.status(500).json({ error: "server error" })
+  }
+
+  const rows = Array.isArray(data) ? data : []
+  let sent = 0
+  let failed = 0
+  for (const row of rows) {
+   const result = await sendOneAccessToken(row)
+   sent += result.sent
+   failed += result.failed
+  }
+
   return res.json({ success: true, processed: rows.length, sent, failed })
  } catch (error) {
-  console.error("batch resend route error", error)
+  console.error("filtered resend route error", error)
   return res.status(500).json({ error: "server error" })
  }
 })
@@ -534,13 +578,7 @@ router.get("/list", limitList, async (req, res) => {
   let query = supabase
    .from("access_tokens")
    .select("*", { count: "exact" })
-
-  if (search) query = query.ilike("email", `%${search}%`)
-
-  if (status === "sent") query = query.eq("email_sent", true)
-  if (status === "unsent") query = query.or("email_sent.eq.false,email_sent.is.null")
-  if (status === "activated") query = query.eq("used", true)
-  if (brevoStatus && brevoStatus !== "all") query = query.eq("brevo_status", brevoStatus)
+  query = applyListFilters(query, { search, status, brevoStatus })
 
   if (sort === "last_import_asc") {
    query = query.order("created_at", { ascending: true })
