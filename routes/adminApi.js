@@ -29,6 +29,7 @@ const BREVO_BASE_DELAY_MS = 800
 const BREVO_INTER_SEND_DELAY_MS = 400
 const IMPORT_CHUNK_SIZE = 250
 const BREVO_FAILED_STATUSES = ["error", "soft_bounce", "hard_bounce", "blocked", "invalid", "deferred", "spam"]
+const BREVO_STATUSES = ["queued", "request", "sent", "delivered", "opened", "unique_opened", "click", "unique_clicked", "soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"]
 
 function token() {
  return crypto.randomBytes(32).toString("hex")
@@ -136,7 +137,7 @@ async function processSendQueue() {
   while (true) {
    const { data, error } = await supabase
     .from("access_tokens")
-    .select("id,email,token,email_sent,brevo_status")
+    .select("id,email,token,email_sent,brevo_status,resend_excluded")
     .or([
      "email_sent.eq.false",
      "email_sent.is.null",
@@ -150,11 +151,7 @@ async function processSendQueue() {
     break
    }
 
-   const rows = (Array.isArray(data) ? data : []).filter((row) => {
-    if (row.email_sent === true) return false
-    if (!row.brevo_status) return true
-    return BREVO_FAILED_STATUSES.includes(row.brevo_status)
-   })
+   const rows = applySendEligibility(data)
    if (!rows.length) break
 
    for (const row of rows) {
@@ -189,13 +186,64 @@ function normalizeEmailList(rawValue) {
  )]
 }
 
+function normalizeListFilters(input = {}) {
+ return {
+  search: typeof input.search === "string" ? input.search.trim() : "",
+  status: typeof input.status === "string" ? input.status : "all",
+  brevoStatus: typeof input.brevoStatus === "string" ? input.brevoStatus.trim().toLowerCase() : "all"
+ }
+}
+
 function applyListFilters(query, { search = "", status = "all", brevoStatus = "all" }) {
  if (search) query = query.ilike("email", `%${search}%`)
  if (status === "sent") query = query.eq("email_sent", true)
  if (status === "unsent") query = query.or("email_sent.eq.false,email_sent.is.null")
- if (status === "activated") query = query.eq("used", true)
+  if (status === "activated") query = query.eq("used", true)
  if (brevoStatus && brevoStatus !== "all") query = query.eq("brevo_status", brevoStatus)
  return query
+}
+
+function applySendEligibility(rows) {
+ return (Array.isArray(rows) ? rows : []).filter((row) => {
+  if (row.resend_excluded === true) return false
+  if (row.email_sent === true) return false
+  if (!row.brevo_status) return true
+  return BREVO_FAILED_STATUSES.includes(row.brevo_status)
+ })
+}
+
+async function fetchFilteredRows(filters, { select = "*", limit = 1000, orderAscending = true } = {}) {
+ let query = supabase
+  .from("access_tokens")
+  .select(select)
+
+ query = applyListFilters(query, filters)
+ query = query.order("created_at", { ascending: orderAscending }).limit(limit)
+
+ const result = await query
+ return result
+}
+
+function buildTimeline(row) {
+ const events = [
+  { key: "imported", label: "Importé", at: row.created_at, value: row.email },
+  { key: "brevo", label: "Brevo", at: row.brevo_event_at || row.email_sent_at, value: row.brevo_status || (row.email_sent ? "delivered" : null) },
+  { key: "activated", label: "Activé", at: row.used_at, value: row.used ? "oui" : null }
+ ]
+
+ if (row.discord_id) {
+  events.push({ key: "discord", label: "Discord", at: row.used_at, value: row.discord_id })
+ }
+
+ if (row.email_error) {
+  events.push({ key: "mail_error", label: "Erreur mail", at: row.brevo_event_at || row.email_sent_at || row.created_at, value: row.email_error })
+ }
+
+ if (row.admin_note) {
+  events.push({ key: "admin_note", label: "Note admin", at: row.admin_note_updated_at || row.created_at, value: row.admin_note })
+ }
+
+ return events.filter((event) => event.at || event.value)
 }
 
 async function processImportQueue(emails) {
@@ -312,19 +360,22 @@ router.get("/import-status", async (req, res) => {
 
 router.post("/send", limitSend, async (req, res) => {
  try {
-  const { count, error } = await supabase
+  const { data, error } = await supabase
    .from("access_tokens")
-   .select("id", { count: "exact", head: true })
+   .select("id,email_sent,brevo_status,resend_excluded")
    .or([
     "email_sent.eq.false",
     "email_sent.is.null",
     BREVO_FAILED_STATUSES.map((status) => `brevo_status.eq.${status}`).join(",")
    ].join(","))
+   .limit(5000)
 
   if (error) {
    console.error("send count error", error)
    return res.status(500).json({ error: "server error" })
   }
+
+  const eligibleRows = applySendEligibility(data)
 
   if (!sendQueueState.running) {
    processSendQueue().catch((queueError) => {
@@ -334,7 +385,7 @@ router.post("/send", limitSend, async (req, res) => {
   }
 
   return res.json({
-   queued: count || 0,
+   queued: eligibleRows.length,
    running: sendQueueState.running,
    lastStats: sendQueueState.lastStats
   })
@@ -485,24 +536,18 @@ router.post("/batch-resend", limitResend, async (req, res) => {
 
 router.post("/resend-filtered", limitResend, async (req, res) => {
  try {
-  const search = typeof req.body?.search === "string" ? req.body.search.trim() : ""
-  const status = typeof req.body?.status === "string" ? req.body.status : "all"
-  const brevoStatus = typeof req.body?.brevoStatus === "string" ? req.body.brevoStatus.trim().toLowerCase() : "all"
-
-  let query = supabase
-   .from("access_tokens")
-   .select("id,email,token,email_sent,brevo_status")
-
-  query = applyListFilters(query, { search, status, brevoStatus })
-  query = query.order("created_at", { ascending: true }).limit(1000)
-
-  const { data, error } = await query
+  const filters = normalizeListFilters(req.body)
+  const { data, error } = await fetchFilteredRows(filters, {
+   select: "id,email,token,email_sent,brevo_status,resend_excluded",
+   limit: 5000,
+   orderAscending: true
+  })
   if (error) {
    console.error("filtered resend fetch error", error)
    return res.status(500).json({ error: "server error" })
   }
 
-  const rows = Array.isArray(data) ? data : []
+  const rows = (Array.isArray(data) ? data : []).filter((row) => row.resend_excluded !== true)
   let sent = 0
   let failed = 0
   for (const row of rows) {
@@ -514,6 +559,204 @@ router.post("/resend-filtered", limitResend, async (req, res) => {
   return res.json({ success: true, processed: rows.length, sent, failed })
  } catch (error) {
   console.error("filtered resend route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.post("/select-filtered", limitList, async (req, res) => {
+ try {
+  const filters = normalizeListFilters(req.body)
+  const { data, error } = await fetchFilteredRows(filters, {
+   select: "id",
+   limit: 5000,
+   orderAscending: false
+  })
+
+  if (error) {
+   console.error("select filtered error", error)
+   return res.status(500).json({ error: "server error" })
+  }
+
+  const ids = normalizeIdList((data || []).map((row) => row.id))
+  return res.json({ success: true, ids, total: ids.length })
+ } catch (error) {
+  console.error("select filtered route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.post("/exclude-selected", limitResend, async (req, res) => {
+ try {
+  const ids = normalizeIdList(req.body?.ids)
+  const excluded = Boolean(req.body?.excluded)
+  if (!ids.length) return res.status(400).json({ error: "valid ids required" })
+
+  const { data, error } = await supabase
+   .from("access_tokens")
+   .update({
+    resend_excluded: excluded,
+    admin_note_updated_at: new Date().toISOString()
+   })
+   .in("id", ids)
+   .select("id")
+
+  if (error) {
+   console.error("exclude selected error", error)
+   return res.status(500).json({ error: "server error" })
+  }
+
+  return res.json({ success: true, updated: Array.isArray(data) ? data.length : 0, excluded })
+ } catch (error) {
+  console.error("exclude selected route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.post("/exclude-filtered", limitResend, async (req, res) => {
+ try {
+  const filters = normalizeListFilters(req.body)
+  const excluded = Boolean(req.body?.excluded)
+  const { data, error } = await fetchFilteredRows(filters, {
+   select: "id",
+   limit: 5000,
+   orderAscending: false
+  })
+  if (error) {
+   console.error("exclude filtered fetch error", error)
+   return res.status(500).json({ error: "server error" })
+  }
+
+  const ids = normalizeIdList((data || []).map((row) => row.id))
+  if (!ids.length) return res.json({ success: true, updated: 0, excluded })
+
+  const { data: updatedData, error: updateError } = await supabase
+   .from("access_tokens")
+   .update({
+    resend_excluded: excluded,
+    admin_note_updated_at: new Date().toISOString()
+   })
+   .in("id", ids)
+   .select("id")
+
+  if (updateError) {
+   console.error("exclude filtered update error", updateError)
+   return res.status(500).json({ error: "server error" })
+  }
+
+  return res.json({ success: true, updated: Array.isArray(updatedData) ? updatedData.length : 0, excluded })
+ } catch (error) {
+  console.error("exclude filtered route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.post("/note", limitResend, async (req, res) => {
+ try {
+  const id = String(req.body?.id || "").trim()
+  const note = typeof req.body?.note === "string" ? req.body.note.trim() : ""
+  if (!UUID_V4_OR_V7_REGEX.test(id)) return res.status(400).json({ error: "valid uuid id required" })
+
+  const { data, error } = await supabase
+   .from("access_tokens")
+   .update({
+    admin_note: note || null,
+    admin_note_updated_at: new Date().toISOString()
+   })
+   .eq("id", id)
+   .select("id,admin_note,admin_note_updated_at")
+   .maybeSingle()
+
+  if (error) {
+   console.error("note route error", error)
+   return res.status(500).json({ error: "server error" })
+  }
+
+  return res.json({ success: true, data })
+ } catch (error) {
+  console.error("note route unhandled error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.get("/detail/:id", limitList, async (req, res) => {
+ try {
+  const id = String(req.params.id || "").trim()
+  if (!UUID_V4_OR_V7_REGEX.test(id)) return res.status(400).json({ error: "valid uuid id required" })
+
+  const { data, error } = await supabase
+   .from("access_tokens")
+   .select("*")
+   .eq("id", id)
+   .maybeSingle()
+
+  if (error) {
+   console.error("detail route error", error)
+   return res.status(500).json({ error: "server error" })
+  }
+  if (!data) return res.status(404).json({ error: "not found" })
+
+  return res.json({
+   data,
+   timeline: buildTimeline(data)
+  })
+ } catch (error) {
+  console.error("detail route unhandled error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.get("/brevo-stats", limitList, async (req, res) => {
+ try {
+  const stats = {}
+  for (const status of ["none", ...BREVO_STATUSES]) {
+   let query = supabase
+    .from("access_tokens")
+    .select("id", { count: "exact", head: true })
+
+   if (status === "none") query = query.is("brevo_status", null)
+   else query = query.eq("brevo_status", status)
+
+   const { count, error } = await query
+   if (error) throw error
+   stats[status] = count || 0
+  }
+
+  return res.json({ stats })
+ } catch (error) {
+  console.error("brevo stats route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.get("/export", limitList, async (req, res) => {
+ try {
+  const filters = normalizeListFilters(req.query)
+  const { data, error } = await fetchFilteredRows(filters, {
+   select: "email,email_sent,used,email_sent_at,used_at,brevo_status,email_error,resend_excluded,admin_note,created_at",
+   limit: 5000,
+   orderAscending: false
+  })
+  if (error) {
+   console.error("export route error", error)
+   return res.status(500).json({ error: "server error" })
+  }
+
+  const rows = Array.isArray(data) ? data : []
+  const header = ["email", "email_sent", "used", "email_sent_at", "used_at", "brevo_status", "email_error", "resend_excluded", "admin_note", "created_at"]
+  const csvLines = [
+   header.join(","),
+   ...rows.map((row) => header.map((key) => {
+    const value = row[key]
+    const normalized = value == null ? "" : String(value)
+    return `"${normalized.replaceAll('"', '""')}"`
+   }).join(","))
+  ]
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8")
+  res.setHeader("Content-Disposition", `attachment; filename="access_tokens_export_${Date.now()}.csv"`)
+  return res.send(csvLines.join("\n"))
+ } catch (error) {
+  console.error("export route unhandled error", error)
   return res.status(500).json({ error: "server error" })
  }
 })

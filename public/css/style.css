@@ -92,6 +92,30 @@ h2{
  margin-bottom:14px;
 }
 
+.brevo-stats-grid{
+ display:grid;
+ grid-template-columns:repeat(4,minmax(140px,1fr));
+ gap:10px;
+}
+
+.mini-card{
+ background:#0b1322;
+ border:1px solid #223555;
+ border-radius:12px;
+ padding:12px;
+}
+
+.mini-card span{
+ display:block;
+ color:var(--muted);
+ font-size:12px;
+ margin-bottom:8px;
+}
+
+.mini-card b{
+ font-size:22px;
+}
+
 .card{
  background:linear-gradient(180deg, var(--panel-2), var(--panel));
  border:1px solid var(--line);
@@ -302,6 +326,19 @@ td:nth-child(7){
  max-width:360px;
 }
 
+.inline-pill{
+ display:inline-flex;
+ align-items:center;
+ padding:3px 8px;
+ margin-left:8px;
+ border-radius:999px;
+ font-size:11px;
+ border:1px solid #324766;
+ color:#b9ccec;
+ background:#111d31;
+ vertical-align:middle;
+}
+
 .status-cell{
  text-align:center;
  font-weight:600;
@@ -382,6 +419,12 @@ td:nth-child(7){
  justify-content:center;
 }
 
+.detail-btn{
+ background:#152238;
+ border-color:#2d4061;
+ box-shadow:none;
+}
+
 .table-footer{
  display:flex;
  justify-content:space-between;
@@ -394,6 +437,88 @@ td:nth-child(7){
  display:flex;
  align-items:center;
  gap:8px;
+}
+
+.detail-drawer{
+ position:fixed;
+ inset:0;
+ display:flex;
+ justify-content:flex-end;
+ background:rgba(4,8,15,.56);
+ z-index:20;
+}
+
+.detail-drawer.hidden{
+ display:none;
+}
+
+.detail-card{
+ width:min(560px, 100%);
+ height:100%;
+ overflow:auto;
+ background:linear-gradient(180deg, rgba(18,29,48,.98), rgba(15,23,38,.99));
+ border-left:1px solid #243655;
+ padding:20px;
+ box-shadow:-20px 0 40px rgba(0,0,0,.35);
+}
+
+.detail-header{
+ display:flex;
+ align-items:flex-start;
+ justify-content:space-between;
+ gap:12px;
+ margin-bottom:12px;
+}
+
+.detail-meta{
+ display:flex;
+ flex-wrap:wrap;
+ gap:8px;
+ margin-bottom:18px;
+}
+
+.detail-section{
+ margin-bottom:18px;
+}
+
+.detail-section h3{
+ margin:0 0 10px;
+ font-size:14px;
+ color:#bfd3f5;
+}
+
+.detail-actions{
+ display:flex;
+ justify-content:flex-end;
+ margin-top:10px;
+}
+
+.timeline{
+ display:flex;
+ flex-direction:column;
+ gap:12px;
+}
+
+.timeline-item{
+ display:flex;
+ gap:12px;
+ align-items:flex-start;
+}
+
+.timeline-dot{
+ width:10px;
+ height:10px;
+ margin-top:6px;
+ border-radius:999px;
+ background:var(--accent);
+ flex:0 0 auto;
+}
+
+.timeline-item p,
+.timeline-item span{
+ margin:4px 0 0;
+ color:var(--muted);
+ font-size:12px;
 }
 
 .login-box{
@@ -411,6 +536,7 @@ td:nth-child(7){
  .container{padding:14px;}
  h1{font-size:24px;}
  .stats{grid-template-columns:repeat(2,minmax(140px,1fr));}
+  .brevo-stats-grid{grid-template-columns:repeat(2,minmax(120px,1fr));}
  .topbar{flex-direction:column;align-items:stretch;}
  .topbar-actions{justify-content:flex-start;}
  .table-footer{flex-direction:column;align-items:flex-start;}

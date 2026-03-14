@@ -3,6 +3,7 @@ let limit = 100
 let total = 0
 let loading = false
 let importPollTimer = null
+let currentDetailId = null
 
 const selectedIds = new Set()
 let currentRowIds = []
@@ -43,6 +44,10 @@ function formatBrevoStatus(value) {
   spam: "Spam"
  }
  return labels[status] || "Aucun statut"
+}
+
+function formatYesNo(value) {
+ return value ? "Oui" : "Non"
 }
 
 function getFilters() {
@@ -86,6 +91,19 @@ async function refreshStats() {
  document.getElementById("sent").innerText = stats.sent || 0
  document.getElementById("activated").innerText = stats.activated || 0
  document.getElementById("rate").innerText = `${stats.rate || 0}%`
+}
+
+async function refreshBrevoStats() {
+ try {
+  const payload = await fetch("/admin/api/brevo-stats").then((r) => r.json())
+  const stats = payload.stats || {}
+  for (const key of ["none", "request", "queued", "sent", "delivered", "soft_bounce", "hard_bounce", "blocked"]) {
+   const node = document.getElementById(`brevoStat-${key}`)
+   if (node) node.innerText = Number(stats[key] || 0)
+  }
+ } catch (error) {
+  console.error("brevo stats error", error)
+ }
 }
 
 async function refreshQueueStatus() {
@@ -181,11 +199,12 @@ function renderRows(rows) {
    const usedAt = escapeHtml(formatDate(row.used_at))
    const brevoStatusKey = String(row.brevo_status || "").trim().toLowerCase()
    const brevoStatus = escapeHtml(formatBrevoStatus(brevoStatusKey))
+   const excluded = row.resend_excluded === true
    const error = escapeHtml(row.email_error || "-")
    const checked = selectedIds.has(id) ? "checked" : ""
    return `<tr>
     <td class="select-col"><input class="row-select" type="checkbox" data-id="${id}" ${checked}></td>
-    <td class="email-cell" title="${email}">${email}</td>
+    <td class="email-cell" title="${email}">${email}${excluded ? ' <span class="inline-pill">Exclu</span>' : ""}</td>
     <td class="status-cell">${sent}</td>
     <td class="status-cell">${used}</td>
     <td class="datetime-cell">${sentAt}</td>
@@ -193,6 +212,7 @@ function renderRows(rows) {
     <td class="status-pill-cell"><span class="brevo-badge brevo-${brevoStatusKey.replace(/[^a-z_]+/g, "-")}">${brevoStatus}</span></td>
     <td class="error-cell">${error}</td>
     <td class="actions-cell">
+     <button class="icon-btn detail-btn" data-id="${id}" title="Détail" aria-label="Détail">⋯</button>
      <button class="icon-btn resend-btn" data-email="${email}" title="Renvoyer" aria-label="Renvoyer">✉</button>
      <button class="icon-btn delete-btn" data-id="${id}" data-email="${email}" title="Supprimer" aria-label="Supprimer">🗑</button>
     </td>
@@ -387,6 +407,123 @@ async function resendFiltered() {
  await refreshAll()
 }
 
+async function selectFiltered() {
+ const filters = getFilters()
+ const response = await fetch("/admin/api/select-filtered", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(filters)
+ })
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || "Échec de la sélection du filtre")
+  return
+ }
+
+ selectedIds.clear()
+ for (const id of payload.ids || []) selectedIds.add(id)
+ updateSelectAllState()
+ updatePaginationMeta()
+ alert(`${payload.total || 0} ligne(s) sélectionnée(s) pour le filtre actuel`)
+}
+
+async function setExcludedForSelected(excluded) {
+ const ids = Array.from(selectedIds)
+ if (!ids.length) {
+  alert("Aucune ligne sélectionnée")
+  return
+ }
+
+ const response = await fetch("/admin/api/exclude-selected", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ ids, excluded })
+ })
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || "Échec de la mise à jour")
+  return
+ }
+
+ alert(`${payload.updated || 0} ligne(s) ${excluded ? "exclue(s)" : "réintégrée(s)"}`)
+ await refreshAll()
+}
+
+async function setExcludedForFiltered(excluded) {
+ const filters = getFilters()
+ const response = await fetch("/admin/api/exclude-filtered", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ ...filters, excluded })
+ })
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || "Échec de la mise à jour du filtre")
+  return
+ }
+
+ alert(`${payload.updated || 0} ligne(s) ${excluded ? "exclue(s)" : "réintégrée(s)"} pour le filtre actuel`)
+ await refreshAll()
+}
+
+function exportFiltered() {
+ const { search, status, brevoStatus, sort } = getFilters()
+ const params = new URLSearchParams({ search, status, brevoStatus, sort })
+ window.location = `/admin/api/export?${params.toString()}`
+}
+
+function closeDetailDrawer() {
+ currentDetailId = null
+ document.getElementById("detailDrawer").classList.add("hidden")
+}
+
+function renderTimelineItem(item) {
+ const label = escapeHtml(item.label || "-")
+ const at = escapeHtml(formatDate(item.at))
+ const value = escapeHtml(item.value || "-")
+ return `<div class="timeline-item"><div class="timeline-dot"></div><div><b>${label}</b><p>${value}</p><span>${at}</span></div></div>`
+}
+
+async function openDetail(id) {
+ const response = await fetch(`/admin/api/detail/${encodeURIComponent(id)}`)
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || "Échec du chargement du détail")
+  return
+ }
+
+ currentDetailId = id
+ const row = payload.data || {}
+ document.getElementById("detailEmail").innerText = row.email || "-"
+ document.getElementById("detailMeta").innerHTML = `
+  <span class="inline-pill">${formatBrevoStatus(row.brevo_status)}</span>
+  <span class="inline-pill">${row.resend_excluded ? "Exclu du renvoi" : "Renvoi autorisé"}</span>
+  <span class="inline-pill">Activé: ${formatYesNo(row.used)}</span>
+ `
+ document.getElementById("detailTimeline").innerHTML = (payload.timeline || []).map(renderTimelineItem).join("") || '<p class="panel-copy">Aucun historique disponible.</p>'
+ document.getElementById("detailNote").value = row.admin_note || ""
+ document.getElementById("detailDrawer").classList.remove("hidden")
+}
+
+async function saveDetailNote() {
+ if (!currentDetailId) return
+ const note = document.getElementById("detailNote").value
+ const response = await fetch("/admin/api/note", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ id: currentDetailId, note })
+ })
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || "Échec de l'enregistrement de la note")
+  return
+ }
+
+ alert("Note enregistrée")
+ await openDetail(currentDetailId)
+ await loadList()
+}
+
 async function batchDelete() {
  const ids = Array.from(selectedIds)
  if (!ids.length) {
@@ -418,6 +555,7 @@ async function refreshAll() {
  const [importStatus] = await Promise.all([
   refreshImportStatus(),
   refreshStats(),
+  refreshBrevoStats(),
   loadList(),
   refreshQueueStatus()
  ])
@@ -434,7 +572,14 @@ document.getElementById("sendBtn").addEventListener("click", sendEmails)
 document.getElementById("reconcileBtn").addEventListener("click", reconcileSentEmails)
 document.getElementById("batchResendBtn").addEventListener("click", batchResend)
 document.getElementById("filterResendBtn").addEventListener("click", resendFiltered)
+document.getElementById("selectFilteredBtn").addEventListener("click", selectFiltered)
+document.getElementById("excludeSelectedBtn").addEventListener("click", async () => setExcludedForSelected(true))
+document.getElementById("includeSelectedBtn").addEventListener("click", async () => setExcludedForSelected(false))
+document.getElementById("excludeFilteredBtn").addEventListener("click", async () => setExcludedForFiltered(true))
+document.getElementById("exportBtn").addEventListener("click", exportFiltered)
 document.getElementById("batchDeleteBtn").addEventListener("click", batchDelete)
+document.getElementById("detailCloseBtn").addEventListener("click", closeDetailDrawer)
+document.getElementById("saveNoteBtn").addEventListener("click", saveDetailNote)
 document.getElementById("status").addEventListener("change", async () => {
  page = 1
  await loadList()
@@ -489,6 +634,14 @@ document.getElementById("table").addEventListener("change", (event) => {
 })
 
 document.getElementById("table").addEventListener("click", async (event) => {
+ const detailButton = event.target.closest(".detail-btn")
+ if (detailButton) {
+  const id = detailButton.getAttribute("data-id")
+  if (!id) return
+  await openDetail(id)
+  return
+ }
+
  const resendButton = event.target.closest(".resend-btn")
  if (resendButton) {
   const email = resendButton.getAttribute("data-email")
