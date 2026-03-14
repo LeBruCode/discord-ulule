@@ -10,6 +10,11 @@ import statsRoutes from "./routes/stats.js"
 import publicApi from "./routes/publicApi.js"
 import authMiddleware from "./middleware/auth.js"
 import { startDiscordMemberLeaveListener } from "./services/discordBot.js"
+import {
+ createAdminAuthCookieValue,
+ getAdminAuthCookieMaxAgeMs,
+ getAdminAuthCookieName
+} from "./services/adminAuthCookie.js"
 
 dotenv.config()
 
@@ -34,6 +39,8 @@ app.set("trust proxy", 1)
 const isProd = process.env.NODE_ENV === "production"
 const loginAttempts = new Map()
 const sessionMaxAgeMs = 1000 * 60 * 60 * 24 * 7
+const adminAuthCookieName = getAdminAuthCookieName()
+const adminAuthCookieMaxAgeMs = getAdminAuthCookieMaxAgeMs()
 
 app.use(helmet())
 app.use(express.json({ limit: "2mb" }))
@@ -92,6 +99,13 @@ app.post("/login",(req,res)=>{
      console.error("session save error", saveErr)
      return res.status(500).send("Session error")
     }
+    res.cookie(adminAuthCookieName, createAdminAuthCookieValue(), {
+     httpOnly: true,
+     secure: isProd,
+     sameSite: "lax",
+     maxAge: adminAuthCookieMaxAgeMs,
+     path: "/"
+    })
     return res.redirect("/admin")
    })
   })
@@ -109,6 +123,7 @@ app.get("/admin",authMiddleware,(req,res)=>{
 app.post("/logout", authMiddleware, (req, res) => {
  req.session.destroy(() => {
   res.clearCookie("discord_access_admin")
+  res.clearCookie(adminAuthCookieName)
   res.redirect("/login")
  })
 })
