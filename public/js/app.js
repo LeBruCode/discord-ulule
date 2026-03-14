@@ -576,6 +576,7 @@ document.getElementById("selectFilteredBtn").addEventListener("click", selectFil
 document.getElementById("excludeSelectedBtn").addEventListener("click", async () => setExcludedForSelected(true))
 document.getElementById("includeSelectedBtn").addEventListener("click", async () => setExcludedForSelected(false))
 document.getElementById("excludeFilteredBtn").addEventListener("click", async () => setExcludedForFiltered(true))
+document.getElementById("includeFilteredBtn").addEventListener("click", async () => setExcludedForFiltered(false))
 document.getElementById("exportBtn").addEventListener("click", exportFiltered)
 document.getElementById("batchDeleteBtn").addEventListener("click", batchDelete)
 document.getElementById("detailCloseBtn").addEventListener("click", closeDetailDrawer)
