@@ -64,6 +64,14 @@ h2{
  color:#bfd3f5;
 }
 
+.panel-copy{
+ margin:0 0 12px;
+ color:var(--muted);
+ font-size:13px;
+ line-height:1.5;
+ max-width:920px;
+}
+
 .topbar{
  display:flex;
  justify-content:space-between;
@@ -195,6 +203,13 @@ button.ghost{
 
 #importStatus{
  margin:10px 0 6px;
+ color:var(--muted);
+ font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+ font-size:12px;
+}
+
+#reconcileStatus{
+ margin:10px 0 0;
  color:var(--muted);
  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
  font-size:12px;

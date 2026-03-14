@@ -102,6 +102,10 @@ function renderImportStatus(status) {
  importStatus.innerText = "Import: inactif"
 }
 
+function setReconcileStatus(message) {
+ document.getElementById("reconcileStatus").innerText = message
+}
+
 async function refreshImportStatus() {
  try {
   const status = await fetch("/admin/api/import-status").then((r) => r.json())
@@ -234,6 +238,44 @@ async function sendEmails() {
  await refreshAll()
 }
 
+async function reconcileSentEmails() {
+ const input = document.getElementById("reconcileEmails")
+ const emails = input.value
+ if (!emails.trim()) {
+  alert("Colle d'abord une liste d'e-mails Brevo")
+  return
+ }
+
+ setReconcileStatus("Réconciliation en cours...")
+ const response = await fetch("/admin/api/reconcile-sent", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ emails })
+ })
+ const payload = await response.json()
+ if (!response.ok) {
+  setReconcileStatus("Réconciliation: échec")
+  alert(payload.error || "Échec de la réconciliation")
+  return
+ }
+
+ input.value = ""
+ const missing = Number(payload.missing) || 0
+ const updatedRows = Number(payload.updatedRows) || 0
+ const matched = Number(payload.matched) || 0
+ setReconcileStatus(`Réconciliation terminée: ${matched} e-mails retrouvés, ${updatedRows} ligne(s) mises à jour, ${missing} absente(s) de la base`)
+
+ if (missing > 0) {
+  const preview = (payload.missingEmails || []).slice(0, 15).join("\n")
+  alert(`Réconciliation terminée.\n\nRetrouvés: ${matched}\nLignes mises à jour: ${updatedRows}\nAbsents de la base: ${missing}${preview ? `\n\nExemples absents:\n${preview}` : ""}`)
+ } else {
+  alert(`Réconciliation terminée: ${matched} e-mails retrouvés, ${updatedRows} ligne(s) mises à jour.`)
+ }
+
+ page = 1
+ await refreshAll()
+}
+
 async function resendEmail(email) {
  const response = await fetch("/admin/api/resend", {
   method: "POST",
@@ -336,6 +378,7 @@ async function refreshAll() {
 
 document.getElementById("importBtn").addEventListener("click", importEmails)
 document.getElementById("sendBtn").addEventListener("click", sendEmails)
+document.getElementById("reconcileBtn").addEventListener("click", reconcileSentEmails)
 document.getElementById("batchResendBtn").addEventListener("click", batchResend)
 document.getElementById("batchDeleteBtn").addEventListener("click", batchDelete)
 document.getElementById("status").addEventListener("change", async () => {

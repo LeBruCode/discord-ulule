@@ -64,6 +64,7 @@ const limitSend = createRateLimiter({ windowMs: 60 * 1000, max: 5, keyPrefix: "s
 const limitResend = createRateLimiter({ windowMs: 60 * 1000, max: 60, keyPrefix: "resend" })
 const limitDelete = createRateLimiter({ windowMs: 60 * 1000, max: 60, keyPrefix: "delete" })
 const limitList = createRateLimiter({ windowMs: 60 * 1000, max: 180, keyPrefix: "list" })
+const limitReconcile = createRateLimiter({ windowMs: 60 * 1000, max: 10, keyPrefix: "reconcile" })
 
 function sleep(ms) {
  return new Promise((resolve) => setTimeout(resolve, ms))
@@ -164,6 +165,16 @@ function normalizeIdList(ids) {
  return ids
   .map((id) => String(id || "").trim())
   .filter((id) => UUID_V4_OR_V7_REGEX.test(id))
+}
+
+function normalizeEmailList(rawValue) {
+ if (typeof rawValue !== "string") return []
+ return [...new Set(
+  rawValue
+   .split(/[\s,;]+/)
+   .map((email) => email.trim().toLowerCase())
+   .filter(Boolean)
+ )]
 }
 
 async function processImportQueue(emails) {
@@ -317,6 +328,69 @@ router.get("/send-status", async (req, res) => {
  })
 })
 
+router.post("/reconcile-sent", limitReconcile, async (req, res) => {
+ try {
+  const emails = normalizeEmailList(req.body?.emails)
+  if (!emails.length) {
+   return res.status(400).json({ error: "emails is required" })
+  }
+
+  const matchedEmailSet = new Set()
+  let updatedRows = 0
+  const chunkSize = 200
+
+  for (let index = 0; index < emails.length; index += chunkSize) {
+   const chunk = emails.slice(index, index + chunkSize)
+   const { data, error } = await supabase
+    .from("access_tokens")
+    .select("email")
+    .in("email", chunk)
+
+   if (error) {
+    console.error("reconcile fetch error", error)
+    return res.status(500).json({ error: "server error" })
+   }
+
+   const matchedEmails = [...new Set((data || []).map((row) => String(row.email || "").toLowerCase()).filter(Boolean))]
+   matchedEmails.forEach((email) => matchedEmailSet.add(email))
+
+   if (!matchedEmails.length) continue
+
+   const { data: updatedData, error: updateError } = await supabase
+    .from("access_tokens")
+    .update({
+     email_sent: true,
+     email_sent_at: new Date().toISOString(),
+     email_error: null
+    })
+    .in("email", matchedEmails)
+    .or("email_sent.eq.false,email_sent.is.null")
+    .select("id")
+
+   if (updateError) {
+    console.error("reconcile update error", updateError)
+    return res.status(500).json({ error: "server error" })
+   }
+
+   updatedRows += Array.isArray(updatedData) ? updatedData.length : 0
+  }
+
+  const missingEmails = emails.filter((email) => !matchedEmailSet.has(email))
+
+  return res.json({
+   success: true,
+   pasted: emails.length,
+   matched: matchedEmailSet.size,
+   updatedRows,
+   missing: missingEmails.length,
+   missingEmails
+  })
+ } catch (error) {
+  console.error("reconcile route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
 router.post("/resend", limitResend, async (req, res) => {
  try {
   const { email } = req.body || {}
@@ -440,6 +514,7 @@ router.get("/list", limitList, async (req, res) => {
   if (search) query = query.ilike("email", `%${search}%`)
 
   if (status === "sent") query = query.eq("email_sent", true)
+  if (status === "unsent") query = query.or("email_sent.eq.false,email_sent.is.null")
   if (status === "activated") query = query.eq("used", true)
 
   if (sort === "last_import_asc") {
