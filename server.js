@@ -1,4 +1,5 @@
 import express from "express"
+import crypto from "crypto"
 import dotenv from "dotenv"
 import helmet from "helmet"
 import path from "path"
@@ -42,6 +43,13 @@ const sessionMaxAgeMs = 1000 * 60 * 60 * 24 * 7
 const adminAuthCookieName = getAdminAuthCookieName()
 const adminAuthCookieMaxAgeMs = getAdminAuthCookieMaxAgeMs()
 
+function safeEqualText(a, b) {
+ const left = Buffer.from(String(a || ""), "utf8")
+ const right = Buffer.from(String(b || ""), "utf8")
+ if (left.length !== right.length) return false
+ return crypto.timingSafeEqual(left, right)
+}
+
 app.use(helmet())
 app.use(express.json({ limit: "2mb" }))
 app.use(express.urlencoded({ extended: true, limit: "2mb" }))
@@ -68,6 +76,9 @@ app.get("/",(req,res)=>{
 })
 
 app.get("/login",(req,res)=>{
+ res.setHeader("Cache-Control", "no-store")
+ res.setHeader("Pragma", "no-cache")
+ res.setHeader("Expires", "0")
  res.sendFile(path.join(__dirname,"views/login.html"))
 })
 
@@ -86,7 +97,7 @@ app.post("/login",(req,res)=>{
  const {password}=req.body
  if (typeof password !== "string") return res.redirect("/login?error=1")
 
- if(password===process.env.ADMIN_PASSWORD){
+ if(safeEqualText(password, process.env.ADMIN_PASSWORD)){
   loginAttempts.delete(ip)
   return req.session.regenerate((err) => {
    if (err) {
@@ -117,6 +128,9 @@ app.post("/login",(req,res)=>{
 })
 
 app.get("/admin",authMiddleware,(req,res)=>{
+ res.setHeader("Cache-Control", "no-store")
+ res.setHeader("Pragma", "no-cache")
+ res.setHeader("Expires", "0")
  res.sendFile(path.join(__dirname,"views/admin.html"))
 })
 
