@@ -27,6 +27,19 @@
 </div>
 </div>
 
+<section class="hero-panel">
+<div class="hero-copy">
+<p class="eyebrow">Vue d'ensemble</p>
+<h2>Tout ce qu'il te faut pour piloter tes accès sans cliquer dans le vide.</h2>
+<p>Imports, Brevo, exclusions, relances et historique: tout est rangé pour que tu voies vite ce qui marche et ce qui mérite un petit coup de pied.</p>
+</div>
+<div class="hero-aside">
+<div class="hero-chip">Brevo sous contrôle</div>
+<div class="hero-chip">Actions groupées</div>
+<div class="hero-chip">Moins d'erreurs bêtes</div>
+</div>
+</section>
+
 <section class="stats">
 <div class="card"><span id="statsTotalLabel">Total</span><b id="total">0</b></div>
 <div class="card"><span id="statsSentLabel">Envoyés</span><b id="sent">0</b></div>
@@ -34,7 +47,7 @@
 <div class="card"><span id="statsRateLabel">Taux</span><b id="rate">0%</b></div>
 </section>
 
-<section class="panel">
+<section class="panel panel-tight">
 <h2 id="brevoTitle">Statuts Brevo</h2>
 <div class="brevo-stats-grid" id="brevoStatsGrid">
 <div class="mini-card"><span id="brevoStatLabel-none">Aucun statut</span><b id="brevoStat-none">0</b></div>
@@ -48,35 +61,35 @@
 </div>
 </section>
 
-<section class="panel">
+<section class="editor-grid">
+<div class="panel editor-panel">
+<div class="panel-head">
 <h2 id="importTitle">Balance tes e-mails</h2>
+<span class="panel-tag">Entrée</span>
+</div>
+<p class="panel-copy">Importe ta matière première ici. Gros volume ou petite liste, la zone est là pour que tu colles, lances, et surveilles sans stress.</p>
 <textarea id="emails" placeholder="Colle tes e-mails ici, on s'occupe du reste."></textarea>
 <p id="importStatus">Import: tranquille pour l'instant</p>
 <div class="progress" aria-hidden="true"><div id="importProgressBar"></div></div>
-</section>
+</div>
 
-<section class="panel">
+<div class="panel editor-panel">
+<div class="panel-head">
 <h2 id="reconcileTitle">Remets Brevo d'équerre</h2>
+<span class="panel-tag">Sync</span>
+</div>
 <p class="panel-copy" id="reconcileCopy">Colle ici les adresses qui ont vraiment reçu ton mail dans Brevo. On remet ça au propre en base, et tu pourras relancer le reste sans prise de tête.</p>
 <textarea id="reconcileEmails" placeholder="Colle ici les e-mails confirmés par Brevo."></textarea>
 <p id="reconcileStatus">Réconciliation: ça roupille</p>
+</div>
 </section>
 
 <section class="panel">
 <h2 id="actionsTitle">Actions & filtres malins</h2>
-<div class="controls">
-<button id="importBtn">Lancer l'import</button>
-<button id="sendBtn">Envoyer les e-mails</button>
-<button id="reconcileBtn" type="button" class="ghost">Synchroniser Brevo</button>
-<button id="batchResendBtn" type="button">Renvoyer sélection</button>
-<button id="filterResendBtn" type="button">Renvoyer le filtre</button>
-<button id="selectFilteredBtn" type="button" class="ghost">Sélectionner le filtre</button>
-<button id="excludeSelectedBtn" type="button" class="ghost">Exclure sélection</button>
-<button id="includeSelectedBtn" type="button" class="ghost">Réintégrer sélection</button>
-<button id="excludeFilteredBtn" type="button" class="ghost">Exclure le filtre</button>
-<button id="includeFilteredBtn" type="button" class="ghost">Réintégrer le filtre</button>
-<button id="exportBtn" type="button" class="ghost">Exporter le filtre</button>
-<button id="batchDeleteBtn" type="button">Supprimer sélection</button>
+<div class="action-layout">
+<div class="action-block">
+<p class="action-label">Filtres</p>
+<div class="filter-row">
 <input id="search" placeholder="Cherche un e-mail, un doute, un héros.">
 <select id="status">
 <option id="statusAllOption" value="all">Tous</option>
@@ -110,6 +123,38 @@
 <option id="perPage100Option" value="100" selected>100/page</option>
 <option id="perPage200Option" value="200">200/page</option>
 </select>
+</div>
+</div>
+
+<div class="action-block">
+<p class="action-label">Actions rapides</p>
+<div class="controls controls-primary">
+<button id="importBtn">Lancer l'import</button>
+<button id="sendBtn">Envoyer les e-mails</button>
+<button id="reconcileBtn" type="button" class="ghost">Synchroniser Brevo</button>
+<button id="selectFilteredBtn" type="button" class="ghost">Sélectionner le filtre</button>
+<button id="exportBtn" type="button" class="ghost">Exporter le filtre</button>
+</div>
+</div>
+
+<div class="action-block">
+<p class="action-label">Relances</p>
+<div class="controls controls-secondary">
+<button id="batchResendBtn" type="button">Renvoyer sélection</button>
+<button id="filterResendBtn" type="button">Renvoyer le filtre</button>
+<button id="excludeSelectedBtn" type="button" class="ghost">Exclure sélection</button>
+<button id="includeSelectedBtn" type="button" class="ghost">Réintégrer sélection</button>
+<button id="excludeFilteredBtn" type="button" class="ghost">Exclure le filtre</button>
+<button id="includeFilteredBtn" type="button" class="ghost">Réintégrer le filtre</button>
+</div>
+</div>
+
+<div class="action-block action-block-danger">
+<p class="action-label">Zone sensible</p>
+<div class="controls controls-danger">
+<button id="batchDeleteBtn" type="button">Supprimer sélection</button>
+</div>
+</div>
 </div>
 <p id="queueStatus">File d'envoi: pause café</p>
 </section>
