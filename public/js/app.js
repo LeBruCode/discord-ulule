@@ -42,7 +42,7 @@ function formatBrevoStatus(value) {
   invalid: "Invalide",
   spam: "Spam"
  }
- return labels[status] || "-"
+ return labels[status] || "Aucun statut"
 }
 
 function getFilters() {
