@@ -13,6 +13,15 @@ const UUID_V4_OR_V7_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const dashboardCopyFilePath = path.join(__dirname, "..", "public", "js", "dashboardCopy.js")
+const dataDirectoryPath = path.join(__dirname, "..", "data")
+const uploadsDirectoryPath = path.join(__dirname, "..", "public", "uploads")
+const dashboardBrandingFilePath = path.join(dataDirectoryPath, "dashboardBranding.json")
+const dashboardLogoBaseName = "dashboard-logo"
+const LOGO_MIME_EXTENSIONS = {
+ "image/png": "png",
+ "image/jpeg": "jpg"
+}
+const MAX_LOGO_BYTES = 1024 * 1024 * 2
 
 const rateLimitStore = new Map()
 const importQueueState = {
@@ -78,6 +87,84 @@ function token() {
 
 function errorMessage(error) {
  return error?.message || "unknown error"
+}
+
+async function ensureDirectory(directoryPath) {
+ await fs.mkdir(directoryPath, { recursive: true })
+}
+
+async function readDashboardBranding() {
+ try {
+  const raw = await fs.readFile(dashboardBrandingFilePath, "utf8")
+  const parsed = JSON.parse(raw)
+  return {
+   logoPath: typeof parsed?.logoPath === "string" ? parsed.logoPath : null,
+   updatedAt: typeof parsed?.updatedAt === "string" ? parsed.updatedAt : null
+  }
+ } catch (error) {
+  if (error?.code === "ENOENT") {
+   return { logoPath: null, updatedAt: null }
+  }
+  throw error
+ }
+}
+
+async function writeDashboardBranding(branding) {
+ await ensureDirectory(dataDirectoryPath)
+ await fs.writeFile(dashboardBrandingFilePath, `${JSON.stringify(branding, null, 2)}\n`, "utf8")
+}
+
+function parseLogoDataUrl(dataUrl) {
+ const match = String(dataUrl || "").match(/^data:(image\/png|image\/jpeg);base64,([a-z0-9+/=]+)$/i)
+ if (!match) return null
+
+ const mimeType = match[1].toLowerCase()
+ const extension = LOGO_MIME_EXTENSIONS[mimeType]
+ if (!extension) return null
+
+ const buffer = Buffer.from(match[2], "base64")
+ if (!buffer.length || buffer.length > MAX_LOGO_BYTES) return null
+
+ return { mimeType, extension, buffer }
+}
+
+async function removeStoredDashboardLogos() {
+ await ensureDirectory(uploadsDirectoryPath)
+ const files = await fs.readdir(uploadsDirectoryPath).catch(() => [])
+ await Promise.all(
+  files
+   .filter((fileName) => fileName.startsWith(`${dashboardLogoBaseName}.`))
+   .map((fileName) => fs.unlink(path.join(uploadsDirectoryPath, fileName)).catch(() => {}))
+ )
+}
+
+async function saveDashboardLogo(dataUrl) {
+ const parsed = parseLogoDataUrl(dataUrl)
+ if (!parsed) {
+  throw new Error("invalid logo file")
+ }
+
+ await ensureDirectory(uploadsDirectoryPath)
+ await removeStoredDashboardLogos()
+
+ const fileName = `${dashboardLogoBaseName}.${parsed.extension}`
+ const absolutePath = path.join(uploadsDirectoryPath, fileName)
+ await fs.writeFile(absolutePath, parsed.buffer)
+
+ const branding = {
+  logoPath: `/uploads/${fileName}`,
+  updatedAt: new Date().toISOString()
+ }
+
+ await writeDashboardBranding(branding)
+ return branding
+}
+
+async function clearDashboardLogo() {
+ await removeStoredDashboardLogos()
+ const branding = { logoPath: null, updatedAt: new Date().toISOString() }
+ await writeDashboardBranding(branding)
+ return branding
 }
 
 function buildBrevoSyncCandidateQuery(selectClause, selectOptions = undefined) {
@@ -423,6 +510,11 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#brevoSyncTitle", "brevo_sync_title"],
   ["#brevoSyncCopy", "brevo_sync_copy"],
   ["#brevoSyncStatus", "brevo_sync_idle"],
+  ["#brandingTitle", "branding_title"],
+  ["#brandingCopy", "branding_copy"],
+  ["#brandingDropzoneTitle", "branding_drop_title"],
+  ["#brandingHint", "branding_hint"],
+  ["#brandingRemoveBtn", "branding_remove_btn"],
   ["#actionsTitle", "actions_title"],
   ["#importBtn", "import_btn"],
   ["#sendBtn", "send_btn"],
@@ -464,6 +556,10 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#perPage200Option", "per_page_200"],
   ["#queueStatus", "queue_idle"],
   ["#listTitle", "list_title"],
+  ["#importCollapseBtn", "collapse_btn"],
+  ["#reconcileCollapseBtn", "collapse_btn"],
+  ["#actionsCollapseBtn", "collapse_btn"],
+  ["#brandingCollapseBtn", "collapse_btn"],
   ["#thEmail", "table_email"],
   ["#thSent", "table_sent"],
   ["#thActivated", "table_activated"],
@@ -1261,6 +1357,39 @@ router.get("/dashboard-copy", limitList, async (req, res) => {
   return res.json({ entries })
  } catch (error) {
   console.error("dashboard copy read error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.get("/dashboard-branding", limitList, async (req, res) => {
+ try {
+  const branding = await readDashboardBranding()
+  return res.json({ branding })
+ } catch (error) {
+  console.error("dashboard branding read error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.post("/dashboard-branding/logo", limitResend, async (req, res) => {
+ try {
+  const dataUrl = typeof req.body?.dataUrl === "string" ? req.body.dataUrl.trim() : ""
+  if (!dataUrl) return res.status(400).json({ error: "logo required" })
+
+  const branding = await saveDashboardLogo(dataUrl)
+  return res.json({ success: true, branding })
+ } catch (error) {
+  console.error("dashboard branding save error", error)
+  return res.status(400).json({ error: errorMessage(error) })
+ }
+})
+
+router.delete("/dashboard-branding/logo", limitDelete, async (req, res) => {
+ try {
+  const branding = await clearDashboardLogo()
+  return res.json({ success: true, branding })
+ } catch (error) {
+  console.error("dashboard branding delete error", error)
   return res.status(500).json({ error: "server error" })
  }
 })

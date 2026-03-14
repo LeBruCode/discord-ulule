@@ -15,17 +15,44 @@
 
 <main class="container">
 <div class="topbar">
+<div class="brand-header">
+<img id="brandLogo" class="brand-logo hidden" alt="Logo du dashboard">
 <div>
 <p class="eyebrow" data-copy="eyebrow">Développé avec amour par Bruno</p>
-<h1 data-copy="title">Ton cockpit d'accès Discord</h1>
+<h1 data-copy="title">Le dashboard Discord</h1>
+</div>
 </div>
 <div class="topbar-actions">
 <button id="copyEditorBtn" type="button" class="ghost">Textes du dashboard</button>
 <form method="POST" action="/logout">
-<button id="logoutBtn" type="submit" class="ghost">Se barrer</button>
+<button id="logoutBtn" type="submit" class="ghost">Se déconnecter</button>
 </form>
 </div>
 </div>
+
+<section class="panel collapsible-panel">
+<div class="panel-head">
+<div>
+<h2 id="brandingTitle">Logo du projet</h2>
+<p class="panel-copy" id="brandingCopy">Ajoute un logo pour raccrocher ce dashboard à ton projet. PNG ou JPEG, en glissant-déposant ou en cliquant.</p>
+</div>
+<button id="brandingCollapseBtn" type="button" class="ghost collapse-toggle" data-target="brandingPanelBody" aria-expanded="false">Ouvrir</button>
+</div>
+<div id="brandingPanelBody" class="collapsible-body collapsed">
+<div class="branding-panel">
+<label id="brandingDropzone" class="branding-dropzone" for="brandingFileInput">
+<input id="brandingFileInput" type="file" accept="image/png,image/jpeg" hidden>
+<span id="brandingDropzoneTitle" class="branding-dropzone-title">Dépose ton logo ici</span>
+<span class="branding-dropzone-copy" id="brandingHint">PNG ou JPEG. Clique aussi si tu préfères parcourir tes fichiers.</span>
+</label>
+<div class="branding-preview-card">
+<img id="brandingPreview" class="branding-preview hidden" alt="Aperçu du logo">
+<p id="brandingStatus" class="branding-status">Aucun logo pour le moment.</p>
+<button id="brandingRemoveBtn" type="button" class="ghost">Retirer le logo</button>
+</div>
+</div>
+</div>
+</section>
 
 <section class="stats">
 <div class="card"><span id="statsTotalLabel">Total</span><b id="total">0</b></div>
@@ -55,22 +82,31 @@
 </section>
 
 <section class="editor-grid">
-<div class="panel editor-panel">
+<div class="panel editor-panel collapsible-panel">
 <div class="panel-head">
-<h2 id="importTitle">Balance tes e-mails</h2>
+<div>
+<h2 id="importTitle">Importer des e-mails</h2>
 <span class="panel-tag">Entrée</span>
 </div>
-<p class="panel-copy">Importe ta matière première ici. Gros volume ou petite liste, la zone est là pour que tu colles, lances, et surveilles sans stress.</p>
+<button id="importCollapseBtn" type="button" class="ghost collapse-toggle" data-target="importPanelBody" aria-expanded="false">Ouvrir</button>
+</div>
+<div id="importPanelBody" class="collapsible-body collapsed">
+<p class="panel-copy">Colle ici les adresses e-mail à ajouter à ta base.</p>
 <textarea id="emails" placeholder="Colle tes e-mails ici, on s'occupe du reste."></textarea>
 <p id="importStatus">Import: tranquille pour l'instant</p>
 <div class="progress" aria-hidden="true"><div id="importProgressBar"></div></div>
 </div>
+</div>
 
-<div class="panel editor-panel">
+<div class="panel editor-panel collapsible-panel">
 <div class="panel-head">
-<h2 id="reconcileTitle">Remets Brevo d'équerre</h2>
+<div>
+<h2 id="reconcileTitle">Synchroniser avec Brevo</h2>
 <span class="panel-tag">Sync</span>
 </div>
+<button id="reconcileCollapseBtn" type="button" class="ghost collapse-toggle" data-target="reconcilePanelBody" aria-expanded="false">Ouvrir</button>
+</div>
+<div id="reconcilePanelBody" class="collapsible-body collapsed">
 <p class="panel-copy" id="reconcileCopy">Colle ici les adresses qui ont vraiment reçu ton mail dans Brevo. On remet ça au propre en base, et tu pourras relancer le reste sans prise de tête.</p>
 <textarea id="reconcileEmails" placeholder="Colle ici les e-mails confirmés par Brevo."></textarea>
 <p id="reconcileStatus">Réconciliation: ça roupille</p>
@@ -84,10 +120,15 @@
 <div class="progress" aria-hidden="true"><div id="brevoSyncProgressBar"></div></div>
 </div>
 </div>
+</div>
 </section>
 
-<section class="panel">
-<h2 id="actionsTitle">Actions & filtres malins</h2>
+<section class="panel collapsible-panel">
+<div class="panel-head">
+<h2 id="actionsTitle">Actions et filtres</h2>
+<button id="actionsCollapseBtn" type="button" class="ghost collapse-toggle" data-target="actionsPanelBody" aria-expanded="false">Ouvrir</button>
+</div>
+<div id="actionsPanelBody" class="collapsible-body collapsed">
 <div class="action-layout">
 <div class="action-block">
 <p class="action-label">Filtres</p>
@@ -161,6 +202,7 @@
 </div>
 </div>
 <p id="queueStatus">File d'envoi: pause café</p>
+</div>
 </section>
 
 <section class="panel">

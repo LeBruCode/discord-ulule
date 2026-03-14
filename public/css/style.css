@@ -20,6 +20,10 @@
  box-sizing:border-box;
 }
 
+.hidden{
+ display:none !important;
+}
+
 body{
  background:radial-gradient(1200px 500px at 15% -10%, #1a2f53 0%, rgba(26,47,83,0) 55%), radial-gradient(900px 500px at 100% 0%, #1d3c5e 0%, rgba(29,60,94,0) 45%), var(--bg-0);
  color:var(--text);
@@ -78,6 +82,23 @@ h2{
  align-items:flex-start;
  gap:16px;
  margin-bottom:18px;
+}
+
+.brand-header{
+ display:flex;
+ align-items:center;
+ gap:16px;
+ min-height:64px;
+}
+
+.brand-logo{
+ width:56px;
+ height:56px;
+ object-fit:contain;
+ border-radius:14px;
+ background:#0a1220;
+ border:1px solid #223555;
+ padding:8px;
 }
 
 .topbar-actions{
@@ -145,6 +166,10 @@ h2{
  margin-bottom:16px;
 }
 
+.collapsible-body.collapsed{
+ display:none;
+}
+
 .panel-tight{
  padding:16px;
 }
@@ -180,6 +205,71 @@ h2{
 
 .editor-panel textarea{
  min-height:190px;
+}
+
+.branding-panel{
+ display:grid;
+ grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);
+ gap:16px;
+ align-items:stretch;
+}
+
+.branding-dropzone{
+ display:grid;
+ gap:8px;
+ align-content:center;
+ min-height:180px;
+ padding:20px;
+ border-radius:16px;
+ border:1px dashed #36527e;
+ background:rgba(10,18,32,.72);
+ cursor:pointer;
+ transition:border-color .2s ease, background .2s ease, transform .2s ease;
+}
+
+.branding-dropzone.dragover{
+ border-color:#4d8dff;
+ background:rgba(22,35,57,.9);
+ transform:translateY(-1px);
+}
+
+.branding-dropzone-title{
+ font-size:16px;
+ font-weight:700;
+ color:#e2edff;
+}
+
+.branding-dropzone-copy{
+ color:var(--muted);
+ font-size:13px;
+ line-height:1.5;
+}
+
+.branding-preview-card{
+ display:grid;
+ gap:12px;
+ align-content:start;
+ padding:18px;
+ border-radius:16px;
+ border:1px solid #223555;
+ background:rgba(10,18,32,.72);
+}
+
+.branding-preview{
+ width:100%;
+ max-width:220px;
+ max-height:120px;
+ object-fit:contain;
+ border-radius:14px;
+ background:#08101c;
+ border:1px solid #223555;
+ padding:12px;
+}
+
+.branding-status{
+ margin:0;
+ color:var(--muted);
+ font-size:13px;
 }
 
 .sync-block{
@@ -685,11 +775,13 @@ td:nth-child(7){
  .container{padding:14px;}
  h1{font-size:24px;}
  .editor-grid{grid-template-columns:1fr;}
+ .branding-panel{grid-template-columns:1fr;}
  .stats{grid-template-columns:repeat(2,minmax(140px,1fr));}
-  .brevo-stats-grid{grid-template-columns:repeat(2,minmax(120px,1fr));}
+ .brevo-stats-grid{grid-template-columns:repeat(2,minmax(120px,1fr));}
  .filter-row{grid-template-columns:1fr;}
  .topbar{flex-direction:column;align-items:stretch;}
  .topbar-actions{justify-content:flex-start;}
+ .brand-header{align-items:flex-start;}
  .table-footer{flex-direction:column;align-items:flex-start;}
  input{min-width:unset; width:100%;}
  .controls > *{width:100%;}

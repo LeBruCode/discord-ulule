@@ -11,6 +11,7 @@ let brevoSyncPollTimer = null
 let currentDetailId = null
 let copyEditorLoaded = false
 let copyEntries = []
+let brandingState = { logoPath: null, updatedAt: null }
 
 const selectedIds = new Set()
 let currentRowIds = []
@@ -56,6 +57,102 @@ function formatBrevoStatus(value) {
 
 function formatYesNo(value) {
  return value ? t("yes") : t("no")
+}
+
+function buildBrandingAssetUrl(logoPath, updatedAt) {
+ if (!logoPath) return ""
+ const version = updatedAt ? new Date(updatedAt).getTime() : Date.now()
+ return `${logoPath}${logoPath.includes("?") ? "&" : "?"}v=${version}`
+}
+
+function applyBranding(branding = {}) {
+ brandingState = branding
+ const logoPath = branding.logoPath || null
+ const updatedAt = branding.updatedAt || null
+ const logoUrl = buildBrandingAssetUrl(logoPath, updatedAt)
+ const brandLogo = document.getElementById("brandLogo")
+ const preview = document.getElementById("brandingPreview")
+ const status = document.getElementById("brandingStatus")
+ const removeButton = document.getElementById("brandingRemoveBtn")
+
+ if (logoUrl) {
+  brandLogo.src = logoUrl
+  preview.src = logoUrl
+  brandLogo.classList.remove("hidden")
+  preview.classList.remove("hidden")
+  status.innerText = logoPath.split("/").pop() || t("branding_loaded")
+  removeButton.disabled = false
+  return
+ }
+
+ brandLogo.removeAttribute("src")
+ preview.removeAttribute("src")
+ brandLogo.classList.add("hidden")
+ preview.classList.add("hidden")
+ status.innerText = t("branding_empty")
+ removeButton.disabled = true
+}
+
+async function refreshBranding() {
+ try {
+  const response = await fetch("/admin/api/dashboard-branding")
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || "branding request failed")
+  applyBranding(payload.branding || {})
+ } catch (error) {
+  console.error("branding refresh error", error)
+ }
+}
+
+async function uploadBrandingFile(file) {
+ const allowed = ["image/png", "image/jpeg"]
+ if (!file || !allowed.includes(file.type) || file.size > 1024 * 1024 * 2) {
+  alert(t("alert_branding_invalid"))
+  return
+ }
+
+ const dataUrl = await new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => resolve(String(reader.result || ""))
+  reader.onerror = () => reject(new Error("file read failed"))
+  reader.readAsDataURL(file)
+ })
+
+ const response = await fetch("/admin/api/dashboard-branding/logo", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ dataUrl })
+ })
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || t("alert_branding_failed"))
+  return
+ }
+
+ applyBranding(payload.branding || {})
+ alert(t("alert_branding_saved"))
+}
+
+async function removeBrandingLogo() {
+ const response = await fetch("/admin/api/dashboard-branding/logo", { method: "DELETE" })
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || t("alert_branding_failed"))
+  return
+ }
+
+ applyBranding(payload.branding || {})
+ alert(t("alert_branding_removed"))
+}
+
+function toggleCollapsible(targetId, button) {
+ const target = document.getElementById(targetId)
+ if (!target) return
+ const collapsed = target.classList.toggle("collapsed")
+ if (button) {
+  button.setAttribute("aria-expanded", collapsed ? "false" : "true")
+  button.innerText = collapsed ? t("expand_btn") : t("collapse_btn")
+  }
 }
 
 function getFilters() {
@@ -285,8 +382,8 @@ function renderRows(rows) {
   .map((row) => {
    const id = row.id == null ? "" : String(row.id)
    const email = escapeHtml(row.email || "")
-   const sent = row.email_sent ? "Oui" : "Non"
-   const used = row.used ? "Oui" : "Non"
+   const sent = formatYesNo(row.email_sent)
+   const used = formatYesNo(row.used)
    const sentAt = escapeHtml(formatDate(row.email_sent_at))
    const usedAt = escapeHtml(formatDate(row.used_at))
    const brevoStatusKey = String(row.brevo_status || "").trim().toLowerCase()
@@ -689,7 +786,40 @@ async function saveCopyEditor() {
   return
  }
 
- alert("Textes enregistrés. Fais un petit refresh pour savourer.")
+ alert(t("alert_copy_saved"))
+}
+
+function setupBrandingDropzone() {
+ const input = document.getElementById("brandingFileInput")
+ const dropzone = document.getElementById("brandingDropzone")
+
+ input.addEventListener("change", async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  await uploadBrandingFile(file)
+  input.value = ""
+ })
+
+ for (const eventName of ["dragenter", "dragover"]) {
+  dropzone.addEventListener(eventName, (event) => {
+   event.preventDefault()
+   dropzone.classList.add("dragover")
+  })
+ }
+
+ for (const eventName of ["dragleave", "drop"]) {
+  dropzone.addEventListener(eventName, (event) => {
+   event.preventDefault()
+   if (eventName === "dragleave" && dropzone.contains(event.relatedTarget)) return
+   dropzone.classList.remove("dragover")
+  })
+ }
+
+ dropzone.addEventListener("drop", async (event) => {
+  const file = event.dataTransfer?.files?.[0]
+  if (!file) return
+  await uploadBrandingFile(file)
+ })
 }
 
 function renderTimelineItem(item) {
@@ -772,6 +902,7 @@ async function refreshAll() {
   refreshBrevoSyncStatus(),
   refreshStats(),
   refreshBrevoStats(),
+  refreshBranding(),
   loadList(),
   refreshQueueStatus()
  ])
@@ -808,7 +939,11 @@ document.getElementById("saveNoteBtn").addEventListener("click", saveDetailNote)
 document.getElementById("copyEditorBtn").addEventListener("click", openCopyDrawer)
 document.getElementById("copyCloseBtn").addEventListener("click", closeCopyDrawer)
 document.getElementById("saveCopyBtn").addEventListener("click", saveCopyEditor)
+document.getElementById("brandingRemoveBtn").addEventListener("click", removeBrandingLogo)
 document.getElementById("copySearch").addEventListener("input", renderCopyEditorEntries)
+for (const button of document.querySelectorAll(".collapse-toggle")) {
+ button.addEventListener("click", () => toggleCollapsible(button.dataset.target, button))
+}
 document.getElementById("status").addEventListener("change", async () => {
  page = 1
  await loadList()
@@ -891,6 +1026,7 @@ setInterval(() => {
  refreshQueueStatus().catch(() => {})
 }, 10000)
 
+setupBrandingDropzone()
 refreshAll().catch((error) => {
  console.error("dashboard init error", error)
 })
