@@ -27,19 +27,6 @@
 </div>
 </div>
 
-<section class="hero-panel">
-<div class="hero-copy">
-<p class="eyebrow">Vue d'ensemble</p>
-<h2>Tout ce qu'il te faut pour piloter tes accès sans cliquer dans le vide.</h2>
-<p>Imports, Brevo, exclusions, relances et historique: tout est rangé pour que tu voies vite ce qui marche et ce qui mérite un petit coup de pied.</p>
-</div>
-<div class="hero-aside">
-<div class="hero-chip">Brevo sous contrôle</div>
-<div class="hero-chip">Actions groupées</div>
-<div class="hero-chip">Moins d'erreurs bêtes</div>
-</div>
-</section>
-
 <section class="stats">
 <div class="card"><span id="statsTotalLabel">Total</span><b id="total">0</b></div>
 <div class="card"><span id="statsSentLabel">Envoyés</span><b id="sent">0</b></div>
@@ -81,6 +68,15 @@
 <p class="panel-copy" id="reconcileCopy">Colle ici les adresses qui ont vraiment reçu ton mail dans Brevo. On remet ça au propre en base, et tu pourras relancer le reste sans prise de tête.</p>
 <textarea id="reconcileEmails" placeholder="Colle ici les e-mails confirmés par Brevo."></textarea>
 <p id="reconcileStatus">Réconciliation: ça roupille</p>
+<div class="sync-block">
+<div class="panel-head sync-head">
+<h3 id="brevoSyncTitle">Resynchronise depuis Brevo</h3>
+<span class="panel-tag">Auto</span>
+</div>
+<p class="panel-copy" id="brevoSyncCopy">On va lire les statuts transactionnels réels chez Brevo pour recoller ta base avec ce qui a vraiment été envoyé, délivré ou bloqué.</p>
+<p id="brevoSyncStatus">Resync Brevo: en attente</p>
+<div class="progress" aria-hidden="true"><div id="brevoSyncProgressBar"></div></div>
+</div>
 </div>
 </section>
 
@@ -131,7 +127,8 @@
 <div class="controls controls-primary">
 <button id="importBtn">Lancer l'import</button>
 <button id="sendBtn">Envoyer les e-mails</button>
-<button id="reconcileBtn" type="button" class="ghost">Synchroniser Brevo</button>
+<button id="reconcileBtn" type="button" class="ghost">Réconcilier la liste collée</button>
+<button id="brevoSyncBtn" type="button" class="ghost">Resynchroniser depuis Brevo</button>
 <button id="selectFilteredBtn" type="button" class="ghost">Sélectionner le filtre</button>
 <button id="exportBtn" type="button" class="ghost">Exporter le filtre</button>
 </div>

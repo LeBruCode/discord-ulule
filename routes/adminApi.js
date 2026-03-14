@@ -6,6 +6,7 @@ import { fileURLToPath } from "url"
 import vm from "vm"
 import { supabase } from "../services/supabase.js"
 import { sendMail } from "../services/mailer.js"
+import { getTransactionalEmailDetail, getTransactionalEmails, normalizeBrevoEventStatus } from "../services/brevo.js"
 
 const router = express.Router()
 const UUID_V4_OR_V7_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -31,13 +32,28 @@ const sendQueueState = {
  lastFinishedAt: null,
  lastStats: { processed: 0, sent: 0, failed: 0 }
 }
+const brevoSyncState = {
+ running: false,
+ total: 0,
+ processed: 0,
+ matched: 0,
+ updated: 0,
+ missing: 0,
+ failed: 0,
+ currentEmail: null,
+ lastError: null,
+ lastStartedAt: null,
+ lastFinishedAt: null
+}
 const BREVO_MAX_RETRIES = 4
 const BREVO_BASE_DELAY_MS = 800
 const BREVO_INTER_SEND_DELAY_MS = 400
+const BREVO_SYNC_DELAY_MS = 180
 const IMPORT_CHUNK_SIZE = 250
 const BREVO_FAILED_STATUSES = ["error", "soft_bounce", "hard_bounce", "blocked", "invalid", "deferred", "spam"]
 const BREVO_STATUSES = ["queued", "request", "sent", "delivered", "opened", "unique_opened", "click", "unique_clicked", "soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"]
 const BREVO_DELIVERED_STATUSES = ["delivered", "opened", "unique_opened", "click", "unique_clicked"]
+const BREVO_SENT_STATUSES = ["sent", ...BREVO_DELIVERED_STATUSES]
 
 function token() {
  return crypto.randomBytes(32).toString("hex")
@@ -45,6 +61,279 @@ function token() {
 
 function errorMessage(error) {
  return error?.message || "unknown error"
+}
+
+function toIsoDateOnly(value) {
+ const date = new Date(value)
+ if (Number.isNaN(date.getTime())) return null
+ return date.toISOString().slice(0, 10)
+}
+
+function getBrevoSyncReferenceDate(row) {
+ return row.email_sent_at || row.brevo_event_at || row.created_at || new Date().toISOString()
+}
+
+function getBrevoSyncWindow(row) {
+ const reference = new Date(getBrevoSyncReferenceDate(row))
+ if (Number.isNaN(reference.getTime())) {
+  const now = new Date()
+  const past = new Date(now.getTime() - (1000 * 60 * 60 * 24 * 29))
+  return { startDate: toIsoDateOnly(past), endDate: toIsoDateOnly(now) }
+ }
+
+ const start = new Date(reference)
+ start.setDate(start.getDate() - 14)
+ const end = new Date(reference)
+ end.setDate(end.getDate() + 14)
+ return { startDate: toIsoDateOnly(start), endDate: toIsoDateOnly(end) }
+}
+
+function getBrevoTemplateId() {
+ const value = Number(process.env.BREVO_TEMPLATE_ID)
+ return Number.isFinite(value) ? value : null
+}
+
+function extractBrevoEmailAddress(entry) {
+ if (!entry) return ""
+ if (typeof entry === "string") return entry.trim().toLowerCase()
+ if (typeof entry === "object" && typeof entry.email === "string") return entry.email.trim().toLowerCase()
+ return ""
+}
+
+function getBrevoRecipients(mail) {
+ const values = []
+ if (typeof mail?.email === "string") values.push(mail.email)
+ if (Array.isArray(mail?.to)) values.push(...mail.to.map(extractBrevoEmailAddress))
+ if (typeof mail?.recipient === "string") values.push(mail.recipient)
+ return [...new Set(values.map((value) => String(value || "").trim().toLowerCase()).filter(Boolean))]
+}
+
+function getBrevoMailDate(mail) {
+ const date = new Date(mail?.date || mail?.createdAt || mail?.created_at || mail?.event_date || mail?.updatedAt || 0)
+ return Number.isNaN(date.getTime()) ? 0 : date.getTime()
+}
+
+function normalizeBrevoEvent(rawEvent) {
+ const status = normalizeBrevoEventStatus(rawEvent?.event || rawEvent?.name || rawEvent?.status || rawEvent?.message || rawEvent?.action)
+ if (!status) return null
+
+ const rawDate = rawEvent?.time || rawEvent?.date || rawEvent?.ts || rawEvent?.timestamp || rawEvent?.created_at || rawEvent?.event_date
+ const date = new Date(rawDate || Date.now())
+ const isoDate = Number.isNaN(date.getTime()) ? null : date.toISOString()
+ return {
+  status,
+  at: isoDate,
+  raw: rawEvent
+ }
+}
+
+function pickBestBrevoMail(row, mails) {
+ const email = String(row.email || "").trim().toLowerCase()
+ const messageId = String(row.brevo_message_id || "").trim()
+ const templateId = getBrevoTemplateId()
+ const referenceAt = new Date(getBrevoSyncReferenceDate(row)).getTime()
+
+ const candidates = (Array.isArray(mails) ? mails : [])
+  .filter((mail) => {
+   const recipients = getBrevoRecipients(mail)
+   return !email || !recipients.length || recipients.includes(email)
+  })
+  .sort((left, right) => {
+   const leftMessageScore = messageId && String(left?.messageId || left?.message_id || "").trim() === messageId ? -1_000_000_000 : 0
+   const rightMessageScore = messageId && String(right?.messageId || right?.message_id || "").trim() === messageId ? -1_000_000_000 : 0
+   if (leftMessageScore !== rightMessageScore) return leftMessageScore - rightMessageScore
+
+   const leftTemplateScore = templateId != null && Number(left?.templateId) === templateId ? -10_000_000 : 0
+   const rightTemplateScore = templateId != null && Number(right?.templateId) === templateId ? -10_000_000 : 0
+   if (leftTemplateScore !== rightTemplateScore) return leftTemplateScore - rightTemplateScore
+
+   const leftDistance = Math.abs(getBrevoMailDate(left) - referenceAt)
+   const rightDistance = Math.abs(getBrevoMailDate(right) - referenceAt)
+   return leftDistance - rightDistance
+  })
+
+ return candidates[0] || null
+}
+
+function collectBrevoEvents(detail, fallbackMail) {
+ const rawEvents = []
+ if (Array.isArray(detail?.events)) rawEvents.push(...detail.events)
+ if (Array.isArray(detail?.event)) rawEvents.push(...detail.event)
+ if (Array.isArray(detail?.logs)) rawEvents.push(...detail.logs)
+ if (Array.isArray(fallbackMail?.events)) rawEvents.push(...fallbackMail.events)
+
+ const normalized = rawEvents
+  .map(normalizeBrevoEvent)
+  .filter(Boolean)
+  .sort((left, right) => new Date(left.at || 0).getTime() - new Date(right.at || 0).getTime())
+
+ if (normalized.length) return normalized
+
+ const fallbackStatus = normalizeBrevoEventStatus(
+  fallbackMail?.status ||
+  fallbackMail?.event ||
+  detail?.status ||
+  detail?.event
+ )
+
+ if (!fallbackStatus) return []
+
+ const fallbackAt = (() => {
+  const date = new Date(
+   fallbackMail?.date ||
+   detail?.date ||
+   fallbackMail?.createdAt ||
+   detail?.createdAt ||
+   Date.now()
+  )
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString()
+ })()
+
+ return [{ status: fallbackStatus, at: fallbackAt, raw: fallbackMail || detail }]
+}
+
+function buildBrevoSyncUpdate(row, mail, events) {
+ const messageId = String(
+  mail?.messageId ||
+  mail?.message_id ||
+  row.brevo_message_id ||
+  ""
+ ).trim() || null
+
+ const finalEvent = events[events.length - 1] || null
+ const finalStatus = finalEvent?.status || normalizeBrevoEventStatus(mail?.status || mail?.event)
+ const sentEvent = events.find((event) => BREVO_SENT_STATUSES.includes(event.status))
+ const failedEvent = [...events].reverse().find((event) => BREVO_FAILED_STATUSES.includes(event.status))
+
+ const update = {
+  brevo_status: finalStatus || row.brevo_status || null,
+  brevo_event_at: finalEvent?.at || row.brevo_event_at || null,
+  brevo_message_id: messageId
+ }
+
+ if (sentEvent) {
+  update.email_sent = true
+  update.email_sent_at = sentEvent.at || row.email_sent_at || new Date().toISOString()
+  update.email_error = null
+ }
+
+ if (!sentEvent && failedEvent) {
+  update.email_sent = false
+  update.email_error = String(
+   failedEvent?.raw?.reason ||
+   failedEvent?.raw?.message ||
+   failedEvent?.raw?.description ||
+   failedEvent.status
+  ).trim()
+ }
+
+ return update
+}
+
+async function findBrevoMailForRow(row) {
+ const params = { limit: 100 }
+ const messageId = String(row.brevo_message_id || "").trim()
+
+ if (messageId) {
+  params.messageId = messageId
+ } else {
+  params.email = String(row.email || "").trim().toLowerCase()
+  const { startDate, endDate } = getBrevoSyncWindow(row)
+  if (startDate) params.startDate = startDate
+  if (endDate) params.endDate = endDate
+  const templateId = getBrevoTemplateId()
+  if (templateId != null) params.templateId = templateId
+ }
+
+ const payload = await getTransactionalEmails(params)
+ const mails = payload?.transactionalEmails || payload?.emails || []
+ return pickBestBrevoMail(row, mails)
+}
+
+async function syncBrevoRow(row) {
+ const mail = await findBrevoMailForRow(row)
+ if (!mail) return { matched: false, updated: false }
+
+ let detail = null
+ const uuid = String(mail?.uuid || mail?.id || "").trim()
+ if (uuid) {
+  try {
+   detail = await getTransactionalEmailDetail(uuid)
+  } catch (error) {
+   console.error("brevo detail fetch error", row.email, errorMessage(error))
+  }
+ }
+
+ const events = collectBrevoEvents(detail, mail)
+ const update = buildBrevoSyncUpdate(row, mail, events)
+ const { error } = await supabase
+  .from("access_tokens")
+  .update(update)
+  .eq("id", row.id)
+
+ if (error) throw error
+ return { matched: true, updated: true, status: update.brevo_status || null }
+}
+
+async function processBrevoSyncQueue() {
+ if (brevoSyncState.running) return
+
+ brevoSyncState.running = true
+ brevoSyncState.total = 0
+ brevoSyncState.processed = 0
+ brevoSyncState.matched = 0
+ brevoSyncState.updated = 0
+ brevoSyncState.missing = 0
+ brevoSyncState.failed = 0
+ brevoSyncState.currentEmail = null
+ brevoSyncState.lastError = null
+ brevoSyncState.lastStartedAt = new Date().toISOString()
+ brevoSyncState.lastFinishedAt = null
+
+ try {
+  const { data, error } = await supabase
+   .from("access_tokens")
+   .select("id,email,created_at,email_sent,email_sent_at,brevo_message_id,brevo_status,brevo_event_at")
+   .order("created_at", { ascending: true })
+   .limit(10000)
+
+  if (error) throw error
+
+  const rows = (Array.isArray(data) ? data : []).filter((row) => {
+   return Boolean(
+    row.brevo_message_id ||
+    row.email_sent === true ||
+    row.brevo_status
+   )
+  })
+
+  brevoSyncState.total = rows.length
+
+  for (const row of rows) {
+   brevoSyncState.currentEmail = row.email || null
+   try {
+    const result = await syncBrevoRow(row)
+    if (result.matched) brevoSyncState.matched += 1
+    else brevoSyncState.missing += 1
+    if (result.updated) brevoSyncState.updated += 1
+   } catch (error) {
+    brevoSyncState.failed += 1
+    brevoSyncState.lastError = `${row.email || "unknown"}: ${errorMessage(error)}`
+    console.error("brevo sync row error", row.email, error)
+   } finally {
+    brevoSyncState.processed += 1
+   }
+
+   await sleep(BREVO_SYNC_DELAY_MS)
+  }
+ } catch (error) {
+  brevoSyncState.lastError = errorMessage(error)
+  console.error("brevo sync queue error", error)
+ } finally {
+  brevoSyncState.running = false
+  brevoSyncState.currentEmail = null
+  brevoSyncState.lastFinishedAt = new Date().toISOString()
+ }
 }
 
 function humanizeCopyKey(key) {
@@ -94,10 +383,14 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#reconcileTitle", "reconcile_title"],
   ["#reconcileCopy", "reconcile_copy"],
   ["#reconcileStatus", "reconcile_idle"],
+  ["#brevoSyncTitle", "brevo_sync_title"],
+  ["#brevoSyncCopy", "brevo_sync_copy"],
+  ["#brevoSyncStatus", "brevo_sync_idle"],
   ["#actionsTitle", "actions_title"],
   ["#importBtn", "import_btn"],
   ["#sendBtn", "send_btn"],
   ["#reconcileBtn", "reconcile_btn"],
+  ["#brevoSyncBtn", "brevo_sync_btn"],
   ["#batchResendBtn", "batch_resend_btn"],
   ["#filterResendBtn", "resend_filter_btn"],
   ["#selectFilteredBtn", "select_filter_btn"],
@@ -531,6 +824,44 @@ router.get("/send-status", async (req, res) => {
   lastStartedAt: sendQueueState.lastStartedAt,
   lastFinishedAt: sendQueueState.lastFinishedAt,
   lastStats: sendQueueState.lastStats
+ })
+})
+
+router.post("/brevo-sync", limitReconcile, async (req, res) => {
+ try {
+  if (brevoSyncState.running) {
+   return res.status(409).json({ error: "brevo sync already running" })
+  }
+
+  processBrevoSyncQueue().catch((error) => {
+   console.error("brevo sync background error", error)
+  })
+
+  return res.status(202).json({ success: true, queued: brevoSyncState.total || 0 })
+ } catch (error) {
+  console.error("brevo sync route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.get("/brevo-sync-status", async (req, res) => {
+ const progress = brevoSyncState.total
+  ? Math.round((brevoSyncState.processed / brevoSyncState.total) * 100)
+  : 0
+
+ return res.json({
+  running: brevoSyncState.running,
+  total: brevoSyncState.total,
+  processed: brevoSyncState.processed,
+  matched: brevoSyncState.matched,
+  updated: brevoSyncState.updated,
+  missing: brevoSyncState.missing,
+  failed: brevoSyncState.failed,
+  currentEmail: brevoSyncState.currentEmail,
+  lastError: brevoSyncState.lastError,
+  lastStartedAt: brevoSyncState.lastStartedAt,
+  lastFinishedAt: brevoSyncState.lastFinishedAt,
+  progress
  })
 })
 

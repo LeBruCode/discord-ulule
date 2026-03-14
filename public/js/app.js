@@ -7,6 +7,7 @@ let limit = 100
 let total = 0
 let loading = false
 let importPollTimer = null
+let brevoSyncPollTimer = null
 let currentDetailId = null
 let copyEditorLoaded = false
 let copyEntries = []
@@ -171,6 +172,51 @@ function setReconcileStatus(message) {
  document.getElementById("reconcileStatus").innerText = message
 }
 
+function renderBrevoSyncStatus(status) {
+ const statusNode = document.getElementById("brevoSyncStatus")
+ const bar = document.getElementById("brevoSyncProgressBar")
+ const progress = Number(status?.progress) || 0
+ bar.style.width = `${Math.min(Math.max(progress, 0), 100)}%`
+
+ if (status?.running) {
+  statusNode.innerText = t("brevo_sync_running", {
+   processed: status.processed || 0,
+   total: status.total || 0,
+   progress,
+   matched: status.matched || 0,
+   updated: status.updated || 0,
+   missing: status.missing || 0,
+   failed: status.failed || 0
+  })
+  return
+ }
+
+ if ((status?.processed || 0) > 0 || (status?.updated || 0) > 0) {
+  statusNode.innerText = t("brevo_sync_finished", {
+   processed: status.processed || 0,
+   total: status.total || 0,
+   matched: status.matched || 0,
+   updated: status.updated || 0,
+   missing: status.missing || 0,
+   failed: status.failed || 0
+  })
+  return
+ }
+
+ statusNode.innerText = t("brevo_sync_idle")
+}
+
+async function refreshBrevoSyncStatus() {
+ try {
+  const status = await fetch("/admin/api/brevo-sync-status").then((r) => r.json())
+  renderBrevoSyncStatus(status)
+  return status
+ } catch (error) {
+  document.getElementById("brevoSyncStatus").innerText = t("brevo_sync_unavailable")
+  return null
+ }
+}
+
 async function refreshImportStatus() {
  try {
   const status = await fetch("/admin/api/import-status").then((r) => r.json())
@@ -199,6 +245,25 @@ function stopImportPolling() {
  if (!importPollTimer) return
  clearInterval(importPollTimer)
  importPollTimer = null
+}
+
+function startBrevoSyncPolling() {
+ if (brevoSyncPollTimer) clearInterval(brevoSyncPollTimer)
+ brevoSyncPollTimer = setInterval(async () => {
+  const status = await refreshBrevoSyncStatus()
+  if (!status) return
+  if (!status.running) {
+   clearInterval(brevoSyncPollTimer)
+   brevoSyncPollTimer = null
+   await refreshAll()
+  }
+ }, 2000)
+}
+
+function stopBrevoSyncPolling() {
+ if (!brevoSyncPollTimer) return
+ clearInterval(brevoSyncPollTimer)
+ brevoSyncPollTimer = null
 }
 
 function renderRows(rows) {
@@ -350,6 +415,26 @@ async function reconcileSentEmails() {
 
  page = 1
  await refreshAll()
+}
+
+async function startBrevoSync() {
+ const response = await fetch("/admin/api/brevo-sync", { method: "POST" })
+ const payload = await response.json()
+
+ if (response.status === 409) {
+  alert(t("alert_brevo_sync_running"))
+  startBrevoSyncPolling()
+  return
+ }
+
+ if (!response.ok) {
+  alert(payload.error || t("alert_brevo_sync_failed"))
+  return
+ }
+
+ alert(t("alert_brevo_sync_started"))
+ startBrevoSyncPolling()
+ await refreshBrevoSyncStatus()
 }
 
 async function resendEmail(email) {
@@ -662,8 +747,9 @@ async function batchDelete() {
 }
 
 async function refreshAll() {
- const [importStatus] = await Promise.all([
+ const [importStatus, brevoSyncStatus] = await Promise.all([
   refreshImportStatus(),
+  refreshBrevoSyncStatus(),
   refreshStats(),
   refreshBrevoStats(),
   loadList(),
@@ -675,11 +761,18 @@ async function refreshAll() {
  } else {
   stopImportPolling()
  }
+
+ if (brevoSyncStatus?.running) {
+  if (!brevoSyncPollTimer) startBrevoSyncPolling()
+ } else {
+  stopBrevoSyncPolling()
+ }
 }
 
 document.getElementById("importBtn").addEventListener("click", importEmails)
 document.getElementById("sendBtn").addEventListener("click", sendEmails)
 document.getElementById("reconcileBtn").addEventListener("click", reconcileSentEmails)
+document.getElementById("brevoSyncBtn").addEventListener("click", startBrevoSync)
 document.getElementById("batchResendBtn").addEventListener("click", batchResend)
 document.getElementById("filterResendBtn").addEventListener("click", resendFiltered)
 document.getElementById("selectFilteredBtn").addEventListener("click", selectFiltered)
