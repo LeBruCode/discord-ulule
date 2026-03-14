@@ -653,7 +653,11 @@ td:nth-child(7){
 }
 
 .brevo-delivered,
-.brevo-sent{
+.brevo-sent,
+.brevo-opened,
+.brevo-unique_opened,
+.brevo-click,
+.brevo-unique_clicked{
  background:rgba(47,163,110,.12);
  color:#78d4a5;
  border-color:rgba(47,163,110,.35);
