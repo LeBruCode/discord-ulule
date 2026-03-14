@@ -23,6 +23,23 @@ function formatDate(value) {
  return date.toLocaleString("fr-FR")
 }
 
+function formatBrevoStatus(value) {
+ const status = String(value || "").trim().toLowerCase()
+ const labels = {
+  queued: "En file",
+  sent: "Envoyé",
+  delivered: "Délivré",
+  soft_bounce: "Rebond souple",
+  hard_bounce: "Rebond dur",
+  blocked: "Bloqué",
+  error: "Erreur",
+  deferred: "Différé",
+  invalid: "Invalide",
+  spam: "Spam"
+ }
+ return labels[status] || "-"
+}
+
 function getFilters() {
  const search = document.getElementById("search").value.trim()
  const status = document.getElementById("status").value
@@ -157,7 +174,8 @@ function renderRows(rows) {
    const used = row.used ? "Oui" : "Non"
    const sentAt = escapeHtml(formatDate(row.email_sent_at))
    const usedAt = escapeHtml(formatDate(row.used_at))
-   const brevoStatus = escapeHtml(row.brevo_status || "-")
+   const brevoStatusKey = String(row.brevo_status || "").trim().toLowerCase()
+   const brevoStatus = escapeHtml(formatBrevoStatus(brevoStatusKey))
    const error = escapeHtml(row.email_error || "-")
    const checked = selectedIds.has(id) ? "checked" : ""
    return `<tr>
@@ -167,7 +185,7 @@ function renderRows(rows) {
     <td class="status-cell">${used}</td>
     <td class="datetime-cell">${sentAt}</td>
     <td class="datetime-cell">${usedAt}</td>
-    <td class="status-pill-cell"><span class="brevo-badge brevo-${brevoStatus.toLowerCase().replace(/[^a-z_]+/g, "-")}">${brevoStatus}</span></td>
+    <td class="status-pill-cell"><span class="brevo-badge brevo-${brevoStatusKey.replace(/[^a-z_]+/g, "-")}">${brevoStatus}</span></td>
     <td class="error-cell">${error}</td>
     <td class="actions-cell">
      <button class="icon-btn resend-btn" data-email="${email}" title="Renvoyer" aria-label="Renvoyer">✉</button>
