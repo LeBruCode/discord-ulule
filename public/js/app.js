@@ -79,8 +79,8 @@ function applyBranding(branding = {}) {
  const sizeValue = document.getElementById("brandingSizeValue")
 
  brandLogo.style.width = `${logoWidth}px`
- brandLogo.style.height = `${logoWidth}px`
- sizeRange.value = String(logoWidth)
+ brandLogo.style.height = "auto"
+  sizeRange.value = String(logoWidth)
  sizeValue.innerText = `${logoWidth} px`
 
  if (logoUrl) {
@@ -987,7 +987,7 @@ document.getElementById("brandingRemoveBtn").addEventListener("click", removeBra
 document.getElementById("brandingSizeRange").addEventListener("input", (event) => {
  document.getElementById("brandingSizeValue").innerText = `${event.target.value} px`
  document.getElementById("brandLogo").style.width = `${event.target.value}px`
- document.getElementById("brandLogo").style.height = `${event.target.value}px`
+ document.getElementById("brandLogo").style.height = "auto"
 })
 document.getElementById("brandingSizeRange").addEventListener("change", saveBrandingSize)
 document.getElementById("copySearch").addEventListener("input", renderCopyEditorEntries)

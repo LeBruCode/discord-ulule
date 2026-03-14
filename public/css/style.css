@@ -77,10 +77,10 @@ h2{
 }
 
 .topbar{
- display:flex;
- justify-content:space-between;
+ display:grid;
+ grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
  align-items:center;
-  gap:16px;
+ gap:16px;
  margin-bottom:18px;
  position:sticky;
  top:12px;
@@ -93,21 +93,26 @@ h2{
  box-shadow:var(--shadow);
 }
 
-.brand-header{
+.brand-copy{
+ justify-self:start;
+ min-width:0;
+}
+
+.brand-logo-slot{
  display:flex;
  align-items:center;
-  gap:16px;
- min-height:64px;
- margin:0 auto;
+ justify-content:center;
+ min-width:120px;
 }
 
 .brand-logo{
- width:56px;
- height:56px;
+ width:96px;
+ height:auto;
+ max-height:96px;
  object-fit:contain;
- border-radius:14px;
+ border-radius:0;
  background:#0a1220;
- border:1px solid #223555;
+  border:1px solid #223555;
  padding:8px;
 }
 
@@ -115,6 +120,7 @@ h2{
  display:flex;
  align-items:center;
  gap:10px;
+ justify-self:end;
 }
 
 .icon-only{
@@ -812,9 +818,9 @@ td:nth-child(7){
  .stats{grid-template-columns:repeat(2,minmax(140px,1fr));}
  .brevo-stats-grid{grid-template-columns:repeat(2,minmax(120px,1fr));}
  .filter-row{grid-template-columns:1fr;}
- .topbar{flex-direction:column;align-items:stretch;}
- .topbar-actions{justify-content:flex-start;}
- .brand-header{align-items:flex-start;}
+ .topbar{grid-template-columns:1fr; justify-items:start;}
+  .topbar-actions{justify-content:flex-start;}
+ .brand-logo-slot{justify-content:flex-start;}
  .table-footer{flex-direction:column;align-items:flex-start;}
  input{min-width:unset; width:100%;}
  .controls > *{width:100%;}
