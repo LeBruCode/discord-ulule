@@ -22,6 +22,9 @@ const LOGO_MIME_EXTENSIONS = {
  "image/jpeg": "jpg"
 }
 const MAX_LOGO_BYTES = 1024 * 1024 * 2
+const DEFAULT_LOGO_WIDTH = 96
+const MIN_LOGO_WIDTH = 48
+const MAX_LOGO_WIDTH = 220
 
 const rateLimitStore = new Map()
 const importQueueState = {
@@ -97,13 +100,15 @@ async function readDashboardBranding() {
  try {
   const raw = await fs.readFile(dashboardBrandingFilePath, "utf8")
   const parsed = JSON.parse(raw)
+  const numericLogoWidth = Number(parsed?.logoWidth)
   return {
    logoPath: typeof parsed?.logoPath === "string" ? parsed.logoPath : null,
-   updatedAt: typeof parsed?.updatedAt === "string" ? parsed.updatedAt : null
+   updatedAt: typeof parsed?.updatedAt === "string" ? parsed.updatedAt : null,
+   logoWidth: Number.isFinite(numericLogoWidth) ? Math.min(Math.max(Math.round(numericLogoWidth), MIN_LOGO_WIDTH), MAX_LOGO_WIDTH) : DEFAULT_LOGO_WIDTH
   }
  } catch (error) {
   if (error?.code === "ENOENT") {
-   return { logoPath: null, updatedAt: null }
+   return { logoPath: null, updatedAt: null, logoWidth: DEFAULT_LOGO_WIDTH }
   }
   throw error
  }
@@ -139,6 +144,7 @@ async function removeStoredDashboardLogos() {
 }
 
 async function saveDashboardLogo(dataUrl) {
+ const currentBranding = await readDashboardBranding()
  const parsed = parseLogoDataUrl(dataUrl)
  if (!parsed) {
   throw new Error("invalid logo file")
@@ -153,7 +159,8 @@ async function saveDashboardLogo(dataUrl) {
 
  const branding = {
   logoPath: `/uploads/${fileName}`,
-  updatedAt: new Date().toISOString()
+  updatedAt: new Date().toISOString(),
+  logoWidth: currentBranding.logoWidth || DEFAULT_LOGO_WIDTH
  }
 
  await writeDashboardBranding(branding)
@@ -161,8 +168,27 @@ async function saveDashboardLogo(dataUrl) {
 }
 
 async function clearDashboardLogo() {
+ const currentBranding = await readDashboardBranding()
  await removeStoredDashboardLogos()
- const branding = { logoPath: null, updatedAt: new Date().toISOString() }
+ const branding = {
+  logoPath: null,
+  updatedAt: new Date().toISOString(),
+  logoWidth: currentBranding.logoWidth || DEFAULT_LOGO_WIDTH
+ }
+ await writeDashboardBranding(branding)
+ return branding
+}
+
+async function updateDashboardBrandingSettings(input = {}) {
+ const currentBranding = await readDashboardBranding()
+ const nextWidth = Number(input.logoWidth)
+ const branding = {
+  ...currentBranding,
+  logoWidth: Number.isFinite(nextWidth)
+   ? Math.min(Math.max(Math.round(nextWidth), MIN_LOGO_WIDTH), MAX_LOGO_WIDTH)
+   : currentBranding.logoWidth || DEFAULT_LOGO_WIDTH,
+  updatedAt: new Date().toISOString()
+ }
  await writeDashboardBranding(branding)
  return branding
 }
@@ -1376,6 +1402,18 @@ router.post("/dashboard-branding/logo", limitResend, async (req, res) => {
   return res.json({ success: true, branding })
  } catch (error) {
   console.error("dashboard branding save error", error)
+  return res.status(400).json({ error: errorMessage(error) })
+ }
+})
+
+router.post("/dashboard-branding/settings", limitResend, async (req, res) => {
+ try {
+  const branding = await updateDashboardBrandingSettings({
+   logoWidth: req.body?.logoWidth
+  })
+  return res.json({ success: true, branding })
+ } catch (error) {
+  console.error("dashboard branding settings error", error)
   return res.status(400).json({ error: errorMessage(error) })
  }
 })

@@ -292,6 +292,19 @@ h2{
  font-size:13px;
 }
 
+.branding-size-control{
+ display:grid;
+ gap:8px;
+ color:#dbe8ff;
+ font-size:13px;
+ font-weight:700;
+}
+
+.branding-size-control b{
+ color:var(--muted);
+ font-weight:600;
+}
+
 .sync-block{
  margin-top:16px;
  padding-top:16px;

@@ -68,12 +68,20 @@ function buildBrandingAssetUrl(logoPath, updatedAt) {
 function applyBranding(branding = {}) {
  brandingState = branding
  const logoPath = branding.logoPath || null
- const updatedAt = branding.updatedAt || null
- const logoUrl = buildBrandingAssetUrl(logoPath, updatedAt)
- const brandLogo = document.getElementById("brandLogo")
- const preview = document.getElementById("brandingPreview")
- const status = document.getElementById("brandingStatus")
- const removeButton = document.getElementById("brandingRemoveBtn")
+  const updatedAt = branding.updatedAt || null
+ const logoWidth = Number(branding.logoWidth) || 96
+  const logoUrl = buildBrandingAssetUrl(logoPath, updatedAt)
+  const brandLogo = document.getElementById("brandLogo")
+  const preview = document.getElementById("brandingPreview")
+  const status = document.getElementById("brandingStatus")
+  const removeButton = document.getElementById("brandingRemoveBtn")
+ const sizeRange = document.getElementById("brandingSizeRange")
+ const sizeValue = document.getElementById("brandingSizeValue")
+
+ brandLogo.style.width = `${logoWidth}px`
+ brandLogo.style.height = `${logoWidth}px`
+ sizeRange.value = String(logoWidth)
+ sizeValue.innerText = `${logoWidth} px`
 
  if (logoUrl) {
   brandLogo.src = logoUrl
@@ -143,6 +151,22 @@ async function removeBrandingLogo() {
 
  applyBranding(payload.branding || {})
  alert(t("alert_branding_removed"))
+}
+
+async function saveBrandingSize() {
+ const sizeRange = document.getElementById("brandingSizeRange")
+ const response = await fetch("/admin/api/dashboard-branding/settings", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ logoWidth: Number(sizeRange.value) || 96 })
+ })
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || t("alert_branding_failed"))
+  return
+ }
+
+ applyBranding(payload.branding || {})
 }
 
 function toggleCollapsible(targetId, button) {
@@ -960,6 +984,12 @@ document.getElementById("brandingOpenBtn").addEventListener("click", openBrandin
 document.getElementById("brandingCloseBtn").addEventListener("click", closeBrandingDrawer)
 document.getElementById("saveCopyBtn").addEventListener("click", saveCopyEditor)
 document.getElementById("brandingRemoveBtn").addEventListener("click", removeBrandingLogo)
+document.getElementById("brandingSizeRange").addEventListener("input", (event) => {
+ document.getElementById("brandingSizeValue").innerText = `${event.target.value} px`
+ document.getElementById("brandLogo").style.width = `${event.target.value}px`
+ document.getElementById("brandLogo").style.height = `${event.target.value}px`
+})
+document.getElementById("brandingSizeRange").addEventListener("change", saveBrandingSize)
 document.getElementById("copySearch").addEventListener("input", renderCopyEditorEntries)
 for (const button of document.querySelectorAll(".collapse-toggle")) {
  button.addEventListener("click", () => toggleCollapsible(button.dataset.target, button))
