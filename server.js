@@ -9,6 +9,7 @@ import adminApi from "./routes/adminApi.js"
 import statsRoutes from "./routes/stats.js"
 import publicApi from "./routes/publicApi.js"
 import authMiddleware from "./middleware/auth.js"
+import { startDiscordMemberLeaveListener } from "./services/discordBot.js"
 
 dotenv.config()
 
@@ -126,4 +127,7 @@ app.get("/activate",(req,res)=>{
 })
 
 const PORT=process.env.PORT||3000
-app.listen(PORT,()=>console.log("Server running on",PORT))
+app.listen(PORT,()=>{
+ console.log("Server running on",PORT)
+ startDiscordMemberLeaveListener()
+})
