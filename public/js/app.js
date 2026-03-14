@@ -27,8 +27,13 @@ function formatBrevoStatus(value) {
  const status = String(value || "").trim().toLowerCase()
  const labels = {
   queued: "En file",
+  request: "Requête",
   sent: "Envoyé",
   delivered: "Délivré",
+  opened: "Ouvert",
+  unique_opened: "Ouvert",
+  click: "Cliqué",
+  unique_clicked: "Cliqué",
   soft_bounce: "Rebond souple",
   hard_bounce: "Rebond dur",
   blocked: "Bloqué",
