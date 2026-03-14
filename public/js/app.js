@@ -1,3 +1,7 @@
+if (typeof window.applyDashboardCopy === "function") {
+ window.applyDashboardCopy()
+}
+
 let page = 1
 let limit = 100
 let total = 0
@@ -7,6 +11,7 @@ let currentDetailId = null
 
 const selectedIds = new Set()
 let currentRowIds = []
+const t = window.dashboardT || ((key) => key)
 
 function escapeHtml(value) {
  return String(value)
@@ -27,27 +32,27 @@ function formatDate(value) {
 function formatBrevoStatus(value) {
  const status = String(value || "").trim().toLowerCase()
  const labels = {
-  queued: "En file",
-  request: "Requête",
-  sent: "Envoyé",
-  delivered: "Délivré",
-  opened: "Ouvert",
-  unique_opened: "Ouvert",
-  click: "Cliqué",
-  unique_clicked: "Cliqué",
-  soft_bounce: "Rebond souple",
-  hard_bounce: "Rebond dur",
-  blocked: "Bloqué",
-  error: "Erreur",
-  deferred: "Différé",
-  invalid: "Invalide",
-  spam: "Spam"
+  queued: t("brevo_status_queued"),
+  request: t("brevo_status_request"),
+  sent: t("brevo_status_sent"),
+  delivered: t("brevo_status_delivered"),
+  opened: t("brevo_status_opened"),
+  unique_opened: t("brevo_status_opened"),
+  click: t("brevo_status_click"),
+  unique_clicked: t("brevo_status_click"),
+  soft_bounce: t("brevo_status_soft_bounce"),
+  hard_bounce: t("brevo_status_hard_bounce"),
+  blocked: t("brevo_status_blocked"),
+  error: t("brevo_status_error"),
+  deferred: t("brevo_status_deferred"),
+  invalid: t("brevo_status_invalid"),
+  spam: t("brevo_status_spam")
  }
- return labels[status] || "Aucun statut"
+ return labels[status] || t("brevo_status_none")
 }
 
 function formatYesNo(value) {
- return value ? "Oui" : "Non"
+ return value ? t("yes") : t("no")
 }
 
 function getFilters() {
@@ -69,8 +74,14 @@ function updatePaginationMeta() {
  const clampedPage = Math.min(page, totalPages)
  page = clampedPage
 
- document.getElementById("pageInfo").innerText = `Page ${clampedPage} / ${totalPages}`
- document.getElementById("listMeta").innerText = `${total} résultat${total > 1 ? "s" : ""} • ${limit}/page • ${selectedIds.size} sélectionné${selectedIds.size > 1 ? "s" : ""}`
+ document.getElementById("pageInfo").innerText = t("meta_page", { page: clampedPage, totalPages })
+ document.getElementById("listMeta").innerText = t("meta_results", {
+  total,
+  plural: total > 1 ? "s" : "",
+  limit,
+  selected: selectedIds.size,
+  selectedPlural: selectedIds.size > 1 ? "s" : ""
+ })
  document.getElementById("prevBtn").disabled = loading || clampedPage <= 1
  document.getElementById("nextBtn").disabled = loading || clampedPage >= totalPages
 }
@@ -111,16 +122,16 @@ async function refreshQueueStatus() {
   const status = await fetch("/admin/api/send-status").then((r) => r.json())
   const queueStatus = document.getElementById("queueStatus")
  if (status.running) {
-   queueStatus.innerText = "File d'envoi: ça bombarde"
+   queueStatus.innerText = t("queue_running")
    return
   }
 
   const sent = status.lastStats?.sent || 0
   const failed = status.lastStats?.failed || 0
   const processed = status.lastStats?.processed || 0
-  queueStatus.innerText = `File d'envoi: pause café • dernier tour: ${processed} traités, ${sent} envoyés, ${failed} plantés`
+  queueStatus.innerText = t("queue_last_batch", { processed, sent, failed })
  } catch (error) {
-  document.getElementById("queueStatus").innerText = "File d'envoi: j'ai perdu le fil"
+  document.getElementById("queueStatus").innerText = t("queue_unavailable")
  }
 }
 
@@ -131,16 +142,27 @@ function renderImportStatus(status) {
  bar.style.width = `${Math.min(Math.max(progress, 0), 100)}%`
 
  if (status.running) {
-  importStatus.innerText = `Import en cours: ${status.processed}/${status.total} (${progress}%) • ${status.inserted} ajoutés • ${status.failed} en vrac`
+  importStatus.innerText = t("import_running", {
+   processed: status.processed,
+   total: status.total,
+   progress,
+   inserted: status.inserted,
+   failed: status.failed
+  })
   return
  }
 
  if ((status.total || 0) > 0) {
-  importStatus.innerText = `Import bouclé: ${status.processed}/${status.total} • ${status.inserted} ajoutés • ${status.failed} ratés`
+  importStatus.innerText = t("import_finished", {
+   processed: status.processed,
+   total: status.total,
+   inserted: status.inserted,
+   failed: status.failed
+  })
   return
  }
 
- importStatus.innerText = "Import: tranquille pour l'instant"
+ importStatus.innerText = t("import_idle")
 }
 
 function setReconcileStatus(message) {
@@ -153,7 +175,7 @@ async function refreshImportStatus() {
   renderImportStatus(status)
   return status
  } catch (error) {
-  document.getElementById("importStatus").innerText = "Import: statut dans le brouillard"
+  document.getElementById("importStatus").innerText = t("import_unknown")
   return null
  }
 }
@@ -182,7 +204,7 @@ function renderRows(rows) {
  if (!rows.length) {
   currentRowIds = []
   updateSelectAllState()
-  table.innerHTML = '<tr><td colspan="9">Aucun e-mail trouvé. C\'est le désert.</td></tr>'
+  table.innerHTML = `<tr><td colspan="9">${escapeHtml(t("table_empty"))}</td></tr>`
   return
  }
 
@@ -204,7 +226,7 @@ function renderRows(rows) {
    const checked = selectedIds.has(id) ? "checked" : ""
    return `<tr>
     <td class="select-col"><input class="row-select" type="checkbox" data-id="${id}" ${checked}></td>
-    <td class="email-cell" title="${email}">${email}${excluded ? ' <span class="inline-pill">Exclu</span>' : ""}</td>
+    <td class="email-cell" title="${email}">${email}${excluded ? ` <span class="inline-pill">${escapeHtml(t("row_excluded_pill"))}</span>` : ""}</td>
     <td class="status-cell">${sent}</td>
     <td class="status-cell">${used}</td>
     <td class="datetime-cell">${sentAt}</td>
@@ -212,9 +234,9 @@ function renderRows(rows) {
     <td class="status-pill-cell"><span class="brevo-badge brevo-${brevoStatusKey.replace(/[^a-z_]+/g, "-")}">${brevoStatus}</span></td>
     <td class="error-cell">${error}</td>
     <td class="actions-cell">
-     <button class="icon-btn detail-btn" data-id="${id}" title="Détail" aria-label="Détail">⋯</button>
-     <button class="icon-btn resend-btn" data-email="${email}" title="Renvoyer" aria-label="Renvoyer">✉</button>
-     <button class="icon-btn delete-btn" data-id="${id}" data-email="${email}" title="Supprimer" aria-label="Supprimer">🗑</button>
+     <button class="icon-btn detail-btn" data-id="${id}" title="${escapeHtml(t("row_detail_title"))}" aria-label="${escapeHtml(t("row_detail_title"))}">⋯</button>
+     <button class="icon-btn resend-btn" data-email="${email}" title="${escapeHtml(t("row_resend_title"))}" aria-label="${escapeHtml(t("row_resend_title"))}">✉</button>
+     <button class="icon-btn delete-btn" data-id="${id}" data-email="${email}" title="${escapeHtml(t("row_delete_title"))}" aria-label="${escapeHtml(t("row_delete_title"))}">🗑</button>
     </td>
    </tr>`
   })
@@ -242,7 +264,7 @@ async function loadList() {
   updatePaginationMeta()
  } catch (error) {
   console.error("load list error", error)
-  document.getElementById("table").innerHTML = '<tr><td colspan="9">Le serveur a toussé pendant le chargement.</td></tr>'
+  document.getElementById("table").innerHTML = `<tr><td colspan="9">${escapeHtml(t("table_load_error"))}</td></tr>`
  } finally {
   setLoading(false)
   updatePaginationMeta()
@@ -259,16 +281,16 @@ async function importEmails() {
  })
  const payload = await response.json()
  if (response.status === 409) {
-  alert("Un import tourne déjà. Laisse-le finir sa vie.")
+  alert(t("alert_import_running"))
   startImportPolling()
   return
  }
  if (!response.ok) {
-  alert(payload.error || "L'import s'est pris les pieds dans le tapis")
+  alert(payload.error || t("alert_import_failed"))
   return
  }
  emailsInput.value = ""
- alert(`Import lancé: ${payload.total || 0} e-mails partent à l'échauffement`)
+ alert(t("alert_import_started", { total: payload.total || 0 }))
  startImportPolling()
  page = 1
  await refreshAll()
@@ -278,10 +300,10 @@ async function sendEmails() {
  const response = await fetch("/admin/api/send", { method: "POST" })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "L'envoi a boudé")
+  alert(payload.error || t("alert_send_failed"))
   return
  }
- alert(`C'est parti: ${payload.queued || 0} e-mails sont sur la ligne de départ`)
+ alert(t("alert_send_started", { queued: payload.queued || 0 }))
  await refreshAll()
 }
 
@@ -289,11 +311,11 @@ async function reconcileSentEmails() {
  const input = document.getElementById("reconcileEmails")
  const emails = input.value
  if (!emails.trim()) {
-  alert("Colle d'abord une liste Brevo, sinon je devine au hasard")
+  alert(t("alert_reconcile_missing_input"))
   return
  }
 
- setReconcileStatus("Réconciliation en cours... on remet de l'ordre là-dedans")
+ setReconcileStatus(t("reconcile_running"))
  const response = await fetch("/admin/api/reconcile-sent", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -301,8 +323,8 @@ async function reconcileSentEmails() {
  })
  const payload = await response.json()
  if (!response.ok) {
-  setReconcileStatus("Réconciliation: petit gadin")
-  alert(payload.error || "La réconciliation s'est emmêlé les câbles")
+  setReconcileStatus(t("reconcile_failed"))
+  alert(payload.error || t("alert_reconcile_failed"))
   return
  }
 
@@ -310,13 +332,18 @@ async function reconcileSentEmails() {
  const missing = Number(payload.missing) || 0
  const updatedRows = Number(payload.updatedRows) || 0
  const matched = Number(payload.matched) || 0
- setReconcileStatus(`Réconciliation bouclée: ${matched} retrouvés, ${updatedRows} mis à jour, ${missing} introuvables`)
+ setReconcileStatus(t("reconcile_done", { matched, updated: updatedRows, missing }))
 
  if (missing > 0) {
   const preview = (payload.missingEmails || []).slice(0, 15).join("\n")
-  alert(`Réconciliation bouclée.\n\nRetrouvés: ${matched}\nMis à jour: ${updatedRows}\nAbsents de la base: ${missing}${preview ? `\n\nExemples absents:\n${preview}` : ""}`)
+  alert(t("alert_reconcile_done_missing", {
+   matched,
+   updated: updatedRows,
+   missing,
+   preview: preview ? `\n\nExemples absents:\n${preview}` : ""
+  }))
  } else {
-  alert(`Réconciliation bouclée: ${matched} e-mails retrouvés, ${updatedRows} ligne(s) mises à jour.`)
+  alert(t("alert_reconcile_done", { matched, updated: updatedRows }))
  }
 
  page = 1
@@ -331,15 +358,15 @@ async function resendEmail(email) {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.details || payload.error || "Le renvoi a calé")
+  alert(payload.details || payload.error || t("alert_resend_failed"))
   return
  }
- alert(`C'est reparti pour ${email}`)
+ alert(t("alert_resend_ok", { email }))
  await refreshAll()
 }
 
 async function deleteRow(id, email) {
- const confirmed = window.confirm(`Tu veux vraiment bazarder ${email} de la base ?`)
+ const confirmed = window.confirm(t("confirm_delete_row", { email }))
  if (!confirmed) return
 
  const response = await fetch("/admin/api/delete", {
@@ -349,12 +376,12 @@ async function deleteRow(id, email) {
  })
 
  if (!response.ok) {
-  alert("Impossible de jeter cette ligne à la poubelle")
+  alert(t("alert_delete_failed"))
   return
  }
 
  selectedIds.delete(id)
- alert(`Hop, ${email} a disparu du radar`)
+ alert(t("alert_delete_ok", { email }))
  page = 1
  await refreshAll()
 }
@@ -362,7 +389,7 @@ async function deleteRow(id, email) {
 async function batchResend() {
  const ids = Array.from(selectedIds)
  if (!ids.length) {
-  alert("Sélectionne au moins une ligne, champion")
+  alert(t("alert_select_none"))
   return
  }
 
@@ -371,25 +398,29 @@ async function batchResend() {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ ids })
  })
-  const payload = await response.json()
+ const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Le renvoi en lot a fait grève")
+  alert(payload.error || t("alert_batch_resend_failed"))
   return
  }
 
- alert(`Renvoi en lot: ${payload.processed || 0} traités, ${payload.sent || 0} envoyés, ${payload.failed || 0} ratés`)
+ alert(t("alert_batch_resend_ok", {
+  processed: payload.processed || 0,
+  sent: payload.sent || 0,
+  failed: payload.failed || 0
+ }))
  await refreshAll()
 }
 
 async function resendFiltered() {
  const { search, status, brevoStatus } = getFilters()
  const labelParts = []
- if (status !== "all") labelParts.push(`statut=${status}`)
- if (brevoStatus !== "all") labelParts.push(`Brevo=${brevoStatus}`)
- if (search) labelParts.push(`recherche=${search}`)
+ if (status !== "all") labelParts.push(t("filter_label_status", { value: status }))
+ if (brevoStatus !== "all") labelParts.push(t("filter_label_brevo", { value: brevoStatus }))
+ if (search) labelParts.push(t("filter_label_search", { value: search }))
  const label = labelParts.length ? ` (${labelParts.join(", ")})` : ""
 
- const confirmed = window.confirm(`Tu veux relancer toutes les lignes du filtre actuel${label} ?`)
+ const confirmed = window.confirm(t("confirm_resend_filtered", { label }))
  if (!confirmed) return
 
  const response = await fetch("/admin/api/resend-filtered", {
@@ -399,11 +430,15 @@ async function resendFiltered() {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Le renvoi filtré est parti se cacher")
+  alert(payload.error || t("alert_resend_filter_failed"))
   return
  }
 
- alert(`Renvoi filtré: ${payload.processed || 0} traités, ${payload.sent || 0} envoyés, ${payload.failed || 0} ratés`)
+ alert(t("alert_resend_filter_ok", {
+  processed: payload.processed || 0,
+  sent: payload.sent || 0,
+  failed: payload.failed || 0
+ }))
  await refreshAll()
 }
 
@@ -416,7 +451,7 @@ async function selectFiltered() {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Impossible de choper tout le filtre")
+  alert(payload.error || t("alert_select_filter_failed"))
   return
  }
 
@@ -424,13 +459,13 @@ async function selectFiltered() {
  for (const id of payload.ids || []) selectedIds.add(id)
  updateSelectAllState()
  updatePaginationMeta()
- alert(`${payload.total || 0} ligne(s) dans le filet du filtre actuel`)
+ alert(t("alert_select_filter_ok", { total: payload.total || 0 }))
 }
 
 async function setExcludedForSelected(excluded) {
  const ids = Array.from(selectedIds)
  if (!ids.length) {
-  alert("Sélectionne au moins une ligne, sinon je mime")
+  alert(t("alert_select_none_fun"))
   return
  }
 
@@ -441,11 +476,14 @@ async function setExcludedForSelected(excluded) {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "La mise à jour a dérapé")
+  alert(payload.error || t("alert_exclude_failed"))
   return
  }
 
- alert(`${payload.updated || 0} ligne(s) ${excluded ? "mises au placard" : "remises dans le jeu"}`)
+ alert(t("alert_exclude_ok", {
+  updated: payload.updated || 0,
+  action: excluded ? t("action_excluded_selected") : t("action_included_selected")
+ }))
  await refreshAll()
 }
 
@@ -458,11 +496,14 @@ async function setExcludedForFiltered(excluded) {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "La mise à jour du filtre a bégayé")
+  alert(payload.error || t("alert_exclude_filter_failed"))
   return
  }
 
- alert(`${payload.updated || 0} ligne(s) ${excluded ? "mises au placard" : "remises dans la course"} pour le filtre actuel`)
+ alert(t("alert_exclude_ok", {
+  updated: payload.updated || 0,
+  action: excluded ? t("action_excluded_filtered") : t("action_included_filtered")
+ }))
  await refreshAll()
 }
 
@@ -488,7 +529,7 @@ async function openDetail(id) {
  const response = await fetch(`/admin/api/detail/${encodeURIComponent(id)}`)
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Impossible d'ouvrir les coulisses de cette ligne")
+  alert(payload.error || t("alert_detail_failed"))
   return
  }
 
@@ -497,10 +538,10 @@ async function openDetail(id) {
  document.getElementById("detailEmail").innerText = row.email || "-"
  document.getElementById("detailMeta").innerHTML = `
   <span class="inline-pill">${formatBrevoStatus(row.brevo_status)}</span>
-  <span class="inline-pill">${row.resend_excluded ? "Au placard" : "Prêt à repartir"}</span>
-  <span class="inline-pill">Activé: ${formatYesNo(row.used)}</span>
+  <span class="inline-pill">${row.resend_excluded ? t("detail_status_excluded") : t("detail_status_allowed")}</span>
+  <span class="inline-pill">${t("detail_status_activated", { value: formatYesNo(row.used) })}</span>
  `
- document.getElementById("detailTimeline").innerHTML = (payload.timeline || []).map(renderTimelineItem).join("") || '<p class="panel-copy">Aucun historique ici. Même pas un petit drame.</p>'
+ document.getElementById("detailTimeline").innerHTML = (payload.timeline || []).map(renderTimelineItem).join("") || `<p class="panel-copy">${escapeHtml(t("detail_no_history"))}</p>`
  document.getElementById("detailNote").value = row.admin_note || ""
  document.getElementById("detailDrawer").classList.remove("hidden")
 }
@@ -515,11 +556,11 @@ async function saveDetailNote() {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Impossible de garder cette note au chaud")
+  alert(payload.error || t("alert_note_failed"))
   return
  }
 
- alert("Note bien rangée")
+ alert(t("alert_note_ok"))
  await openDetail(currentDetailId)
  await loadList()
 }
@@ -527,11 +568,11 @@ async function saveDetailNote() {
 async function batchDelete() {
  const ids = Array.from(selectedIds)
  if (!ids.length) {
-  alert("Sélectionne au moins une ligne avant de sortir la tronçonneuse")
+  alert(t("alert_select_none_saw"))
   return
  }
 
- const confirmed = window.confirm(`Tu veux vraiment bazarder ${ids.length} ligne(s) ?`)
+ const confirmed = window.confirm(t("confirm_delete_rows", { count: ids.length }))
  if (!confirmed) return
 
  const response = await fetch("/admin/api/batch-delete", {
@@ -541,12 +582,12 @@ async function batchDelete() {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "La suppression en lot a foiré")
+  alert(payload.error || t("alert_batch_delete_failed"))
   return
  }
 
  ids.forEach((id) => selectedIds.delete(id))
- alert(`Hop, ${payload.deleted || 0} ligne(s) se sont fait la malle`)
+ alert(t("alert_batch_delete_ok", { deleted: payload.deleted || 0 }))
  page = 1
  await refreshAll()
 }
