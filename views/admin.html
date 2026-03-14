@@ -19,9 +19,12 @@
 <p class="eyebrow" data-copy="eyebrow">Développé avec amour par Bruno</p>
 <h1 data-copy="title">Ton cockpit d'accès Discord</h1>
 </div>
-<form method="POST" action="/logout" class="topbar-actions">
+<div class="topbar-actions">
+<button id="copyEditorBtn" type="button" class="ghost">Textes du dashboard</button>
+<form method="POST" action="/logout">
 <button id="logoutBtn" type="submit" class="ghost">Se barrer</button>
 </form>
+</div>
 </div>
 
 <section class="stats">
@@ -172,6 +175,23 @@
 <div class="detail-actions">
 <button id="saveNoteBtn" type="button">Garder la note</button>
 </div>
+</div>
+</div>
+</aside>
+
+<aside class="detail-drawer hidden" id="copyDrawer">
+<div class="detail-card">
+<div class="detail-header">
+<div>
+<p class="eyebrow">Textes du dashboard</p>
+<h2>Édite tes libellés</h2>
+</div>
+<button id="copyCloseBtn" type="button" class="ghost">Refermer ça</button>
+</div>
+<p class="panel-copy">Tu peux modifier ici tous les textes visibles du dashboard. Change le ton, les blagues, les libellés: tout passe par ce fichier.</p>
+<textarea id="copyEditor" class="code-editor" spellcheck="false"></textarea>
+<div class="detail-actions">
+<button id="saveCopyBtn" type="button">Enregistrer les textes</button>
 </div>
 </div>
 </aside>

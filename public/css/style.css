@@ -83,6 +83,7 @@ h2{
 .topbar-actions{
  display:flex;
  align-items:center;
+ gap:10px;
 }
 
 .stats{
@@ -159,6 +160,14 @@ textarea{
  width:100%;
  min-height:130px;
  resize:vertical;
+}
+
+.code-editor{
+ min-height:420px;
+ font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+ font-size:12px;
+ line-height:1.6;
+ white-space:pre;
 }
 
 .controls{

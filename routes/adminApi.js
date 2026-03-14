@@ -1,10 +1,16 @@
 import express from "express"
 import crypto from "crypto"
+import fs from "fs/promises"
+import path from "path"
+import { fileURLToPath } from "url"
 import { supabase } from "../services/supabase.js"
 import { sendMail } from "../services/mailer.js"
 
 const router = express.Router()
 const UUID_V4_OR_V7_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const dashboardCopyFilePath = path.join(__dirname, "..", "public", "js", "dashboardCopy.js")
 
 const rateLimitStore = new Map()
 const importQueueState = {
@@ -37,6 +43,10 @@ function token() {
 
 function errorMessage(error) {
  return error?.message || "unknown error"
+}
+
+function validateDashboardCopySource(source) {
+ new Function(source)
 }
 
 function createRateLimiter({ windowMs, max, keyPrefix }) {
@@ -724,6 +734,35 @@ router.get("/brevo-stats", limitList, async (req, res) => {
   return res.json({ stats })
  } catch (error) {
   console.error("brevo stats route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.get("/dashboard-copy", limitList, async (req, res) => {
+ try {
+  const content = await fs.readFile(dashboardCopyFilePath, "utf8")
+  return res.json({ content })
+ } catch (error) {
+  console.error("dashboard copy read error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.post("/dashboard-copy", limitResend, async (req, res) => {
+ try {
+  const content = typeof req.body?.content === "string" ? req.body.content : ""
+  if (!content.trim()) return res.status(400).json({ error: "content required" })
+
+  try {
+   validateDashboardCopySource(content)
+  } catch (validationError) {
+   return res.status(400).json({ error: "invalid javascript", details: errorMessage(validationError) })
+  }
+
+  await fs.writeFile(dashboardCopyFilePath, `${content.trim()}\n`, "utf8")
+  return res.json({ success: true })
+ } catch (error) {
+  console.error("dashboard copy save error", error)
   return res.status(500).json({ error: "server error" })
  }
 })

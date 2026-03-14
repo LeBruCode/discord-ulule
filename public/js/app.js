@@ -8,6 +8,7 @@ let total = 0
 let loading = false
 let importPollTimer = null
 let currentDetailId = null
+let copyEditorLoaded = false
 
 const selectedIds = new Set()
 let currentRowIds = []
@@ -518,6 +519,41 @@ function closeDetailDrawer() {
  document.getElementById("detailDrawer").classList.add("hidden")
 }
 
+function closeCopyDrawer() {
+ document.getElementById("copyDrawer").classList.add("hidden")
+}
+
+async function openCopyDrawer() {
+ document.getElementById("copyDrawer").classList.remove("hidden")
+ if (copyEditorLoaded) return
+
+ const response = await fetch("/admin/api/dashboard-copy")
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || "Impossible de charger les textes du dashboard")
+  return
+ }
+
+ document.getElementById("copyEditor").value = payload.content || ""
+ copyEditorLoaded = true
+}
+
+async function saveCopyEditor() {
+ const content = document.getElementById("copyEditor").value
+ const response = await fetch("/admin/api/dashboard-copy", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ content })
+ })
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.details || payload.error || "Impossible d'enregistrer les textes")
+  return
+ }
+
+ alert("Textes enregistrés. Fais un petit refresh pour savourer.")
+}
+
 function renderTimelineItem(item) {
  const label = escapeHtml(item.label || "-")
  const at = escapeHtml(formatDate(item.at))
@@ -622,6 +658,9 @@ document.getElementById("exportBtn").addEventListener("click", exportFiltered)
 document.getElementById("batchDeleteBtn").addEventListener("click", batchDelete)
 document.getElementById("detailCloseBtn").addEventListener("click", closeDetailDrawer)
 document.getElementById("saveNoteBtn").addEventListener("click", saveDetailNote)
+document.getElementById("copyEditorBtn").addEventListener("click", openCopyDrawer)
+document.getElementById("copyCloseBtn").addEventListener("click", closeCopyDrawer)
+document.getElementById("saveCopyBtn").addEventListener("click", saveCopyEditor)
 document.getElementById("status").addEventListener("change", async () => {
  page = 1
  await loadList()
