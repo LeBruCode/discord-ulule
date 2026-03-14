@@ -155,6 +155,15 @@ function toggleCollapsible(targetId, button) {
   }
 }
 
+function syncCollapseButtons() {
+ for (const button of document.querySelectorAll(".collapse-toggle")) {
+  const target = document.getElementById(button.dataset.target)
+  const collapsed = target?.classList.contains("collapsed")
+  button.setAttribute("aria-expanded", collapsed ? "false" : "true")
+  button.innerText = collapsed ? t("expand_btn") : t("collapse_btn")
+ }
+}
+
 function getFilters() {
  const search = document.getElementById("search").value.trim()
  const status = document.getElementById("status").value
@@ -726,6 +735,14 @@ function closeCopyDrawer() {
  document.getElementById("copyDrawer").classList.add("hidden")
 }
 
+function openBrandingDrawer() {
+ document.getElementById("brandingDrawer").classList.remove("hidden")
+}
+
+function closeBrandingDrawer() {
+ document.getElementById("brandingDrawer").classList.add("hidden")
+}
+
 function renderCopyEditorEntries() {
  const container = document.getElementById("copyEditorList")
  const search = document.getElementById("copySearch").value.trim().toLowerCase()
@@ -918,6 +935,7 @@ async function refreshAll() {
  } else {
   stopBrevoSyncPolling()
  }
+ syncCollapseButtons()
 }
 
 document.getElementById("importBtn").addEventListener("click", importEmails)
@@ -938,6 +956,8 @@ document.getElementById("detailCloseBtn").addEventListener("click", closeDetailD
 document.getElementById("saveNoteBtn").addEventListener("click", saveDetailNote)
 document.getElementById("copyEditorBtn").addEventListener("click", openCopyDrawer)
 document.getElementById("copyCloseBtn").addEventListener("click", closeCopyDrawer)
+document.getElementById("brandingOpenBtn").addEventListener("click", openBrandingDrawer)
+document.getElementById("brandingCloseBtn").addEventListener("click", closeBrandingDrawer)
 document.getElementById("saveCopyBtn").addEventListener("click", saveCopyEditor)
 document.getElementById("brandingRemoveBtn").addEventListener("click", removeBrandingLogo)
 document.getElementById("copySearch").addEventListener("input", renderCopyEditorEntries)
@@ -1027,6 +1047,7 @@ setInterval(() => {
 }, 10000)
 
 setupBrandingDropzone()
+syncCollapseButtons()
 refreshAll().catch((error) => {
  console.error("dashboard init error", error)
 })

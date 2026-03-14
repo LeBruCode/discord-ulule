@@ -16,43 +16,20 @@
 <main class="container">
 <div class="topbar">
 <div class="brand-header">
-<img id="brandLogo" class="brand-logo hidden" alt="Logo du dashboard">
 <div>
 <p class="eyebrow" data-copy="eyebrow">Développé avec amour par Bruno</p>
 <h1 data-copy="title">Le dashboard Discord</h1>
 </div>
+<img id="brandLogo" class="brand-logo hidden" alt="Logo du dashboard">
 </div>
 <div class="topbar-actions">
+<button id="brandingOpenBtn" type="button" class="ghost icon-only" aria-label="Logo du projet" title="Logo du projet">⚙</button>
 <button id="copyEditorBtn" type="button" class="ghost">Textes du dashboard</button>
 <form method="POST" action="/logout">
 <button id="logoutBtn" type="submit" class="ghost">Se déconnecter</button>
 </form>
 </div>
 </div>
-
-<section class="panel collapsible-panel">
-<div class="panel-head">
-<div>
-<h2 id="brandingTitle">Logo du projet</h2>
-<p class="panel-copy" id="brandingCopy">Ajoute un logo pour raccrocher ce dashboard à ton projet. PNG ou JPEG, en glissant-déposant ou en cliquant.</p>
-</div>
-<button id="brandingCollapseBtn" type="button" class="ghost collapse-toggle" data-target="brandingPanelBody" aria-expanded="false">Ouvrir</button>
-</div>
-<div id="brandingPanelBody" class="collapsible-body collapsed">
-<div class="branding-panel">
-<label id="brandingDropzone" class="branding-dropzone" for="brandingFileInput">
-<input id="brandingFileInput" type="file" accept="image/png,image/jpeg" hidden>
-<span id="brandingDropzoneTitle" class="branding-dropzone-title">Dépose ton logo ici</span>
-<span class="branding-dropzone-copy" id="brandingHint">PNG ou JPEG. Clique aussi si tu préfères parcourir tes fichiers.</span>
-</label>
-<div class="branding-preview-card">
-<img id="brandingPreview" class="branding-preview hidden" alt="Aperçu du logo">
-<p id="brandingStatus" class="branding-status">Aucun logo pour le moment.</p>
-<button id="brandingRemoveBtn" type="button" class="ghost">Retirer le logo</button>
-</div>
-</div>
-</div>
-</section>
 
 <section class="stats">
 <div class="card"><span id="statsTotalLabel">Total</span><b id="total">0</b></div>
@@ -204,6 +181,31 @@
 <p id="queueStatus">File d'envoi: pause café</p>
 </div>
 </section>
+
+<aside class="detail-drawer hidden" id="brandingDrawer">
+<div class="detail-card">
+<div class="detail-header">
+<div>
+<p class="eyebrow">Logo du projet</p>
+<h2 id="brandingTitle">Logo du projet</h2>
+</div>
+<button id="brandingCloseBtn" type="button" class="ghost">Refermer ça</button>
+</div>
+<p class="panel-copy" id="brandingCopy">Ajoute un logo pour raccrocher ce dashboard à ton projet. PNG ou JPEG, en glissant-déposant ou en cliquant.</p>
+<div class="branding-panel">
+<label id="brandingDropzone" class="branding-dropzone" for="brandingFileInput">
+<input id="brandingFileInput" type="file" accept="image/png,image/jpeg" hidden>
+<span id="brandingDropzoneTitle" class="branding-dropzone-title">Dépose ton logo ici</span>
+<span class="branding-dropzone-copy" id="brandingHint">PNG ou JPEG. Clique aussi si tu préfères parcourir tes fichiers.</span>
+</label>
+<div class="branding-preview-card">
+<img id="brandingPreview" class="branding-preview hidden" alt="Aperçu du logo">
+<p id="brandingStatus" class="branding-status">Aucun logo pour le moment.</p>
+<button id="brandingRemoveBtn" type="button" class="ghost">Retirer le logo</button>
+</div>
+</div>
+</div>
+</aside>
 
 <section class="panel">
 <h2 id="listTitle">Qui a quoi, et qui rame encore</h2>
