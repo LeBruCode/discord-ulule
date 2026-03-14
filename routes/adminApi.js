@@ -37,6 +37,7 @@ const BREVO_INTER_SEND_DELAY_MS = 400
 const IMPORT_CHUNK_SIZE = 250
 const BREVO_FAILED_STATUSES = ["error", "soft_bounce", "hard_bounce", "blocked", "invalid", "deferred", "spam"]
 const BREVO_STATUSES = ["queued", "request", "sent", "delivered", "opened", "unique_opened", "click", "unique_clicked", "soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"]
+const BREVO_DELIVERED_STATUSES = ["delivered", "opened", "unique_opened", "click", "unique_clicked"]
 
 function token() {
  return crypto.randomBytes(32).toString("hex")
@@ -843,6 +844,7 @@ router.get("/brevo-stats", limitList, async (req, res) => {
     .select("id", { count: "exact", head: true })
 
    if (status === "none") query = query.is("brevo_status", null)
+   else if (status === "delivered") query = query.in("brevo_status", BREVO_DELIVERED_STATUSES)
    else query = query.eq("brevo_status", status)
 
    const { count, error } = await query
