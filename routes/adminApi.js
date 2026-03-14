@@ -49,13 +49,14 @@ const brevoSyncState = {
 const BREVO_MAX_RETRIES = 4
 const BREVO_BASE_DELAY_MS = 800
 const BREVO_INTER_SEND_DELAY_MS = 400
-const BREVO_SYNC_DELAY_MS = 180
+const BREVO_SYNC_DELAY_MS = 0
 const BREVO_SYNC_FETCH_CHUNK_SIZE = 500
 const IMPORT_CHUNK_SIZE = 250
 const BREVO_FAILED_STATUSES = ["error", "soft_bounce", "hard_bounce", "blocked", "invalid", "deferred", "spam"]
 const BREVO_STATUSES = ["queued", "request", "sent", "delivered", "opened", "unique_opened", "click", "unique_clicked", "soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"]
 const BREVO_DELIVERED_STATUSES = ["delivered", "opened", "unique_opened", "click", "unique_clicked"]
 const BREVO_SENT_STATUSES = ["sent", ...BREVO_DELIVERED_STATUSES]
+const BREVO_SYNC_TARGET_STATUSES = ["request", "queued", "sent", ...BREVO_FAILED_STATUSES]
 const BREVO_STAT_BUCKETS = [
  { key: "none", type: "null" },
  { key: "request", type: "eq", value: "request" },
@@ -79,14 +80,12 @@ function errorMessage(error) {
  return error?.message || "unknown error"
 }
 
-function shouldSyncBrevoRow(row) {
- const status = String(row?.brevo_status || "").trim().toLowerCase()
-
- if (!status) return true
- if (status === "request" || status === "queued" || status === "sent") return true
- if (BREVO_FAILED_STATUSES.includes(status)) return true
- if (status === "delivered" || BREVO_DELIVERED_STATUSES.includes(status)) return false
- return true
+function buildBrevoSyncCandidateQuery(selectClause, selectOptions = undefined) {
+ const filters = ["brevo_status.is.null", ...BREVO_SYNC_TARGET_STATUSES.map((status) => `brevo_status.eq.${status}`)]
+ return supabase
+  .from("access_tokens")
+  .select(selectClause, selectOptions)
+  .or(filters.join(","))
 }
 
 function toIsoDateOnly(value) {
@@ -281,12 +280,16 @@ async function syncBrevoRow(row) {
  if (!mail) return { matched: false, updated: false }
 
  let detail = null
- const uuid = String(mail?.uuid || mail?.id || "").trim()
- if (uuid) {
-  try {
-   detail = await getTransactionalEmailDetail(uuid)
-  } catch (error) {
-   console.error("brevo detail fetch error", row.email, errorMessage(error))
+ const listStatus = normalizeBrevoEventStatus(mail?.status || mail?.event)
+
+ if (!listStatus) {
+  const uuid = String(mail?.uuid || mail?.id || "").trim()
+  if (uuid) {
+   try {
+    detail = await getTransactionalEmailDetail(uuid)
+   } catch (error) {
+    console.error("brevo detail fetch error", row.email, errorMessage(error))
+   }
   }
  }
 
@@ -318,24 +321,20 @@ async function processBrevoSyncQueue() {
  brevoSyncState.lastFinishedAt = null
 
  try {
-  const { count, error: countError } = await supabase
-   .from("access_tokens")
-   .select("id", { count: "exact", head: true })
+  const { count, error: countError } = await buildBrevoSyncCandidateQuery("id", { count: "exact", head: true })
 
   if (countError) throw countError
   brevoSyncState.total = count || 0
 
   for (let offset = 0; offset < brevoSyncState.total; offset += BREVO_SYNC_FETCH_CHUNK_SIZE) {
    const end = offset + BREVO_SYNC_FETCH_CHUNK_SIZE - 1
-   const { data, error } = await supabase
-   .from("access_tokens")
-   .select("id,email,created_at,email_sent,email_sent_at,brevo_message_id,brevo_status,brevo_event_at")
-   .order("created_at", { ascending: true })
-   .range(offset, end)
+   const { data, error } = await buildBrevoSyncCandidateQuery("id,email,created_at,email_sent,email_sent_at,brevo_message_id,brevo_status,brevo_event_at")
+    .order("created_at", { ascending: true })
+    .range(offset, end)
 
    if (error) throw error
 
-   const rows = (Array.isArray(data) ? data : []).filter(shouldSyncBrevoRow)
+   const rows = (Array.isArray(data) ? data : [])
    for (const row of rows) {
     if (brevoSyncState.stopRequested) break
     brevoSyncState.currentEmail = row.email || null
@@ -352,7 +351,7 @@ async function processBrevoSyncQueue() {
      brevoSyncState.processed += 1
     }
 
-    await sleep(BREVO_SYNC_DELAY_MS)
+    if (BREVO_SYNC_DELAY_MS > 0) await sleep(BREVO_SYNC_DELAY_MS)
    }
 
    if (brevoSyncState.stopRequested) break
