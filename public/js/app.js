@@ -175,8 +175,10 @@ function setReconcileStatus(message) {
 function renderBrevoSyncStatus(status) {
  const statusNode = document.getElementById("brevoSyncStatus")
  const bar = document.getElementById("brevoSyncProgressBar")
+ const stopButton = document.getElementById("brevoSyncStopBtn")
  const progress = Number(status?.progress) || 0
  bar.style.width = `${Math.min(Math.max(progress, 0), 100)}%`
+ stopButton.disabled = !status?.running
 
  if (status?.running) {
   statusNode.innerText = t("brevo_sync_running", {
@@ -186,7 +188,8 @@ function renderBrevoSyncStatus(status) {
    matched: status.matched || 0,
    updated: status.updated || 0,
    missing: status.missing || 0,
-   failed: status.failed || 0
+   failed: status.failed || 0,
+   currentEmail: status.currentEmail || "-"
   })
   return
  }
@@ -434,6 +437,23 @@ async function startBrevoSync() {
 
  alert(t("alert_brevo_sync_started"))
  startBrevoSyncPolling()
+ await refreshBrevoSyncStatus()
+}
+
+async function stopBrevoSync() {
+ const response = await fetch("/admin/api/brevo-sync-stop", { method: "POST" })
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || t("alert_brevo_sync_stop_failed"))
+  return
+ }
+
+ if (payload.stopped) {
+  alert(t("alert_brevo_sync_stop_requested"))
+ } else {
+  alert(t("alert_brevo_sync_stop_idle"))
+ }
+
  await refreshBrevoSyncStatus()
 }
 
@@ -773,6 +793,7 @@ document.getElementById("importBtn").addEventListener("click", importEmails)
 document.getElementById("sendBtn").addEventListener("click", sendEmails)
 document.getElementById("reconcileBtn").addEventListener("click", reconcileSentEmails)
 document.getElementById("brevoSyncBtn").addEventListener("click", startBrevoSync)
+document.getElementById("brevoSyncStopBtn").addEventListener("click", stopBrevoSync)
 document.getElementById("batchResendBtn").addEventListener("click", batchResend)
 document.getElementById("filterResendBtn").addEventListener("click", resendFiltered)
 document.getElementById("selectFilteredBtn").addEventListener("click", selectFiltered)

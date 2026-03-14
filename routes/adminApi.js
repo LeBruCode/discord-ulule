@@ -34,6 +34,7 @@ const sendQueueState = {
 }
 const brevoSyncState = {
  running: false,
+ stopRequested: false,
  total: 0,
  processed: 0,
  matched: 0,
@@ -49,6 +50,7 @@ const BREVO_MAX_RETRIES = 4
 const BREVO_BASE_DELAY_MS = 800
 const BREVO_INTER_SEND_DELAY_MS = 400
 const BREVO_SYNC_DELAY_MS = 180
+const BREVO_SYNC_FETCH_CHUNK_SIZE = 500
 const IMPORT_CHUNK_SIZE = 250
 const BREVO_FAILED_STATUSES = ["error", "soft_bounce", "hard_bounce", "blocked", "invalid", "deferred", "spam"]
 const BREVO_STATUSES = ["queued", "request", "sent", "delivered", "opened", "unique_opened", "click", "unique_clicked", "soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"]
@@ -75,6 +77,16 @@ function token() {
 
 function errorMessage(error) {
  return error?.message || "unknown error"
+}
+
+function shouldSyncBrevoRow(row) {
+ const status = String(row?.brevo_status || "").trim().toLowerCase()
+
+ if (!status) return true
+ if (status === "request" || status === "queued" || status === "sent") return true
+ if (BREVO_FAILED_STATUSES.includes(status)) return true
+ if (status === "delivered" || BREVO_DELIVERED_STATUSES.includes(status)) return false
+ return true
 }
 
 function toIsoDateOnly(value) {
@@ -293,6 +305,7 @@ async function processBrevoSyncQueue() {
  if (brevoSyncState.running) return
 
  brevoSyncState.running = true
+ brevoSyncState.stopRequested = false
  brevoSyncState.total = 0
  brevoSyncState.processed = 0
  brevoSyncState.matched = 0
@@ -305,46 +318,51 @@ async function processBrevoSyncQueue() {
  brevoSyncState.lastFinishedAt = null
 
  try {
-  const { data, error } = await supabase
+  const { count, error: countError } = await supabase
+   .from("access_tokens")
+   .select("id", { count: "exact", head: true })
+
+  if (countError) throw countError
+  brevoSyncState.total = count || 0
+
+  for (let offset = 0; offset < brevoSyncState.total; offset += BREVO_SYNC_FETCH_CHUNK_SIZE) {
+   const end = offset + BREVO_SYNC_FETCH_CHUNK_SIZE - 1
+   const { data, error } = await supabase
    .from("access_tokens")
    .select("id,email,created_at,email_sent,email_sent_at,brevo_message_id,brevo_status,brevo_event_at")
    .order("created_at", { ascending: true })
-   .limit(10000)
+   .range(offset, end)
 
-  if (error) throw error
+   if (error) throw error
 
-  const rows = (Array.isArray(data) ? data : []).filter((row) => {
-   return Boolean(
-    row.brevo_message_id ||
-    row.email_sent === true ||
-    row.brevo_status
-   )
-  })
+   const rows = (Array.isArray(data) ? data : []).filter(shouldSyncBrevoRow)
+   for (const row of rows) {
+    if (brevoSyncState.stopRequested) break
+    brevoSyncState.currentEmail = row.email || null
+    try {
+     const result = await syncBrevoRow(row)
+     if (result.matched) brevoSyncState.matched += 1
+     else brevoSyncState.missing += 1
+     if (result.updated) brevoSyncState.updated += 1
+    } catch (error) {
+     brevoSyncState.failed += 1
+     brevoSyncState.lastError = `${row.email || "unknown"}: ${errorMessage(error)}`
+     console.error("brevo sync row error", row.email, error)
+    } finally {
+     brevoSyncState.processed += 1
+    }
 
-  brevoSyncState.total = rows.length
-
-  for (const row of rows) {
-   brevoSyncState.currentEmail = row.email || null
-   try {
-    const result = await syncBrevoRow(row)
-    if (result.matched) brevoSyncState.matched += 1
-    else brevoSyncState.missing += 1
-    if (result.updated) brevoSyncState.updated += 1
-   } catch (error) {
-    brevoSyncState.failed += 1
-    brevoSyncState.lastError = `${row.email || "unknown"}: ${errorMessage(error)}`
-    console.error("brevo sync row error", row.email, error)
-   } finally {
-    brevoSyncState.processed += 1
+    await sleep(BREVO_SYNC_DELAY_MS)
    }
 
-   await sleep(BREVO_SYNC_DELAY_MS)
+   if (brevoSyncState.stopRequested) break
   }
  } catch (error) {
   brevoSyncState.lastError = errorMessage(error)
   console.error("brevo sync queue error", error)
  } finally {
   brevoSyncState.running = false
+  brevoSyncState.stopRequested = false
   brevoSyncState.currentEmail = null
   brevoSyncState.lastFinishedAt = new Date().toISOString()
  }
@@ -411,6 +429,7 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#sendBtn", "send_btn"],
   ["#reconcileBtn", "reconcile_btn"],
   ["#brevoSyncBtn", "brevo_sync_btn"],
+  ["#brevoSyncStopBtn", "brevo_sync_stop_btn"],
   ["#batchResendBtn", "batch_resend_btn"],
   ["#filterResendBtn", "resend_filter_btn"],
   ["#selectFilteredBtn", "select_filter_btn"],
@@ -864,6 +883,15 @@ router.post("/brevo-sync", limitReconcile, async (req, res) => {
  }
 })
 
+router.post("/brevo-sync-stop", limitReconcile, async (req, res) => {
+ if (!brevoSyncState.running) {
+  return res.json({ success: true, stopped: false })
+ }
+
+ brevoSyncState.stopRequested = true
+ return res.json({ success: true, stopped: true })
+})
+
 router.get("/brevo-sync-status", async (req, res) => {
  const progress = brevoSyncState.total
   ? Math.round((brevoSyncState.processed / brevoSyncState.total) * 100)
@@ -871,6 +899,7 @@ router.get("/brevo-sync-status", async (req, res) => {
 
  return res.json({
   running: brevoSyncState.running,
+  stopRequested: brevoSyncState.stopRequested,
   total: brevoSyncState.total,
   processed: brevoSyncState.processed,
   matched: brevoSyncState.matched,
