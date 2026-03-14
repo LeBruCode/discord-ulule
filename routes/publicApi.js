@@ -13,8 +13,129 @@ function getDiscordConfig() {
   botToken: process.env.BOT_TOKEN || process.env.DISCORD_BOT_TOKEN,
   guildId: process.env.GUILD_ID || process.env.DISCORD_GUILD_ID,
   roleId: process.env.ROLE_ID || process.env.DISCORD_ROLE_ID,
-  webhookSecret: process.env.DISCORD_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET
+  webhookSecret: process.env.DISCORD_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET,
+  brevoWebhookSecret: process.env.BREVO_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET
  }
+}
+
+function getBrevoEventStatus(eventName) {
+ const value = String(eventName || "").trim().toLowerCase()
+ if (!value) return null
+ if (value === "invalid_email") return "invalid"
+ return value
+}
+
+function getBrevoEventTimestamp(payload) {
+ const candidates = [payload?.date, payload?.event_date, payload?.ts_event]
+ for (const candidate of candidates) {
+  if (!candidate) continue
+  const date = new Date(candidate)
+  if (!Number.isNaN(date.getTime())) return date.toISOString()
+ }
+ return new Date().toISOString()
+}
+
+function getBrevoMessageId(payload) {
+ return String(
+  payload?.["message-id"] ||
+  payload?.messageId ||
+  payload?.message_id ||
+  ""
+ ).trim() || null
+}
+
+function getBrevoAccessTokenId(payload) {
+ const rawTags = []
+ if (Array.isArray(payload?.tags)) rawTags.push(...payload.tags)
+ if (typeof payload?.tag === "string") rawTags.push(...payload.tag.split(","))
+
+ for (const rawTag of rawTags) {
+  const tag = String(rawTag || "").trim()
+  if (!tag.startsWith("access-token:")) continue
+  const accessTokenId = tag.slice("access-token:".length).trim()
+  if (accessTokenId) return accessTokenId
+ }
+
+ return null
+}
+
+async function findAccessTokenForBrevoEvent(payload) {
+ const accessTokenId = getBrevoAccessTokenId(payload)
+ if (accessTokenId) {
+  const { data, error } = await supabase
+   .from("access_tokens")
+   .select("id")
+   .eq("id", accessTokenId)
+   .maybeSingle()
+  if (data && !error) return data
+ }
+
+ const messageId = getBrevoMessageId(payload)
+ if (messageId) {
+  const { data, error } = await supabase
+   .from("access_tokens")
+   .select("id")
+   .eq("brevo_message_id", messageId)
+   .order("created_at", { ascending: false })
+   .limit(1)
+   .maybeSingle()
+  if (data && !error) return data
+ }
+
+ const email = String(payload?.email || payload?.recipient || "").trim().toLowerCase()
+ if (email) {
+  const { data, error } = await supabase
+   .from("access_tokens")
+   .select("id")
+   .eq("email", email)
+   .order("created_at", { ascending: false })
+   .limit(1)
+   .maybeSingle()
+  if (data && !error) return data
+ }
+
+ return null
+}
+
+async function applyBrevoEvent(payload) {
+ const status = getBrevoEventStatus(payload?.event)
+ if (!status) return { ignored: true, reason: "missing event" }
+
+ const record = await findAccessTokenForBrevoEvent(payload)
+ if (!record?.id) return { ignored: true, reason: "record not found" }
+
+ const messageId = getBrevoMessageId(payload)
+ const eventAt = getBrevoEventTimestamp(payload)
+ const update = {
+  brevo_status: status,
+  brevo_event_at: eventAt
+ }
+
+ if (messageId) update.brevo_message_id = messageId
+
+ if (status === "sent" || status === "delivered") {
+  update.email_sent = true
+  update.email_sent_at = eventAt
+  update.email_error = null
+ }
+
+ if (["error", "soft_bounce", "hard_bounce", "blocked", "invalid", "deferred", "spam"].includes(status)) {
+  update.email_sent = false
+  update.email_error = String(
+   payload?.reason ||
+   payload?.message ||
+   payload?.description ||
+   status
+  ).trim()
+ }
+
+ const { error } = await supabase
+  .from("access_tokens")
+  .update(update)
+  .eq("id", record.id)
+
+ if (error) throw error
+ return { ignored: false, id: record.id, status }
 }
 
 function getTokenExpiry(createdAt) {
@@ -281,6 +402,34 @@ router.post("/discord/member-left", async (req, res) => {
   return res.json({ success: true })
  } catch (error) {
   console.error("member-left route error", error)
+ return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.post("/brevo/webhook", async (req, res) => {
+ try {
+  const { brevoWebhookSecret } = getDiscordConfig()
+  const providedSecret =
+   String(req.headers["x-brevo-webhook-secret"] || "").trim() ||
+   String(req.query.secret || "").trim()
+
+  if (brevoWebhookSecret && providedSecret !== brevoWebhookSecret) {
+   return res.status(401).json({ error: "unauthorized" })
+  }
+
+  const events = Array.isArray(req.body) ? req.body : [req.body]
+  let processed = 0
+  let ignored = 0
+
+  for (const payload of events) {
+   const result = await applyBrevoEvent(payload || {})
+   if (result.ignored) ignored += 1
+   else processed += 1
+  }
+
+  return res.json({ success: true, processed, ignored })
+ } catch (error) {
+  console.error("brevo webhook error", error)
   return res.status(500).json({ error: "server error" })
  }
 })

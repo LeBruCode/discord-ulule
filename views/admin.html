@@ -60,6 +60,19 @@
 <option value="unsent">Non envoyés</option>
 <option value="activated">Activés</option>
 </select>
+<select id="brevoStatus">
+<option value="all">Tous les statuts Brevo</option>
+<option value="queued">Brevo: queued</option>
+<option value="sent">Brevo: sent</option>
+<option value="delivered">Brevo: delivered</option>
+<option value="soft_bounce">Brevo: soft bounce</option>
+<option value="hard_bounce">Brevo: hard bounce</option>
+<option value="blocked">Brevo: blocked</option>
+<option value="error">Brevo: error</option>
+<option value="deferred">Brevo: deferred</option>
+<option value="invalid">Brevo: invalid</option>
+<option value="spam">Brevo: spam</option>
+</select>
 <select id="sort">
 <option value="last_import_desc">Dernier import (récent d'abord)</option>
 <option value="last_import_asc">Dernier import (ancien d'abord)</option>
@@ -87,6 +100,7 @@
 <col class="col-activated">
 <col class="col-sent-at">
 <col class="col-used-at">
+<col class="col-brevo">
 <col class="col-error">
 <col class="col-actions">
 </colgroup>
@@ -98,6 +112,7 @@
 <th>Activé</th>
 <th class="compact-col">Envoyé le</th>
 <th>Activé le</th>
+<th>Brevo</th>
 <th>Erreur</th>
 <th>Action</th>
 </tr>

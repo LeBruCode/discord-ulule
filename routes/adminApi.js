@@ -28,6 +28,7 @@ const BREVO_MAX_RETRIES = 4
 const BREVO_BASE_DELAY_MS = 800
 const BREVO_INTER_SEND_DELAY_MS = 400
 const IMPORT_CHUNK_SIZE = 250
+const BREVO_FAILED_STATUSES = ["error", "soft_bounce", "hard_bounce", "blocked", "invalid", "deferred", "spam"]
 
 function token() {
  return crypto.randomBytes(32).toString("hex")
@@ -75,12 +76,11 @@ function isRetryableMailError(error) {
  return msg.includes("(429)") || msg.includes("(500)") || msg.includes("(502)") || msg.includes("(503)") || msg.includes("(504)") || msg.includes("timeout") || msg.includes("network")
 }
 
-async function sendMailWithRetry(email, accessToken) {
+async function sendMailWithRetry(email, accessToken, accessTokenId) {
  let lastError = null
  for (let attempt = 0; attempt <= BREVO_MAX_RETRIES; attempt += 1) {
   try {
-   await sendMail(email, accessToken)
-   return
+   return await sendMail(email, accessToken, { accessTokenId })
   } catch (error) {
    lastError = error
    if (!isRetryableMailError(error) || attempt === BREVO_MAX_RETRIES) break
@@ -94,13 +94,17 @@ async function sendMailWithRetry(email, accessToken) {
 
 async function sendOneAccessToken(row) {
  try {
-  await sendMailWithRetry(row.email, row.token)
+  const sendResponse = await sendMailWithRetry(row.email, row.token, row.id)
+  const messageId = String(sendResponse?.messageId || sendResponse?.message_id || "").trim() || null
 
   const { error: updateError } = await supabase
    .from("access_tokens")
    .update({
-    email_sent: true,
-    email_sent_at: new Date().toISOString(),
+    email_sent: false,
+    email_sent_at: null,
+    brevo_message_id: messageId,
+    brevo_status: "queued",
+    brevo_event_at: new Date().toISOString(),
     email_error: null
    })
    .eq("id", row.id)
@@ -132,8 +136,12 @@ async function processSendQueue() {
   while (true) {
    const { data, error } = await supabase
     .from("access_tokens")
-    .select("id,email,token")
-    .or("email_sent.eq.false,email_sent.is.null")
+    .select("id,email,token,email_sent,brevo_status")
+    .or([
+     "email_sent.eq.false",
+     "email_sent.is.null",
+     BREVO_FAILED_STATUSES.map((status) => `brevo_status.eq.${status}`).join(",")
+    ].join(","))
     .order("created_at", { ascending: true })
     .limit(100)
 
@@ -142,7 +150,11 @@ async function processSendQueue() {
     break
    }
 
-   const rows = Array.isArray(data) ? data : []
+   const rows = (Array.isArray(data) ? data : []).filter((row) => {
+    if (row.email_sent === true) return false
+    if (!row.brevo_status) return true
+    return BREVO_FAILED_STATUSES.includes(row.brevo_status)
+   })
    if (!rows.length) break
 
    for (const row of rows) {
@@ -294,7 +306,11 @@ router.post("/send", limitSend, async (req, res) => {
   const { count, error } = await supabase
    .from("access_tokens")
    .select("id", { count: "exact", head: true })
-   .or("email_sent.eq.false,email_sent.is.null")
+   .or([
+    "email_sent.eq.false",
+    "email_sent.is.null",
+    BREVO_FAILED_STATUSES.map((status) => `brevo_status.eq.${status}`).join(",")
+   ].join(","))
 
   if (error) {
    console.error("send count error", error)
@@ -343,33 +359,40 @@ router.post("/reconcile-sent", limitReconcile, async (req, res) => {
    const chunk = emails.slice(index, index + chunkSize)
    const { data, error } = await supabase
     .from("access_tokens")
-    .select("email")
+    .select("id,email,email_sent")
     .in("email", chunk)
 
    if (error) {
     console.error("reconcile fetch error", error)
-    return res.status(500).json({ error: "server error" })
+    return res.status(500).json({ error: "server error", details: errorMessage(error) })
    }
 
-   const matchedEmails = [...new Set((data || []).map((row) => String(row.email || "").toLowerCase()).filter(Boolean))]
+   const rows = Array.isArray(data) ? data : []
+   const matchedEmails = [...new Set(rows.map((row) => String(row.email || "").toLowerCase()).filter(Boolean))]
    matchedEmails.forEach((email) => matchedEmailSet.add(email))
 
-   if (!matchedEmails.length) continue
+   const idsToUpdate = rows
+    .filter((row) => row.email_sent !== true)
+    .map((row) => String(row.id || "").trim())
+    .filter((id) => UUID_V4_OR_V7_REGEX.test(id))
+
+   if (!idsToUpdate.length) continue
 
    const { data: updatedData, error: updateError } = await supabase
     .from("access_tokens")
     .update({
      email_sent: true,
      email_sent_at: new Date().toISOString(),
+     brevo_status: "delivered",
+     brevo_event_at: new Date().toISOString(),
      email_error: null
     })
-    .in("email", matchedEmails)
-    .or("email_sent.eq.false,email_sent.is.null")
+    .in("id", idsToUpdate)
     .select("id")
 
    if (updateError) {
     console.error("reconcile update error", updateError)
-    return res.status(500).json({ error: "server error" })
+    return res.status(500).json({ error: "server error", details: errorMessage(updateError) })
    }
 
    updatedRows += Array.isArray(updatedData) ? updatedData.length : 0
@@ -505,6 +528,7 @@ router.get("/list", limitList, async (req, res) => {
   const limit = Math.min(Math.max(rawLimit, 1), 200)
   const search = typeof req.query.search === "string" ? req.query.search : ""
   const status = req.query.status || "all"
+  const brevoStatus = typeof req.query.brevoStatus === "string" ? req.query.brevoStatus.trim().toLowerCase() : "all"
   const sort = typeof req.query.sort === "string" ? req.query.sort : "last_import_desc"
 
   let query = supabase
@@ -516,6 +540,7 @@ router.get("/list", limitList, async (req, res) => {
   if (status === "sent") query = query.eq("email_sent", true)
   if (status === "unsent") query = query.or("email_sent.eq.false,email_sent.is.null")
   if (status === "activated") query = query.eq("used", true)
+  if (brevoStatus && brevoStatus !== "all") query = query.eq("brevo_status", brevoStatus)
 
   if (sort === "last_import_asc") {
    query = query.order("created_at", { ascending: true })

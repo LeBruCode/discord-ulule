@@ -26,8 +26,9 @@ function formatDate(value) {
 function getFilters() {
  const search = document.getElementById("search").value.trim()
  const status = document.getElementById("status").value
+ const brevoStatus = document.getElementById("brevoStatus").value
  const sort = document.getElementById("sort").value
- return { search, status, sort }
+ return { search, status, brevoStatus, sort }
 }
 
 function setLoading(value) {
@@ -141,7 +142,7 @@ function renderRows(rows) {
  if (!rows.length) {
   currentRowIds = []
   updateSelectAllState()
-  table.innerHTML = '<tr><td colspan="8">Aucun e-mail trouvé.</td></tr>'
+  table.innerHTML = '<tr><td colspan="9">Aucun e-mail trouvé.</td></tr>'
   return
  }
 
@@ -156,6 +157,7 @@ function renderRows(rows) {
    const used = row.used ? "Oui" : "Non"
    const sentAt = escapeHtml(formatDate(row.email_sent_at))
    const usedAt = escapeHtml(formatDate(row.used_at))
+   const brevoStatus = escapeHtml(row.brevo_status || "-")
    const error = escapeHtml(row.email_error || "-")
    const checked = selectedIds.has(id) ? "checked" : ""
    return `<tr>
@@ -165,6 +167,7 @@ function renderRows(rows) {
     <td class="status-cell">${used}</td>
     <td class="datetime-cell">${sentAt}</td>
     <td class="datetime-cell">${usedAt}</td>
+    <td class="status-pill-cell"><span class="brevo-badge brevo-${brevoStatus.toLowerCase().replace(/[^a-z_]+/g, "-")}">${brevoStatus}</span></td>
     <td class="error-cell">${error}</td>
     <td class="actions-cell">
      <button class="icon-btn resend-btn" data-email="${email}" title="Renvoyer" aria-label="Renvoyer">✉</button>
@@ -176,12 +179,13 @@ function renderRows(rows) {
 }
 
 async function loadList() {
- const { search, status, sort } = getFilters()
+ const { search, status, brevoStatus, sort } = getFilters()
  const params = new URLSearchParams({
   page: String(page),
   limit: String(limit),
   search,
   status,
+  brevoStatus,
   sort
  })
 
@@ -195,7 +199,7 @@ async function loadList() {
   updatePaginationMeta()
  } catch (error) {
   console.error("load list error", error)
-  document.getElementById("table").innerHTML = '<tr><td colspan="8">Erreur serveur lors du chargement.</td></tr>'
+  document.getElementById("table").innerHTML = '<tr><td colspan="9">Erreur serveur lors du chargement.</td></tr>'
  } finally {
   setLoading(false)
   updatePaginationMeta()
@@ -382,6 +386,10 @@ document.getElementById("reconcileBtn").addEventListener("click", reconcileSentE
 document.getElementById("batchResendBtn").addEventListener("click", batchResend)
 document.getElementById("batchDeleteBtn").addEventListener("click", batchDelete)
 document.getElementById("status").addEventListener("change", async () => {
+ page = 1
+ await loadList()
+})
+document.getElementById("brevoStatus").addEventListener("change", async () => {
  page = 1
  await loadList()
 })

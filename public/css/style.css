@@ -249,9 +249,10 @@ table{
 .col-email{ width:32%; }
 .col-sent{ width:9%; }
 .col-activated{ width:9%; }
-.col-sent-at{ width:13%; }
-.col-used-at{ width:13%; }
-.col-error{ width:17%; }
+.col-sent-at{ width:12%; }
+.col-used-at{ width:12%; }
+.col-brevo{ width:10%; }
+.col-error{ width:15%; }
 .col-actions{ width:120px; }
 
 thead th{
@@ -306,6 +307,10 @@ td:nth-child(7){
  font-weight:600;
 }
 
+.status-pill-cell{
+ text-align:center;
+}
+
 .compact-col{
  font-size:11px;
 }
@@ -318,6 +323,47 @@ td:nth-child(7){
 
 .error-cell{
  max-width:300px;
+}
+
+.brevo-badge{
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ min-width:86px;
+ padding:6px 10px;
+ border-radius:999px;
+ font-size:11px;
+ line-height:1;
+ text-transform:uppercase;
+ letter-spacing:.04em;
+ border:1px solid #2c3d5d;
+ background:#0f1a2c;
+ color:#b9ccec;
+}
+
+.brevo-delivered,
+.brevo-sent{
+ background:rgba(47,163,110,.12);
+ color:#78d4a5;
+ border-color:rgba(47,163,110,.35);
+}
+
+.brevo-queued{
+ background:rgba(63,140,255,.12);
+ color:#8dbaff;
+ border-color:rgba(63,140,255,.35);
+}
+
+.brevo-soft_bounce,
+.brevo-hard_bounce,
+.brevo-error,
+.brevo-blocked,
+.brevo-invalid,
+.brevo-deferred,
+.brevo-spam{
+ background:rgba(196,63,83,.12);
+ color:#ff9dad;
+ border-color:rgba(196,63,83,.35);
 }
 
 .actions-cell{
