@@ -110,17 +110,17 @@ async function refreshQueueStatus() {
  try {
   const status = await fetch("/admin/api/send-status").then((r) => r.json())
   const queueStatus = document.getElementById("queueStatus")
-  if (status.running) {
-   queueStatus.innerText = "File d'envoi: en cours"
+ if (status.running) {
+   queueStatus.innerText = "File d'envoi: ça bombarde"
    return
   }
 
   const sent = status.lastStats?.sent || 0
   const failed = status.lastStats?.failed || 0
   const processed = status.lastStats?.processed || 0
-  queueStatus.innerText = `File d'envoi: inactive • dernier lot: traités ${processed}, envoyés ${sent}, échecs ${failed}`
+  queueStatus.innerText = `File d'envoi: pause café • dernier tour: ${processed} traités, ${sent} envoyés, ${failed} plantés`
  } catch (error) {
-  document.getElementById("queueStatus").innerText = "File d'envoi: statut indisponible"
+  document.getElementById("queueStatus").innerText = "File d'envoi: j'ai perdu le fil"
  }
 }
 
@@ -131,16 +131,16 @@ function renderImportStatus(status) {
  bar.style.width = `${Math.min(Math.max(progress, 0), 100)}%`
 
  if (status.running) {
-  importStatus.innerText = `Import en cours: ${status.processed}/${status.total} (${progress}%) • ajoutés ${status.inserted} • échecs ${status.failed}`
+  importStatus.innerText = `Import en cours: ${status.processed}/${status.total} (${progress}%) • ${status.inserted} ajoutés • ${status.failed} en vrac`
   return
  }
 
  if ((status.total || 0) > 0) {
-  importStatus.innerText = `Import terminé: ${status.processed}/${status.total} • ajoutés ${status.inserted} • échecs ${status.failed}`
+  importStatus.innerText = `Import bouclé: ${status.processed}/${status.total} • ${status.inserted} ajoutés • ${status.failed} ratés`
   return
  }
 
- importStatus.innerText = "Import: inactif"
+ importStatus.innerText = "Import: tranquille pour l'instant"
 }
 
 function setReconcileStatus(message) {
@@ -153,7 +153,7 @@ async function refreshImportStatus() {
   renderImportStatus(status)
   return status
  } catch (error) {
-  document.getElementById("importStatus").innerText = "Import: statut indisponible"
+  document.getElementById("importStatus").innerText = "Import: statut dans le brouillard"
   return null
  }
 }
@@ -182,7 +182,7 @@ function renderRows(rows) {
  if (!rows.length) {
   currentRowIds = []
   updateSelectAllState()
-  table.innerHTML = '<tr><td colspan="9">Aucun e-mail trouvé.</td></tr>'
+  table.innerHTML = '<tr><td colspan="9">Aucun e-mail trouvé. C\'est le désert.</td></tr>'
   return
  }
 
@@ -242,7 +242,7 @@ async function loadList() {
   updatePaginationMeta()
  } catch (error) {
   console.error("load list error", error)
-  document.getElementById("table").innerHTML = '<tr><td colspan="9">Erreur serveur lors du chargement.</td></tr>'
+  document.getElementById("table").innerHTML = '<tr><td colspan="9">Le serveur a toussé pendant le chargement.</td></tr>'
  } finally {
   setLoading(false)
   updatePaginationMeta()
@@ -259,16 +259,16 @@ async function importEmails() {
  })
  const payload = await response.json()
  if (response.status === 409) {
-  alert("Un import est déjà en cours")
+  alert("Un import tourne déjà. Laisse-le finir sa vie.")
   startImportPolling()
   return
  }
  if (!response.ok) {
-  alert(payload.error || "Échec de l'import")
+  alert(payload.error || "L'import s'est pris les pieds dans le tapis")
   return
  }
  emailsInput.value = ""
- alert(`Import lancé: ${payload.total || 0} e-mails en file`)
+ alert(`Import lancé: ${payload.total || 0} e-mails partent à l'échauffement`)
  startImportPolling()
  page = 1
  await refreshAll()
@@ -278,10 +278,10 @@ async function sendEmails() {
  const response = await fetch("/admin/api/send", { method: "POST" })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Échec de l'envoi")
+  alert(payload.error || "L'envoi a boudé")
   return
  }
- alert(`File lancée: ${payload.queued || 0} e-mails en attente`)
+ alert(`C'est parti: ${payload.queued || 0} e-mails sont sur la ligne de départ`)
  await refreshAll()
 }
 
@@ -289,11 +289,11 @@ async function reconcileSentEmails() {
  const input = document.getElementById("reconcileEmails")
  const emails = input.value
  if (!emails.trim()) {
-  alert("Colle d'abord une liste d'e-mails Brevo")
+  alert("Colle d'abord une liste Brevo, sinon je devine au hasard")
   return
  }
 
- setReconcileStatus("Réconciliation en cours...")
+ setReconcileStatus("Réconciliation en cours... on remet de l'ordre là-dedans")
  const response = await fetch("/admin/api/reconcile-sent", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -301,8 +301,8 @@ async function reconcileSentEmails() {
  })
  const payload = await response.json()
  if (!response.ok) {
-  setReconcileStatus("Réconciliation: échec")
-  alert(payload.error || "Échec de la réconciliation")
+  setReconcileStatus("Réconciliation: petit gadin")
+  alert(payload.error || "La réconciliation s'est emmêlé les câbles")
   return
  }
 
@@ -310,13 +310,13 @@ async function reconcileSentEmails() {
  const missing = Number(payload.missing) || 0
  const updatedRows = Number(payload.updatedRows) || 0
  const matched = Number(payload.matched) || 0
- setReconcileStatus(`Réconciliation terminée: ${matched} e-mails retrouvés, ${updatedRows} ligne(s) mises à jour, ${missing} absente(s) de la base`)
+ setReconcileStatus(`Réconciliation bouclée: ${matched} retrouvés, ${updatedRows} mis à jour, ${missing} introuvables`)
 
  if (missing > 0) {
   const preview = (payload.missingEmails || []).slice(0, 15).join("\n")
-  alert(`Réconciliation terminée.\n\nRetrouvés: ${matched}\nLignes mises à jour: ${updatedRows}\nAbsents de la base: ${missing}${preview ? `\n\nExemples absents:\n${preview}` : ""}`)
+  alert(`Réconciliation bouclée.\n\nRetrouvés: ${matched}\nMis à jour: ${updatedRows}\nAbsents de la base: ${missing}${preview ? `\n\nExemples absents:\n${preview}` : ""}`)
  } else {
-  alert(`Réconciliation terminée: ${matched} e-mails retrouvés, ${updatedRows} ligne(s) mises à jour.`)
+  alert(`Réconciliation bouclée: ${matched} e-mails retrouvés, ${updatedRows} ligne(s) mises à jour.`)
  }
 
  page = 1
@@ -331,15 +331,15 @@ async function resendEmail(email) {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.details || payload.error || "Échec du renvoi")
+  alert(payload.details || payload.error || "Le renvoi a calé")
   return
  }
- alert(`Renvoyé à ${email}`)
+ alert(`C'est reparti pour ${email}`)
  await refreshAll()
 }
 
 async function deleteRow(id, email) {
- const confirmed = window.confirm(`Supprimer ${email} de la base de données ?`)
+ const confirmed = window.confirm(`Tu veux vraiment bazarder ${email} de la base ?`)
  if (!confirmed) return
 
  const response = await fetch("/admin/api/delete", {
@@ -349,12 +349,12 @@ async function deleteRow(id, email) {
  })
 
  if (!response.ok) {
-  alert("Échec de la suppression")
+  alert("Impossible de jeter cette ligne à la poubelle")
   return
  }
 
  selectedIds.delete(id)
- alert(`Supprimé : ${email}`)
+ alert(`Hop, ${email} a disparu du radar`)
  page = 1
  await refreshAll()
 }
@@ -362,7 +362,7 @@ async function deleteRow(id, email) {
 async function batchResend() {
  const ids = Array.from(selectedIds)
  if (!ids.length) {
-  alert("Aucune ligne sélectionnée")
+  alert("Sélectionne au moins une ligne, champion")
   return
  }
 
@@ -373,11 +373,11 @@ async function batchResend() {
  })
   const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Échec du renvoi en lot")
+  alert(payload.error || "Le renvoi en lot a fait grève")
   return
  }
 
- alert(`Renvoi en lot: traités ${payload.processed || 0}, envoyés ${payload.sent || 0}, échecs ${payload.failed || 0}`)
+ alert(`Renvoi en lot: ${payload.processed || 0} traités, ${payload.sent || 0} envoyés, ${payload.failed || 0} ratés`)
  await refreshAll()
 }
 
@@ -389,7 +389,7 @@ async function resendFiltered() {
  if (search) labelParts.push(`recherche=${search}`)
  const label = labelParts.length ? ` (${labelParts.join(", ")})` : ""
 
- const confirmed = window.confirm(`Renvoyer toutes les lignes du filtre actuel${label} ?`)
+ const confirmed = window.confirm(`Tu veux relancer toutes les lignes du filtre actuel${label} ?`)
  if (!confirmed) return
 
  const response = await fetch("/admin/api/resend-filtered", {
@@ -399,11 +399,11 @@ async function resendFiltered() {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Échec du renvoi filtré")
+  alert(payload.error || "Le renvoi filtré est parti se cacher")
   return
  }
 
- alert(`Renvoi filtré: traités ${payload.processed || 0}, envoyés ${payload.sent || 0}, échecs ${payload.failed || 0}`)
+ alert(`Renvoi filtré: ${payload.processed || 0} traités, ${payload.sent || 0} envoyés, ${payload.failed || 0} ratés`)
  await refreshAll()
 }
 
@@ -416,7 +416,7 @@ async function selectFiltered() {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Échec de la sélection du filtre")
+  alert(payload.error || "Impossible de choper tout le filtre")
   return
  }
 
@@ -424,13 +424,13 @@ async function selectFiltered() {
  for (const id of payload.ids || []) selectedIds.add(id)
  updateSelectAllState()
  updatePaginationMeta()
- alert(`${payload.total || 0} ligne(s) sélectionnée(s) pour le filtre actuel`)
+ alert(`${payload.total || 0} ligne(s) dans le filet du filtre actuel`)
 }
 
 async function setExcludedForSelected(excluded) {
  const ids = Array.from(selectedIds)
  if (!ids.length) {
-  alert("Aucune ligne sélectionnée")
+  alert("Sélectionne au moins une ligne, sinon je mime")
   return
  }
 
@@ -441,11 +441,11 @@ async function setExcludedForSelected(excluded) {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Échec de la mise à jour")
+  alert(payload.error || "La mise à jour a dérapé")
   return
  }
 
- alert(`${payload.updated || 0} ligne(s) ${excluded ? "exclue(s)" : "réintégrée(s)"}`)
+ alert(`${payload.updated || 0} ligne(s) ${excluded ? "mises au placard" : "remises dans le jeu"}`)
  await refreshAll()
 }
 
@@ -458,11 +458,11 @@ async function setExcludedForFiltered(excluded) {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Échec de la mise à jour du filtre")
+  alert(payload.error || "La mise à jour du filtre a bégayé")
   return
  }
 
- alert(`${payload.updated || 0} ligne(s) ${excluded ? "exclue(s)" : "réintégrée(s)"} pour le filtre actuel`)
+ alert(`${payload.updated || 0} ligne(s) ${excluded ? "mises au placard" : "remises dans la course"} pour le filtre actuel`)
  await refreshAll()
 }
 
@@ -488,7 +488,7 @@ async function openDetail(id) {
  const response = await fetch(`/admin/api/detail/${encodeURIComponent(id)}`)
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Échec du chargement du détail")
+  alert(payload.error || "Impossible d'ouvrir les coulisses de cette ligne")
   return
  }
 
@@ -497,10 +497,10 @@ async function openDetail(id) {
  document.getElementById("detailEmail").innerText = row.email || "-"
  document.getElementById("detailMeta").innerHTML = `
   <span class="inline-pill">${formatBrevoStatus(row.brevo_status)}</span>
-  <span class="inline-pill">${row.resend_excluded ? "Exclu du renvoi" : "Renvoi autorisé"}</span>
+  <span class="inline-pill">${row.resend_excluded ? "Au placard" : "Prêt à repartir"}</span>
   <span class="inline-pill">Activé: ${formatYesNo(row.used)}</span>
  `
- document.getElementById("detailTimeline").innerHTML = (payload.timeline || []).map(renderTimelineItem).join("") || '<p class="panel-copy">Aucun historique disponible.</p>'
+ document.getElementById("detailTimeline").innerHTML = (payload.timeline || []).map(renderTimelineItem).join("") || '<p class="panel-copy">Aucun historique ici. Même pas un petit drame.</p>'
  document.getElementById("detailNote").value = row.admin_note || ""
  document.getElementById("detailDrawer").classList.remove("hidden")
 }
@@ -515,11 +515,11 @@ async function saveDetailNote() {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Échec de l'enregistrement de la note")
+  alert(payload.error || "Impossible de garder cette note au chaud")
   return
  }
 
- alert("Note enregistrée")
+ alert("Note bien rangée")
  await openDetail(currentDetailId)
  await loadList()
 }
@@ -527,11 +527,11 @@ async function saveDetailNote() {
 async function batchDelete() {
  const ids = Array.from(selectedIds)
  if (!ids.length) {
-  alert("Aucune ligne sélectionnée")
+  alert("Sélectionne au moins une ligne avant de sortir la tronçonneuse")
   return
  }
 
- const confirmed = window.confirm(`Supprimer ${ids.length} ligne(s) ?`)
+ const confirmed = window.confirm(`Tu veux vraiment bazarder ${ids.length} ligne(s) ?`)
  if (!confirmed) return
 
  const response = await fetch("/admin/api/batch-delete", {
@@ -541,12 +541,12 @@ async function batchDelete() {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || "Échec de la suppression en lot")
+  alert(payload.error || "La suppression en lot a foiré")
   return
  }
 
  ids.forEach((id) => selectedIds.delete(id))
- alert(`Supprimées : ${payload.deleted || 0}`)
+ alert(`Hop, ${payload.deleted || 0} ligne(s) se sont fait la malle`)
  page = 1
  await refreshAll()
 }
