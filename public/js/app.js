@@ -9,6 +9,7 @@ let loading = false
 let importPollTimer = null
 let currentDetailId = null
 let copyEditorLoaded = false
+let copyEntries = []
 
 const selectedIds = new Set()
 let currentRowIds = []
@@ -523,9 +524,36 @@ function closeCopyDrawer() {
  document.getElementById("copyDrawer").classList.add("hidden")
 }
 
+function renderCopyEditorEntries() {
+ const container = document.getElementById("copyEditorList")
+ const search = document.getElementById("copySearch").value.trim().toLowerCase()
+ const entries = copyEntries.filter((entry) => {
+  if (!search) return true
+  return entry.label.toLowerCase().includes(search) || entry.key.toLowerCase().includes(search) || entry.value.toLowerCase().includes(search)
+ })
+
+ if (!entries.length) {
+  container.innerHTML = '<p class="panel-copy">Aucun texte ne correspond à ta recherche.</p>'
+  return
+ }
+
+  container.innerHTML = entries.map((entry) => `
+   <div class="copy-editor-row">
+    <label for="copy-${escapeHtml(entry.key)}">
+     <span>${escapeHtml(entry.label)}</span>
+     <code>${escapeHtml(entry.key)}</code>
+    </label>
+    <textarea id="copy-${escapeHtml(entry.key)}" data-copy-key="${escapeHtml(entry.key)}">${escapeHtml(entry.value)}</textarea>
+   </div>
+  `).join("")
+}
+
 async function openCopyDrawer() {
  document.getElementById("copyDrawer").classList.remove("hidden")
- if (copyEditorLoaded) return
+ if (copyEditorLoaded) {
+  renderCopyEditorEntries()
+  return
+ }
 
  const response = await fetch("/admin/api/dashboard-copy")
  const payload = await response.json()
@@ -534,16 +562,21 @@ async function openCopyDrawer() {
   return
  }
 
- document.getElementById("copyEditor").value = payload.content || ""
+ copyEntries = Array.isArray(payload.entries) ? payload.entries : []
+ renderCopyEditorEntries()
  copyEditorLoaded = true
 }
 
 async function saveCopyEditor() {
- const content = document.getElementById("copyEditor").value
+ const entries = {}
+ for (const textarea of document.querySelectorAll("[data-copy-key]")) {
+  entries[textarea.getAttribute("data-copy-key")] = textarea.value
+ }
+
  const response = await fetch("/admin/api/dashboard-copy", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ content })
+  body: JSON.stringify({ entries })
  })
  const payload = await response.json()
  if (!response.ok) {
@@ -661,6 +694,7 @@ document.getElementById("saveNoteBtn").addEventListener("click", saveDetailNote)
 document.getElementById("copyEditorBtn").addEventListener("click", openCopyDrawer)
 document.getElementById("copyCloseBtn").addEventListener("click", closeCopyDrawer)
 document.getElementById("saveCopyBtn").addEventListener("click", saveCopyEditor)
+document.getElementById("copySearch").addEventListener("input", renderCopyEditorEntries)
 document.getElementById("status").addEventListener("change", async () => {
  page = 1
  await loadList()

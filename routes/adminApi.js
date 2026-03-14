@@ -3,6 +3,7 @@ import crypto from "crypto"
 import fs from "fs/promises"
 import path from "path"
 import { fileURLToPath } from "url"
+import vm from "vm"
 import { supabase } from "../services/supabase.js"
 import { sendMail } from "../services/mailer.js"
 
@@ -45,8 +46,126 @@ function errorMessage(error) {
  return error?.message || "unknown error"
 }
 
-function validateDashboardCopySource(source) {
- new Function(source)
+function humanizeCopyKey(key) {
+ return String(key || "")
+  .replaceAll("_", " ")
+  .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+async function readDashboardCopyObject() {
+ const source = await fs.readFile(dashboardCopyFilePath, "utf8")
+ const context = { window: {} }
+ vm.createContext(context)
+ vm.runInContext(source, context)
+ return context.window?.DASHBOARD_COPY || {}
+}
+
+function serializeDashboardCopyObject(copy) {
+ return `window.DASHBOARD_COPY = ${JSON.stringify(copy, null, 2)}
+
+window.dashboardT = function dashboardT(key, vars = {}) {
+ const template = window.DASHBOARD_COPY[key] ?? key
+ return String(template).replace(/\\{\\{(\\w+)\\}\\}/g, (_, name) => String(vars[name] ?? ""))
+}
+
+window.applyDashboardCopy = function applyDashboardCopy() {
+ const t = window.dashboardT
+ document.title = t("title")
+ const textMap = [
+  ["[data-copy='eyebrow']", "eyebrow"],
+  ["[data-copy='title']", "title"],
+  ["#logoutBtn", "logout"],
+  ["#statsTotalLabel", "stats_total"],
+  ["#statsSentLabel", "stats_sent"],
+  ["#statsActivatedLabel", "stats_activated"],
+  ["#statsRateLabel", "stats_rate"],
+  ["#brevoTitle", "brevo_title"],
+  ["#brevoStatLabel-none", "brevo_none"],
+  ["#brevoStatLabel-request", "brevo_request"],
+  ["#brevoStatLabel-queued", "brevo_queued"],
+  ["#brevoStatLabel-sent", "brevo_sent"],
+  ["#brevoStatLabel-delivered", "brevo_delivered"],
+  ["#brevoStatLabel-soft_bounce", "brevo_soft_bounce"],
+  ["#brevoStatLabel-hard_bounce", "brevo_hard_bounce"],
+  ["#brevoStatLabel-blocked", "brevo_blocked"],
+  ["#importTitle", "import_title"],
+  ["#importStatus", "import_idle"],
+  ["#reconcileTitle", "reconcile_title"],
+  ["#reconcileCopy", "reconcile_copy"],
+  ["#reconcileStatus", "reconcile_idle"],
+  ["#actionsTitle", "actions_title"],
+  ["#importBtn", "import_btn"],
+  ["#sendBtn", "send_btn"],
+  ["#reconcileBtn", "reconcile_btn"],
+  ["#batchResendBtn", "batch_resend_btn"],
+  ["#filterResendBtn", "resend_filter_btn"],
+  ["#selectFilteredBtn", "select_filter_btn"],
+  ["#excludeSelectedBtn", "exclude_selected_btn"],
+  ["#includeSelectedBtn", "include_selected_btn"],
+  ["#excludeFilteredBtn", "exclude_filter_btn"],
+  ["#includeFilteredBtn", "include_filter_btn"],
+  ["#exportBtn", "export_btn"],
+  ["#batchDeleteBtn", "delete_selected_btn"],
+  ["#statusAllOption", "status_all"],
+  ["#statusSentOption", "status_sent"],
+  ["#statusUnsentOption", "status_unsent"],
+  ["#statusActivatedOption", "status_activated"],
+  ["#brevoFilterAllOption", "brevo_filter_all"],
+  ["#brevoQueuedOption", "brevo_filter_queued"],
+  ["#brevoRequestOption", "brevo_filter_request"],
+  ["#brevoSentOption", "brevo_filter_sent"],
+  ["#brevoDeliveredOption", "brevo_filter_delivered"],
+  ["#brevoSoftBounceOption", "brevo_filter_soft_bounce"],
+  ["#brevoHardBounceOption", "brevo_filter_hard_bounce"],
+  ["#brevoBlockedOption", "brevo_filter_blocked"],
+  ["#brevoErrorOption", "brevo_filter_error"],
+  ["#brevoDeferredOption", "brevo_filter_deferred"],
+  ["#brevoInvalidOption", "brevo_filter_invalid"],
+  ["#brevoSpamOption", "brevo_filter_spam"],
+  ["#sortRecentOption", "sort_recent"],
+  ["#sortOldestOption", "sort_oldest"],
+  ["#sortEmailAscOption", "sort_email_asc"],
+  ["#sortEmailDescOption", "sort_email_desc"],
+  ["#perPage25Option", "per_page_25"],
+  ["#perPage50Option", "per_page_50"],
+  ["#perPage100Option", "per_page_100"],
+  ["#perPage200Option", "per_page_200"],
+  ["#queueStatus", "queue_idle"],
+  ["#listTitle", "list_title"],
+  ["#thEmail", "table_email"],
+  ["#thSent", "table_sent"],
+  ["#thActivated", "table_activated"],
+  ["#thSentAt", "table_sent_at"],
+  ["#thUsedAt", "table_used_at"],
+  ["#thBrevo", "table_brevo"],
+  ["#thError", "table_error"],
+  ["#thAction", "table_action"],
+  ["#prevBtn", "pagination_prev"],
+  ["#nextBtn", "pagination_next"],
+  ["[data-copy='detailEyebrow']", "detail_eyebrow"],
+  ["#detailCloseBtn", "detail_close"],
+  ["#detailHistoryTitle", "detail_history"],
+  ["#detailNoteTitle", "detail_note"],
+  ["#saveNoteBtn", "detail_note_save"]
+ ]
+
+ for (const [selector, key] of textMap) {
+  const node = document.querySelector(selector)
+  if (node) node.textContent = t(key)
+ }
+
+ const placeholders = [
+  ["#emails", "import_placeholder"],
+  ["#reconcileEmails", "reconcile_placeholder"],
+  ["#search", "search_placeholder"],
+  ["#detailNote", "detail_note_placeholder"]
+ ]
+ for (const [selector, key] of placeholders) {
+  const node = document.querySelector(selector)
+  if (node) node.setAttribute("placeholder", t(key))
+ }
+}
+`
 }
 
 function createRateLimiter({ windowMs, max, keyPrefix }) {
@@ -740,8 +859,13 @@ router.get("/brevo-stats", limitList, async (req, res) => {
 
 router.get("/dashboard-copy", limitList, async (req, res) => {
  try {
-  const content = await fs.readFile(dashboardCopyFilePath, "utf8")
-  return res.json({ content })
+  const copy = await readDashboardCopyObject()
+  const entries = Object.entries(copy).map(([key, value]) => ({
+   key,
+   label: humanizeCopyKey(key),
+   value: String(value ?? "")
+  }))
+  return res.json({ entries })
  } catch (error) {
   console.error("dashboard copy read error", error)
   return res.status(500).json({ error: "server error" })
@@ -750,15 +874,19 @@ router.get("/dashboard-copy", limitList, async (req, res) => {
 
 router.post("/dashboard-copy", limitResend, async (req, res) => {
  try {
-  const content = typeof req.body?.content === "string" ? req.body.content : ""
-  if (!content.trim()) return res.status(400).json({ error: "content required" })
-
-  try {
-   validateDashboardCopySource(content)
-  } catch (validationError) {
-   return res.status(400).json({ error: "invalid javascript", details: errorMessage(validationError) })
+  const inputEntries = req.body?.entries
+  if (!inputEntries || typeof inputEntries !== "object") {
+   return res.status(400).json({ error: "entries required" })
   }
 
+  const currentCopy = await readDashboardCopyObject()
+  const nextCopy = {}
+  for (const key of Object.keys(currentCopy)) {
+   const value = inputEntries[key]
+   nextCopy[key] = typeof value === "string" ? value : String(currentCopy[key] ?? "")
+  }
+
+  const content = serializeDashboardCopyObject(nextCopy)
   await fs.writeFile(dashboardCopyFilePath, `${content.trim()}\n`, "utf8")
   return res.json({ success: true })
  } catch (error) {
