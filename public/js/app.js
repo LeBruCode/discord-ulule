@@ -111,7 +111,7 @@ async function refreshBrevoStats() {
  try {
   const payload = await fetch("/admin/api/brevo-stats").then((r) => r.json())
   const stats = payload.stats || {}
-  for (const key of ["none", "request", "queued", "sent", "delivered", "soft_bounce", "hard_bounce", "blocked"]) {
+  for (const key of ["none", "request", "queued", "sent", "delivered", "soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam", "consolidated", "gap"]) {
    const node = document.getElementById(`brevoStat-${key}`)
    if (node) node.innerText = Number(stats[key] || 0)
   }

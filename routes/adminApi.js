@@ -54,6 +54,20 @@ const BREVO_FAILED_STATUSES = ["error", "soft_bounce", "hard_bounce", "blocked",
 const BREVO_STATUSES = ["queued", "request", "sent", "delivered", "opened", "unique_opened", "click", "unique_clicked", "soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"]
 const BREVO_DELIVERED_STATUSES = ["delivered", "opened", "unique_opened", "click", "unique_clicked"]
 const BREVO_SENT_STATUSES = ["sent", ...BREVO_DELIVERED_STATUSES]
+const BREVO_STAT_BUCKETS = [
+ { key: "none", type: "null" },
+ { key: "request", type: "eq", value: "request" },
+ { key: "queued", type: "eq", value: "queued" },
+ { key: "sent", type: "eq", value: "sent" },
+ { key: "delivered", type: "in", value: BREVO_DELIVERED_STATUSES },
+ { key: "soft_bounce", type: "eq", value: "soft_bounce" },
+ { key: "hard_bounce", type: "eq", value: "hard_bounce" },
+ { key: "blocked", type: "eq", value: "blocked" },
+ { key: "error", type: "eq", value: "error" },
+ { key: "deferred", type: "eq", value: "deferred" },
+ { key: "invalid", type: "eq", value: "invalid" },
+ { key: "spam", type: "eq", value: "spam" }
+]
 
 function token() {
  return crypto.randomBytes(32).toString("hex")
@@ -378,6 +392,12 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#brevoStatLabel-soft_bounce", "brevo_soft_bounce"],
   ["#brevoStatLabel-hard_bounce", "brevo_hard_bounce"],
   ["#brevoStatLabel-blocked", "brevo_blocked"],
+  ["#brevoStatLabel-error", "brevo_error"],
+  ["#brevoStatLabel-deferred", "brevo_deferred"],
+  ["#brevoStatLabel-invalid", "brevo_invalid"],
+  ["#brevoStatLabel-spam", "brevo_spam"],
+  ["#brevoStatLabel-consolidated", "brevo_consolidated"],
+  ["#brevoStatLabel-gap", "brevo_gap"],
   ["#importTitle", "import_title"],
   ["#importStatus", "import_idle"],
   ["#reconcileTitle", "reconcile_title"],
@@ -1169,19 +1189,31 @@ router.get("/detail/:id", limitList, async (req, res) => {
 router.get("/brevo-stats", limitList, async (req, res) => {
  try {
   const stats = {}
-  for (const status of ["none", ...BREVO_STATUSES]) {
+  let consolidated = 0
+
+  for (const bucket of BREVO_STAT_BUCKETS) {
    let query = supabase
     .from("access_tokens")
     .select("id", { count: "exact", head: true })
 
-   if (status === "none") query = query.is("brevo_status", null)
-   else if (status === "delivered") query = query.in("brevo_status", BREVO_DELIVERED_STATUSES)
-   else query = query.eq("brevo_status", status)
+   if (bucket.type === "null") query = query.is("brevo_status", null)
+   else if (bucket.type === "in") query = query.in("brevo_status", bucket.value)
+   else query = query.eq("brevo_status", bucket.value)
 
    const { count, error } = await query
    if (error) throw error
-   stats[status] = count || 0
+   stats[bucket.key] = count || 0
+   consolidated += count || 0
   }
+
+  const { count: total, error: totalError } = await supabase
+   .from("access_tokens")
+   .select("id", { count: "exact", head: true })
+
+  if (totalError) throw totalError
+
+  stats.consolidated = consolidated
+  stats.gap = Math.max((total || 0) - consolidated, 0)
 
   return res.json({ stats })
  } catch (error) {
