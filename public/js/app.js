@@ -16,6 +16,7 @@ let brandingState = { logoPath: null, updatedAt: null }
 const selectedIds = new Set()
 let currentRowIds = []
 const t = window.dashboardT || ((key) => key)
+let confirmResolve = null
 
 function iconSvg(name) {
  const icons = {
@@ -25,6 +26,75 @@ function iconSvg(name) {
  }
  return icons[name] || ""
 }
+
+function inferToastTone(message) {
+ const text = String(message || "").toLowerCase()
+ if (/(échou|impossible|erreur|invalid|introuv|bloqu|failed|server error)/.test(text)) return "error"
+ if (/(enregistr|supprim|renvoy|sélectionn|lancé|chargé|terminée|terminé|retiré)/.test(text)) return "success"
+ return "info"
+}
+
+function toastTitleKey(tone) {
+ if (tone === "error") return "toast_error_title"
+ if (tone === "success") return "toast_success_title"
+ return "toast_info_title"
+}
+
+function showToast(message, { tone = inferToastTone(message), duration = 4200 } = {}) {
+ const stack = document.getElementById("toastStack")
+ if (!stack) return
+
+ const toast = document.createElement("div")
+ toast.className = `toast toast-${tone}`
+ toast.innerHTML = `
+  <div class="toast-copy">
+   <strong>${escapeHtml(t(toastTitleKey(tone)))}</strong>
+   <p>${escapeHtml(String(message || ""))}</p>
+  </div>
+  <button type="button" class="toast-close" aria-label="${escapeHtml(t("detail_close"))}">×</button>
+ `
+
+ const close = () => {
+  toast.classList.add("toast-exit")
+  window.setTimeout(() => toast.remove(), 180)
+ }
+
+ toast.querySelector(".toast-close")?.addEventListener("click", close)
+ stack.appendChild(toast)
+ window.setTimeout(close, duration)
+}
+
+async function showConfirm(message, { confirmLabel = t("confirm_ok"), cancelLabel = t("confirm_cancel"), title = t("confirm_title") } = {}) {
+ const modal = document.getElementById("confirmModal")
+ const titleNode = document.getElementById("confirmModalTitle")
+ const messageNode = document.getElementById("confirmModalMessage")
+ const cancelButton = document.getElementById("confirmModalCancel")
+ const okButton = document.getElementById("confirmModalOk")
+
+ if (!modal || !titleNode || !messageNode || !cancelButton || !okButton) return false
+
+ titleNode.textContent = title
+ messageNode.textContent = String(message || "")
+ cancelButton.textContent = cancelLabel
+ okButton.textContent = confirmLabel
+ modal.classList.remove("hidden")
+
+ return await new Promise((resolve) => {
+  confirmResolve = resolve
+ })
+}
+
+function closeConfirm(result) {
+ const modal = document.getElementById("confirmModal")
+ if (modal) modal.classList.add("hidden")
+ if (confirmResolve) {
+  const resolve = confirmResolve
+  confirmResolve = null
+  resolve(result)
+ }
+}
+
+window.alert = (message) => showToast(message)
 
 async function loadLatestDashboardCopy() {
  try {
@@ -144,7 +214,7 @@ async function refreshBranding() {
 async function uploadBrandingFile(file) {
  const allowed = ["image/png", "image/jpeg"]
  if (!file || !allowed.includes(file.type) || file.size > 1024 * 1024 * 2) {
-  alert(t("alert_branding_invalid"))
+  showToast(t("alert_branding_invalid"))
   return
  }
 
@@ -162,24 +232,24 @@ async function uploadBrandingFile(file) {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || t("alert_branding_failed"))
+  showToast(payload.error || t("alert_branding_failed"))
   return
  }
 
  applyBranding(payload.branding || {})
- alert(t("alert_branding_saved"))
+ showToast(t("alert_branding_saved"))
 }
 
 async function removeBrandingLogo() {
  const response = await fetch("/admin/api/dashboard-branding/logo", { method: "DELETE" })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || t("alert_branding_failed"))
+  showToast(payload.error || t("alert_branding_failed"))
   return
  }
 
  applyBranding(payload.branding || {})
- alert(t("alert_branding_removed"))
+ showToast(t("alert_branding_removed"))
 }
 
 async function saveBrandingSize() {
@@ -191,7 +261,7 @@ async function saveBrandingSize() {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || t("alert_branding_failed"))
+  showToast(payload.error || t("alert_branding_failed"))
   return
  }
 
@@ -632,7 +702,7 @@ async function resendEmail(email) {
 }
 
 async function deleteRow(id, email) {
- const confirmed = window.confirm(t("confirm_delete_row", { email }))
+ const confirmed = await showConfirm(t("confirm_delete_row", { email }))
  if (!confirmed) return
 
  const response = await fetch("/admin/api/delete", {
@@ -686,7 +756,7 @@ async function resendFiltered() {
  if (search) labelParts.push(t("filter_label_search", { value: search }))
  const label = labelParts.length ? ` (${labelParts.join(", ")})` : ""
 
- const confirmed = window.confirm(t("confirm_resend_filtered", { label }))
+ const confirmed = await showConfirm(t("confirm_resend_filtered", { label }))
  if (!confirmed) return
 
  const response = await fetch("/admin/api/resend-filtered", {
@@ -968,7 +1038,7 @@ async function batchDelete() {
   return
  }
 
- const confirmed = window.confirm(t("confirm_delete_rows", { count: ids.length }))
+ const confirmed = await showConfirm(t("confirm_delete_rows", { count: ids.length }))
  if (!confirmed) return
 
  const response = await fetch("/admin/api/batch-delete", {
@@ -1042,6 +1112,16 @@ document.getElementById("brandingSizeRange").addEventListener("input", (event) =
 })
 document.getElementById("brandingSizeRange").addEventListener("change", saveBrandingSize)
 document.getElementById("copySearch").addEventListener("input", renderCopyEditorEntries)
+document.getElementById("confirmModalCancel").addEventListener("click", () => closeConfirm(false))
+document.getElementById("confirmModalOk").addEventListener("click", () => closeConfirm(true))
+document.getElementById("confirmModal").addEventListener("click", (event) => {
+ if (event.target.id === "confirmModal") closeConfirm(false)
+})
+document.addEventListener("keydown", (event) => {
+ if (event.key === "Escape" && !document.getElementById("confirmModal").classList.contains("hidden")) {
+  closeConfirm(false)
+ }
+})
 for (const button of document.querySelectorAll(".collapse-toggle")) {
  button.addEventListener("click", () => toggleCollapsible(button.dataset.target, button))
 }

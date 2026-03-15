@@ -213,7 +213,14 @@ brevo_sync_stop_btn: "Stopper la resync",
  copy_drawer_close: "Refermer ça",
  copy_drawer_copy: "Ici, tu modifies seulement les textes visibles du dashboard. Pas de code, pas de JavaScript, juste les phrases de l'interface.",
  copy_search_placeholder: "Cherche un texte, un bouton, un mot-clé",
- copy_save_btn: "Enregistrer les textes"
+ copy_save_btn: "Enregistrer les textes",
+ toast_info_title: "Info",
+ toast_success_title: "C'est noté",
+ toast_error_title: "Oups",
+ confirm_eyebrow: "Confirmation",
+ confirm_title: "Tu veux continuer ?",
+ confirm_cancel: "Annuler",
+ confirm_ok: "Confirmer"
 }
 
 window.dashboardT = function dashboardT(key, vars = {}) {
@@ -332,7 +339,11 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#copyDrawerTitle", "copy_drawer_title"],
   ["#copyCloseBtn", "copy_drawer_close"],
   ["#copyDrawerCopy", "copy_drawer_copy"],
-  ["#saveCopyBtn", "copy_save_btn"]
+  ["#saveCopyBtn", "copy_save_btn"],
+  ["#confirmModalEyebrow", "confirm_eyebrow"],
+  ["#confirmModalTitle", "confirm_title"],
+  ["#confirmModalCancel", "confirm_cancel"],
+  ["#confirmModalOk", "confirm_ok"]
  ]
 
  for (const [selector, key] of textMap) {
