@@ -85,7 +85,7 @@ h2{
  position:sticky;
  top:12px;
  z-index:20;
- padding:14px 18px;
+ padding:0 18px;
  border:1px solid rgba(35,49,72,.82);
  border-radius:18px;
  background:rgba(7,11,18,.82);
