@@ -354,6 +354,15 @@ async function refreshQueueStatus() {
   const status = await fetch("/admin/api/send-status").then((r) => r.json())
   const queueStatus = document.getElementById("queueStatus")
  if (status.running) {
+   if (status.total) {
+    queueStatus.innerText = t("queue_running_progress", {
+     processed: status.processed || 0,
+     total: status.total || 0,
+     progress: status.progress || 0,
+     currentEmail: status.currentEmail || "-"
+    })
+    return
+   }
    queueStatus.innerText = t("queue_running")
    return
   }
@@ -766,16 +775,12 @@ async function resendFiltered() {
  })
  const payload = await response.json()
  if (!response.ok) {
-  alert(payload.error || t("alert_resend_filter_failed"))
+  showToast(payload.error || t("alert_resend_filter_failed"))
   return
  }
 
- alert(t("alert_resend_filter_ok", {
-  processed: payload.processed || 0,
-  sent: payload.sent || 0,
-  failed: payload.failed || 0
- }))
- await refreshAll()
+ showToast(t("queue_filtered_started", { queued: payload.queued || 0 }))
+ await refreshQueueStatus()
 }
 
 async function selectFiltered() {

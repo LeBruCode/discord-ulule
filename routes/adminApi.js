@@ -41,6 +41,10 @@ const importQueueState = {
 }
 const sendQueueState = {
  running: false,
+ mode: "idle",
+ total: 0,
+ processed: 0,
+ currentEmail: null,
  lastStartedAt: null,
  lastFinishedAt: null,
  lastStats: { processed: 0, sent: 0, failed: 0 }
@@ -799,14 +803,41 @@ async function sendOneAccessToken(row) {
  }
 }
 
+async function runSendQueue(rows, { mode = "default" } = {}) {
+ const stats = { processed: 0, sent: 0, failed: 0 }
+
+ sendQueueState.running = true
+ sendQueueState.mode = mode
+ sendQueueState.total = Array.isArray(rows) ? rows.length : 0
+ sendQueueState.processed = 0
+ sendQueueState.currentEmail = null
+ sendQueueState.lastStartedAt = new Date().toISOString()
+ sendQueueState.lastFinishedAt = null
+
+ try {
+  for (const row of Array.isArray(rows) ? rows : []) {
+   sendQueueState.currentEmail = row.email || null
+   const result = await sendOneAccessToken(row)
+   stats.processed += 1
+   stats.sent += result.sent
+   stats.failed += result.failed
+   sendQueueState.processed = stats.processed
+   await sleep(BREVO_INTER_SEND_DELAY_MS)
+  }
+ } finally {
+  sendQueueState.running = false
+  sendQueueState.mode = "idle"
+  sendQueueState.currentEmail = null
+  sendQueueState.lastFinishedAt = new Date().toISOString()
+  sendQueueState.lastStats = stats
+ }
+}
+
 async function processSendQueue() {
  if (sendQueueState.running) return
 
- sendQueueState.running = true
- sendQueueState.lastStartedAt = new Date().toISOString()
- const stats = { processed: 0, sent: 0, failed: 0 }
-
  try {
+  const rowsToSend = []
   while (true) {
    const { data, error } = await supabase
     .from("access_tokens")
@@ -826,19 +857,16 @@ async function processSendQueue() {
 
    const rows = applySendEligibility(data)
    if (!rows.length) break
-
-   for (const row of rows) {
-    const result = await sendOneAccessToken(row)
-    stats.processed += 1
-    stats.sent += result.sent
-    stats.failed += result.failed
-    await sleep(BREVO_INTER_SEND_DELAY_MS)
-   }
+   rowsToSend.push(...rows)
   }
+  await runSendQueue(rowsToSend, { mode: "default" })
  } finally {
-  sendQueueState.running = false
-  sendQueueState.lastFinishedAt = new Date().toISOString()
-  sendQueueState.lastStats = stats
+  if (sendQueueState.running) {
+   sendQueueState.running = false
+   sendQueueState.mode = "idle"
+   sendQueueState.currentEmail = null
+   sendQueueState.lastFinishedAt = new Date().toISOString()
+  }
  }
 }
 
@@ -1126,11 +1154,19 @@ router.post("/send", limitSend, async (req, res) => {
 })
 
 router.get("/send-status", async (req, res) => {
+ const progress = sendQueueState.total
+  ? Math.round((sendQueueState.processed / sendQueueState.total) * 100)
+  : 0
  return res.json({
   running: sendQueueState.running,
+  mode: sendQueueState.mode,
+  total: sendQueueState.total,
+  processed: sendQueueState.processed,
+  currentEmail: sendQueueState.currentEmail,
   lastStartedAt: sendQueueState.lastStartedAt,
   lastFinishedAt: sendQueueState.lastFinishedAt,
-  lastStats: sendQueueState.lastStats
+  lastStats: sendQueueState.lastStats,
+  progress
  })
 })
 
@@ -1314,6 +1350,10 @@ router.post("/batch-resend", limitResend, async (req, res) => {
 
 router.post("/resend-filtered", limitResend, async (req, res) => {
  try {
+  if (sendQueueState.running) {
+   return res.status(409).json({ error: "send queue already running" })
+  }
+
   const filters = normalizeListFilters(req.body)
   const { rows, error } = await fetchAllFilteredRows(filters, {
    select: "id,email,token,email_sent,brevo_status,resend_excluded",
@@ -1326,15 +1366,15 @@ router.post("/resend-filtered", limitResend, async (req, res) => {
   }
 
   const eligibleRows = (Array.isArray(rows) ? rows : []).filter((row) => row.resend_excluded !== true)
-  let sent = 0
-  let failed = 0
-  for (const row of eligibleRows) {
-   const result = await sendOneAccessToken(row)
-   sent += result.sent
-   failed += result.failed
-  }
+  runSendQueue(eligibleRows, { mode: "filtered" }).catch((queueError) => {
+   console.error("filtered resend queue crash", queueError)
+   sendQueueState.running = false
+   sendQueueState.mode = "idle"
+   sendQueueState.currentEmail = null
+   sendQueueState.lastFinishedAt = new Date().toISOString()
+  })
 
-  return res.json({ success: true, processed: eligibleRows.length, sent, failed })
+  return res.status(202).json({ success: true, queued: eligibleRows.length, running: true })
  } catch (error) {
   console.error("filtered resend route error", error)
   return res.status(500).json({ error: "server error" })
