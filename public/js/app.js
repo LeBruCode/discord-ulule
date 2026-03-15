@@ -17,6 +17,23 @@ const selectedIds = new Set()
 let currentRowIds = []
 const t = window.dashboardT || ((key) => key)
 
+async function loadLatestDashboardCopy() {
+ try {
+  const response = await fetch("/admin/api/dashboard-copy", { cache: "no-store" })
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || "dashboard copy request failed")
+  if (payload.copy && typeof payload.copy === "object") {
+   window.DASHBOARD_COPY = payload.copy
+   if (typeof window.applyDashboardCopy === "function") {
+    window.applyDashboardCopy()
+   }
+   syncCollapseButtons()
+  }
+ } catch (error) {
+  console.error("dashboard copy refresh error", error)
+ }
+}
+
 function escapeHtml(value) {
  return String(value)
   .replaceAll("&", "&amp;")
@@ -797,12 +814,18 @@ function renderCopyEditorEntries() {
 async function openCopyDrawer() {
  closeBrandingDrawer()
  document.getElementById("copyDrawer").classList.remove("hidden")
+ await loadLatestDashboardCopy()
  if (copyEditorLoaded) {
+  const response = await fetch("/admin/api/dashboard-copy", { cache: "no-store" })
+  const payload = await response.json()
+  if (response.ok) {
+   copyEntries = Array.isArray(payload.entries) ? payload.entries : copyEntries
+  }
   renderCopyEditorEntries()
   return
  }
 
- const response = await fetch("/admin/api/dashboard-copy")
+ const response = await fetch("/admin/api/dashboard-copy", { cache: "no-store" })
  const payload = await response.json()
  if (!response.ok) {
   alert(payload.error || "Impossible de charger les textes du dashboard")
@@ -831,6 +854,17 @@ async function saveCopyEditor() {
   return
  }
 
+ window.DASHBOARD_COPY = entries
+ if (typeof window.applyDashboardCopy === "function") {
+  window.applyDashboardCopy()
+ }
+ copyEntries = Object.entries(entries).map(([key, value]) => ({
+  key,
+  label: key.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+  value: String(value ?? "")
+ }))
+ renderCopyEditorEntries()
+ syncCollapseButtons()
  alert(t("alert_copy_saved"))
 }
 
@@ -1081,7 +1115,8 @@ setInterval(() => {
 }, 10000)
 
 setupBrandingDropzone()
-syncCollapseButtons()
-refreshAll().catch((error) => {
- console.error("dashboard init error", error)
-})
+loadLatestDashboardCopy()
+ .then(() => refreshAll())
+ .catch((error) => {
+  console.error("dashboard init error", error)
+ })

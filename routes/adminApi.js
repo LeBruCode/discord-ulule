@@ -17,6 +17,7 @@ const dataDirectoryPath = path.join(__dirname, "..", "data")
 const dashboardBrandingFilePath = path.join(dataDirectoryPath, "dashboardBranding.json")
 const APP_SETTINGS_TABLE = "app_settings"
 const DASHBOARD_BRANDING_KEY = "dashboard_branding"
+const DASHBOARD_COPY_KEY = "dashboard_copy"
 const LOGO_MIME_EXTENSIONS = {
  "image/png": "png",
  "image/jpeg": "jpg"
@@ -517,11 +518,45 @@ function humanizeCopyKey(key) {
 }
 
 async function readDashboardCopyObject() {
+ try {
+  const { data, error } = await supabase
+   .from(APP_SETTINGS_TABLE)
+   .select("value")
+   .eq("key", DASHBOARD_COPY_KEY)
+   .maybeSingle()
+
+  if (error) throw error
+  if (data?.value && typeof data.value === "object") {
+   return data.value
+  }
+ } catch (error) {
+  console.warn("dashboard copy read fallback", errorMessage(error))
+ }
+
  const source = await fs.readFile(dashboardCopyFilePath, "utf8")
  const context = { window: {} }
  vm.createContext(context)
  vm.runInContext(source, context)
  return context.window?.DASHBOARD_COPY || {}
+}
+
+async function writeDashboardCopyObject(copy) {
+ try {
+  const { error } = await supabase
+   .from(APP_SETTINGS_TABLE)
+   .upsert({
+    key: DASHBOARD_COPY_KEY,
+    value: copy,
+    updated_at: new Date().toISOString()
+   }, { onConflict: "key" })
+
+  if (error) throw error
+ } catch (error) {
+  console.warn("dashboard copy write fallback", errorMessage(error))
+ }
+
+ const content = serializeDashboardCopyObject(copy)
+ await fs.writeFile(dashboardCopyFilePath, `${content.trim()}\n`, "utf8")
 }
 
 function serializeDashboardCopyObject(copy) {
@@ -1408,7 +1443,7 @@ router.get("/dashboard-copy", limitList, async (req, res) => {
    label: humanizeCopyKey(key),
    value: String(value ?? "")
   }))
-  return res.json({ entries })
+  return res.json({ entries, copy })
  } catch (error) {
   console.error("dashboard copy read error", error)
   return res.status(500).json({ error: "server error" })
@@ -1474,8 +1509,7 @@ router.post("/dashboard-copy", limitResend, async (req, res) => {
    nextCopy[key] = typeof value === "string" ? value : String(currentCopy[key] ?? "")
   }
 
-  const content = serializeDashboardCopyObject(nextCopy)
-  await fs.writeFile(dashboardCopyFilePath, `${content.trim()}\n`, "utf8")
+  await writeDashboardCopyObject(nextCopy)
   return res.json({ success: true })
  } catch (error) {
   console.error("dashboard copy save error", error)
