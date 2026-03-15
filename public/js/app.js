@@ -1146,7 +1146,8 @@ async function openDetail(id) {
  const row = payload.data || {}
  currentDetailEmail = String(row.email || "")
  document.getElementById("detailEmail").innerText = row.email || "-"
- document.getElementById("detailResendBtn").disabled = !currentDetailEmail
+ document.getElementById("detailResendBtn").classList.toggle("hidden", !currentDetailEmail || Boolean(row.used))
+ document.getElementById("detailResendBtn").disabled = !currentDetailEmail || Boolean(row.used)
  const detailBadges = [
   renderSmartBadge(formatBrevoStatus(row.brevo_status), {
    kind: ["soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"].includes(String(row.brevo_status || "").toLowerCase()) ? "warn" : (row.used ? "good" : "pending")
