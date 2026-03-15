@@ -12,6 +12,7 @@ let currentDetailId = null
 let currentDetailEmail = ""
 let copyEditorLoaded = false
 let copyEntries = []
+let copyEditorDirty = false
 let brandingState = { logoPath: null, updatedAt: null }
 const COCKPIT_MODE_KEY = "dashboard-cockpit-mode"
 
@@ -1040,8 +1041,30 @@ function closeDetailDrawer() {
  syncFocusMode()
 }
 
-function closeCopyDrawer() {
+function hasUnsavedCopyChanges() {
+ if (!copyEditorDirty) return false
+ const currentValues = Object.fromEntries(
+  Array.from(document.querySelectorAll("[data-copy-key]")).map((textarea) => [
+   textarea.getAttribute("data-copy-key"),
+   textarea.value
+  ])
+ )
+ return copyEntries.some((entry) => String(currentValues[entry.key] ?? entry.value) !== String(entry.value ?? ""))
+}
+
+async function closeCopyDrawer({ force = false } = {}) {
+ if (!force && hasUnsavedCopyChanges()) {
+  const shouldSave = await showConfirm(t("confirm_copy_unsaved"), {
+   confirmLabel: t("confirm_ok"),
+   cancelLabel: t("confirm_cancel")
+  })
+  if (shouldSave) {
+   const saved = await saveCopyEditor({ confirmFirst: false })
+   if (!saved) return
+  }
+ }
  document.getElementById("copyDrawer").classList.add("hidden")
+ copyEditorDirty = false
  syncFocusMode()
 }
 
@@ -1068,14 +1091,14 @@ function renderCopyEditorEntries() {
   return
  }
 
-  container.innerHTML = entries.map((entry) => `
+ container.innerHTML = entries.map((entry) => `
    <div class="copy-editor-row">
     <label for="copy-${escapeHtml(entry.key)}">
      <span>${escapeHtml(entry.label)}</span>
      <code>${escapeHtml(entry.key)}</code>
     </label>
     <textarea id="copy-${escapeHtml(entry.key)}" data-copy-key="${escapeHtml(entry.key)}">${escapeHtml(entry.value)}</textarea>
-   </div>
+  </div>
   `).join("")
 }
 
@@ -1087,9 +1110,10 @@ async function openCopyDrawer() {
  if (copyEditorLoaded) {
   const response = await fetch("/admin/api/dashboard-copy", { cache: "no-store" })
   const payload = await response.json()
-  if (response.ok) {
-   copyEntries = Array.isArray(payload.entries) ? payload.entries : copyEntries
-  }
+ if (response.ok) {
+  copyEntries = Array.isArray(payload.entries) ? payload.entries : copyEntries
+ }
+  copyEditorDirty = false
   renderCopyEditorEntries()
   return
  }
@@ -1102,13 +1126,16 @@ async function openCopyDrawer() {
  }
 
  copyEntries = Array.isArray(payload.entries) ? payload.entries : []
+ copyEditorDirty = false
  renderCopyEditorEntries()
  copyEditorLoaded = true
 }
 
-async function saveCopyEditor() {
- const confirmed = await confirmAction(t("confirm_copy_save"))
- if (!confirmed) return
+async function saveCopyEditor({ confirmFirst = true } = {}) {
+ if (confirmFirst) {
+  const confirmed = await confirmAction(t("confirm_copy_save"))
+  if (!confirmed) return false
+ }
 
  const entries = {}
  for (const textarea of document.querySelectorAll("[data-copy-key]")) {
@@ -1123,7 +1150,7 @@ async function saveCopyEditor() {
  const payload = await response.json()
  if (!response.ok) {
   alert(payload.details || payload.error || "Impossible d'enregistrer les textes")
-  return
+  return false
  }
 
  window.DASHBOARD_COPY = { ...(window.DASHBOARD_COPY || {}), ...entries }
@@ -1136,9 +1163,11 @@ async function saveCopyEditor() {
   label: key.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
   value: String(value ?? "")
  }))
+ copyEditorDirty = false
  renderCopyEditorEntries()
  syncCollapseButtons()
  alert(t("alert_copy_saved"))
+ return true
 }
 
 function setupBrandingDropzone() {
@@ -1333,6 +1362,11 @@ document.getElementById("brandingOpenBtn").addEventListener("click", openBrandin
 document.getElementById("brandingCloseBtn").addEventListener("click", closeBrandingDrawer)
 document.getElementById("copyFromBrandingBtn").addEventListener("click", openCopyDrawer)
 document.getElementById("saveCopyBtn").addEventListener("click", saveCopyEditor)
+document.getElementById("copyEditorList").addEventListener("input", (event) => {
+ if (event.target.matches("[data-copy-key]")) {
+  copyEditorDirty = true
+ }
+})
 document.getElementById("brandingRemoveBtn").addEventListener("click", removeBrandingLogo)
 document.getElementById("brandingSizeRange").addEventListener("input", (event) => {
  document.getElementById("brandingSizeValue").innerText = `${event.target.value} px`
@@ -1346,6 +1380,15 @@ document.getElementById("confirmModalOk").addEventListener("click", () => closeC
 document.getElementById("confirmModal").addEventListener("click", (event) => {
  if (event.target.id === "confirmModal") closeConfirm(false)
 })
+document.getElementById("detailDrawer").addEventListener("click", (event) => {
+ if (event.target.id === "detailDrawer") closeDetailDrawer()
+})
+document.getElementById("brandingDrawer").addEventListener("click", (event) => {
+ if (event.target.id === "brandingDrawer") closeBrandingDrawer()
+})
+document.getElementById("copyDrawer").addEventListener("click", async (event) => {
+ if (event.target.id === "copyDrawer") await closeCopyDrawer()
+})
 document.getElementById("focusScrim")?.addEventListener("click", () => {
  closeDetailDrawer()
  closeCopyDrawer()
@@ -1355,7 +1398,19 @@ document.getElementById("focusScrim")?.addEventListener("click", () => {
 document.addEventListener("keydown", (event) => {
  if (event.key === "Escape" && !document.getElementById("confirmModal").classList.contains("hidden")) {
   closeConfirm(false)
+   return
  }
+ if (event.key === "Escape" && !document.getElementById("copyDrawer").classList.contains("hidden")) {
+  closeCopyDrawer()
+   return
+ }
+ if (event.key === "Escape" && !document.getElementById("detailDrawer").classList.contains("hidden")) {
+  closeDetailDrawer()
+   return
+ }
+ if (event.key === "Escape" && !document.getElementById("brandingDrawer").classList.contains("hidden")) {
+  closeBrandingDrawer()
+  }
 })
 for (const button of document.querySelectorAll(".collapse-toggle")) {
  button.addEventListener("click", () => toggleCollapsible(button.dataset.target, button))
