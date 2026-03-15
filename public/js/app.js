@@ -725,7 +725,11 @@ async function selectFiltered() {
  for (const id of payload.ids || []) selectedIds.add(id)
  updateSelectAllState()
  updatePaginationMeta()
- alert(t("alert_select_filter_ok", { total: payload.total || 0 }))
+ if (payload.capped) {
+  alert(t("alert_select_filter_capped", { selected: payload.selected || 0, total: payload.total || 0 }))
+  return
+ }
+ alert(t("alert_select_filter_success", { total: payload.selected || payload.total || 0 }))
 }
 
 async function setExcludedForSelected(excluded) {

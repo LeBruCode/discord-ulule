@@ -1288,6 +1288,16 @@ router.post("/resend-filtered", limitResend, async (req, res) => {
 router.post("/select-filtered", limitList, async (req, res) => {
  try {
   const filters = normalizeListFilters(req.body)
+  const countQuery = applyListFilters(
+   supabase.from("access_tokens").select("id", { count: "exact", head: true }),
+   filters
+  )
+  const countResult = await countQuery
+  if (countResult.error) {
+   console.error("select filtered count error", countResult.error)
+   return res.status(500).json({ error: "server error" })
+  }
+
   const { data, error } = await fetchFilteredRows(filters, {
    select: "id",
    limit: 5000,
@@ -1300,7 +1310,8 @@ router.post("/select-filtered", limitList, async (req, res) => {
   }
 
   const ids = normalizeIdList((data || []).map((row) => row.id))
-  return res.json({ success: true, ids, total: ids.length })
+  const total = countResult.count || 0
+  return res.json({ success: true, ids, total, selected: ids.length, capped: total > ids.length })
  } catch (error) {
   console.error("select filtered route error", error)
   return res.status(500).json({ error: "server error" })
