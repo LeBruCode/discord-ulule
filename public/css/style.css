@@ -108,12 +108,12 @@ h2{
 .brand-logo{
  width:96px;
  height:auto;
- max-height:96px;
+ max-height:180px;
  object-fit:contain;
  border-radius:0;
- background:#0a1220;
-  border:1px solid #223555;
- padding:8px;
+ background:transparent;
+ border:none;
+ padding:0;
 }
 
 .topbar-actions{

@@ -24,7 +24,7 @@ const LOGO_MIME_EXTENSIONS = {
 const MAX_LOGO_BYTES = 1024 * 1024 * 2
 const DEFAULT_LOGO_WIDTH = 96
 const MIN_LOGO_WIDTH = 48
-const MAX_LOGO_WIDTH = 220
+const MAX_LOGO_WIDTH = 420
 
 const rateLimitStore = new Map()
 const importQueueState = {
