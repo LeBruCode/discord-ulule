@@ -1232,6 +1232,16 @@ td:nth-child(7){
  margin-top:10px;
 }
 
+.detail-actions-sticky{
+ position:sticky;
+ bottom:0;
+ margin:18px -20px -20px;
+ padding:14px 20px 20px;
+ background:linear-gradient(180deg, rgba(15,23,38,0), rgba(15,23,38,.92) 28%, rgba(15,23,38,.98));
+ backdrop-filter:blur(10px);
+ border-top:1px solid rgba(36,54,85,.7);
+}
+
 .timeline{
  display:flex;
  flex-direction:column;

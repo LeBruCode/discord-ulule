@@ -89,6 +89,14 @@ async function showConfirm(message, { confirmLabel = t("confirm_ok"), cancelLabe
  })
 }
 
+async function confirmAction(message, options = {}) {
+ const confirmed = await showConfirm(message, options)
+ if (!confirmed) {
+  showToast(t("confirm_cancelled"), { tone: "info", duration: 2400 })
+ }
+ return confirmed
+}
+
 function closeConfirm(result) {
  const modal = document.getElementById("confirmModal")
  if (modal) modal.classList.add("hidden")
@@ -302,6 +310,9 @@ async function uploadBrandingFile(file) {
 }
 
 async function removeBrandingLogo() {
+ const confirmed = await confirmAction(t("confirm_branding_remove"))
+ if (!confirmed) return
+
  const response = await fetch("/admin/api/dashboard-branding/logo", { method: "DELETE" })
  const payload = await response.json()
  if (!response.ok) {
@@ -715,6 +726,8 @@ async function loadList() {
 async function importEmails() {
  const emailsInput = document.getElementById("emails")
  const emails = emailsInput.value
+ const confirmed = await confirmAction(t("confirm_import"))
+ if (!confirmed) return
  const response = await fetch("/admin/api/import", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -738,6 +751,9 @@ async function importEmails() {
 }
 
 async function sendEmails() {
+ const confirmed = await confirmAction(t("confirm_send"))
+ if (!confirmed) return
+
  const response = await fetch("/admin/api/send", { method: "POST" })
  const payload = await response.json()
  if (!response.ok) {
@@ -755,6 +771,9 @@ async function reconcileSentEmails() {
   alert(t("alert_reconcile_missing_input"))
   return
  }
+
+ const confirmed = await confirmAction(t("confirm_reconcile"))
+ if (!confirmed) return
 
  setReconcileStatus(t("reconcile_running"))
  const response = await fetch("/admin/api/reconcile-sent", {
@@ -792,6 +811,9 @@ async function reconcileSentEmails() {
 }
 
 async function startBrevoSync() {
+ const confirmed = await confirmAction(t("confirm_brevo_sync"))
+ if (!confirmed) return
+
  const response = await fetch("/admin/api/brevo-sync", { method: "POST" })
  const payload = await response.json()
 
@@ -812,6 +834,9 @@ async function startBrevoSync() {
 }
 
 async function stopBrevoSync() {
+ const confirmed = await confirmAction(t("confirm_brevo_sync_stop"))
+ if (!confirmed) return
+
  const response = await fetch("/admin/api/brevo-sync-stop", { method: "POST" })
  const payload = await response.json()
  if (!response.ok) {
@@ -829,6 +854,9 @@ async function stopBrevoSync() {
 }
 
 async function resendEmail(email) {
+ const confirmed = await confirmAction(t("confirm_resend_row", { email }))
+ if (!confirmed) return
+
  const response = await fetch("/admin/api/resend", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -844,7 +872,7 @@ async function resendEmail(email) {
 }
 
 async function deleteRow(id, email) {
- const confirmed = await showConfirm(t("confirm_delete_row", { email }))
+ const confirmed = await confirmAction(t("confirm_delete_row", { email }))
  if (!confirmed) return
 
  const response = await fetch("/admin/api/delete", {
@@ -870,6 +898,9 @@ async function batchResend() {
   alert(t("alert_select_none"))
   return
  }
+
+ const confirmed = await confirmAction(t("confirm_batch_resend", { count: ids.length }))
+ if (!confirmed) return
 
  const response = await fetch("/admin/api/batch-resend", {
   method: "POST",
@@ -898,7 +929,7 @@ async function resendFiltered() {
  if (search) labelParts.push(t("filter_label_search", { value: search }))
  const label = labelParts.length ? ` (${labelParts.join(", ")})` : ""
 
- const confirmed = await showConfirm(t("confirm_resend_filtered", { label }))
+ const confirmed = await confirmAction(t("confirm_resend_filtered", { label }))
  if (!confirmed) return
 
  const response = await fetch("/admin/api/resend-filtered", {
@@ -947,6 +978,12 @@ async function setExcludedForSelected(excluded) {
   return
  }
 
+ const confirmed = await confirmAction(t("confirm_exclude_selected", {
+  action: excluded ? t("action_excluded_selected") : t("action_included_selected"),
+  count: ids.length
+ }))
+ if (!confirmed) return
+
  const response = await fetch("/admin/api/exclude-selected", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -967,6 +1004,11 @@ async function setExcludedForSelected(excluded) {
 
 async function setExcludedForFiltered(excluded) {
  const filters = getFilters()
+ const confirmed = await confirmAction(t("confirm_exclude_filtered", {
+  action: excluded ? t("action_excluded_filtered") : t("action_included_filtered")
+ }))
+ if (!confirmed) return
+
  const response = await fetch("/admin/api/exclude-filtered", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -1065,6 +1107,9 @@ async function openCopyDrawer() {
 }
 
 async function saveCopyEditor() {
+ const confirmed = await confirmAction(t("confirm_copy_save"))
+ if (!confirmed) return
+
  const entries = {}
  for (const textarea of document.querySelectorAll("[data-copy-key]")) {
   entries[textarea.getAttribute("data-copy-key")] = textarea.value
@@ -1184,6 +1229,8 @@ async function openDetail(id) {
 
 async function saveDetailNote() {
  if (!currentDetailId) return
+ const confirmed = await confirmAction(t("confirm_note_save"))
+ if (!confirmed) return
  const note = document.getElementById("detailNote").value
  const response = await fetch("/admin/api/note", {
   method: "POST",
@@ -1216,7 +1263,7 @@ async function batchDelete() {
   return
  }
 
- const confirmed = await showConfirm(t("confirm_delete_rows", { count: ids.length }))
+ const confirmed = await confirmAction(t("confirm_delete_rows", { count: ids.length }))
  if (!confirmed) return
 
  const response = await fetch("/admin/api/batch-delete", {
