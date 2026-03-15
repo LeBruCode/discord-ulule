@@ -64,7 +64,7 @@
 <div class="panel-head">
 <div>
 <h2 id="importTitle">Importer des e-mails</h2>
-<span class="panel-tag">Entrée</span>
+<span id="importTag" class="panel-tag">Entrée</span>
 </div>
 <button id="importCollapseBtn" type="button" class="ghost collapse-toggle" data-target="importPanelBody" aria-expanded="false">Ouvrir</button>
 </div>
@@ -80,7 +80,7 @@
 <div class="panel-head">
 <div>
 <h2 id="reconcileTitle">Synchroniser avec Brevo</h2>
-<span class="panel-tag">Sync</span>
+<span id="reconcileTag" class="panel-tag">Sync</span>
 </div>
 <button id="reconcileCollapseBtn" type="button" class="ghost collapse-toggle" data-target="reconcilePanelBody" aria-expanded="false">Ouvrir</button>
 </div>
@@ -91,7 +91,7 @@
 <div class="sync-block">
 <div class="panel-head sync-head">
 <h3 id="brevoSyncTitle">Resynchronise depuis Brevo</h3>
-<span class="panel-tag">Auto</span>
+<span id="brevoSyncTag" class="panel-tag">Auto</span>
 </div>
 <p class="panel-copy" id="brevoSyncCopy">On va lire les statuts transactionnels réels chez Brevo pour recoller ta base avec ce qui a vraiment été envoyé, délivré ou bloqué.</p>
 <p id="brevoSyncStatus">Resync Brevo: en attente</p>
@@ -109,7 +109,7 @@
 <div id="actionsPanelBody" class="collapsible-body collapsed">
 <div class="action-layout">
 <div class="action-block">
-<p class="action-label">Filtres</p>
+<p id="filtersLabel" class="action-label">Filtres</p>
 <div class="filter-row">
 <input id="search" placeholder="Cherche un e-mail, un doute, un héros.">
 <select id="status">
@@ -149,7 +149,7 @@
 </div>
 
 <div class="action-block">
-<p class="action-label">Actions rapides</p>
+<p id="quickActionsLabel" class="action-label">Actions rapides</p>
 <div class="controls controls-primary">
 <button id="importBtn">Lancer l'import</button>
 <button id="sendBtn">Envoyer les e-mails</button>
@@ -162,7 +162,7 @@
 </div>
 
 <div class="action-block">
-<p class="action-label">Relances</p>
+<p id="resendsLabel" class="action-label">Relances</p>
 <div class="controls controls-secondary">
 <button id="batchResendBtn" type="button">Renvoyer sélection</button>
 <button id="filterResendBtn" type="button">Renvoyer le filtre</button>
@@ -174,7 +174,7 @@
 </div>
 
 <div class="action-block action-block-danger">
-<p class="action-label">Zone sensible</p>
+<p id="dangerZoneLabel" class="action-label">Zone sensible</p>
 <div class="controls controls-danger">
 <button id="batchDeleteBtn" type="button">Supprimer sélection</button>
 </div>
@@ -188,7 +188,7 @@
 <div class="detail-card">
 <div class="detail-header">
 <div>
-<p class="eyebrow">Logo du projet</p>
+<p id="brandingEyebrow" class="eyebrow">Logo du projet</p>
 <h2 id="brandingTitle">Logo du projet</h2>
 </div>
 <button id="brandingCloseBtn" type="button" class="ghost">Refermer ça</button>
@@ -286,12 +286,12 @@
 <div class="detail-card">
 <div class="detail-header">
 <div>
-<p class="eyebrow">Textes du dashboard</p>
-<h2>Édite tes textes</h2>
+<p id="copyDrawerEyebrow" class="eyebrow">Textes du dashboard</p>
+<h2 id="copyDrawerTitle">Édite tes textes</h2>
 </div>
 <button id="copyCloseBtn" type="button" class="ghost">Refermer ça</button>
 </div>
-<p class="panel-copy">Ici, tu modifies seulement les textes visibles du dashboard. Pas de code, pas de JavaScript, juste les phrases de l'interface.</p>
+<p id="copyDrawerCopy" class="panel-copy">Ici, tu modifies seulement les textes visibles du dashboard. Pas de code, pas de JavaScript, juste les phrases de l'interface.</p>
 <input id="copySearch" type="search" placeholder="Cherche un texte, un bouton, un mot-clé">
 <div id="copyEditorList" class="copy-editor-list"></div>
 <div class="detail-actions">

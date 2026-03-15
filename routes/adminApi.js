@@ -604,18 +604,29 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#brevoStatLabel-spam", "brevo_spam"],
   ["#brevoStatLabel-consolidated", "brevo_consolidated"],
   ["#brevoStatLabel-gap", "brevo_gap"],
+  ["#importTag", "import_tag"],
   ["#importTitle", "import_title"],
   ["#importStatus", "import_idle"],
+  ["#reconcileTag", "reconcile_tag"],
   ["#reconcileTitle", "reconcile_title"],
   ["#reconcileCopy", "reconcile_copy"],
   ["#reconcileStatus", "reconcile_idle"],
+  ["#brevoSyncTag", "brevo_sync_tag"],
   ["#brevoSyncTitle", "brevo_sync_title"],
   ["#brevoSyncCopy", "brevo_sync_copy"],
   ["#brevoSyncStatus", "brevo_sync_idle"],
+  ["#filtersLabel", "filters_label"],
+  ["#quickActionsLabel", "quick_actions_label"],
+  ["#resendsLabel", "resends_label"],
+  ["#dangerZoneLabel", "danger_zone_label"],
+  ["#brandingEyebrow", "branding_eyebrow"],
   ["#brandingTitle", "branding_title"],
   ["#brandingCopy", "branding_copy"],
   ["#brandingDropzoneTitle", "branding_drop_title"],
   ["#brandingHint", "branding_hint"],
+  ["#brandingSizeLabel", "branding_size_label"],
+  ["#brandingCloseBtn", "branding_close"],
+  ["#copyFromBrandingBtn", "copy_editor_open"],
   ["#brandingRemoveBtn", "branding_remove_btn"],
   ["#actionsTitle", "actions_title"],
   ["#importBtn", "import_btn"],
@@ -673,7 +684,12 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#detailCloseBtn", "detail_close"],
   ["#detailHistoryTitle", "detail_history"],
   ["#detailNoteTitle", "detail_note"],
-  ["#saveNoteBtn", "detail_note_save"]
+  ["#saveNoteBtn", "detail_note_save"],
+  ["#copyDrawerEyebrow", "copy_drawer_eyebrow"],
+  ["#copyDrawerTitle", "copy_drawer_title"],
+  ["#copyCloseBtn", "copy_drawer_close"],
+  ["#copyDrawerCopy", "copy_drawer_copy"],
+  ["#saveCopyBtn", "copy_save_btn"]
  ]
 
  for (const [selector, key] of textMap) {
@@ -685,7 +701,8 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#emails", "import_placeholder"],
   ["#reconcileEmails", "reconcile_placeholder"],
   ["#search", "search_placeholder"],
-  ["#detailNote", "detail_note_placeholder"]
+  ["#detailNote", "detail_note_placeholder"],
+  ["#copySearch", "copy_search_placeholder"]
  ]
  for (const [selector, key] of placeholders) {
   const node = document.querySelector(selector)
