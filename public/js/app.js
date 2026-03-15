@@ -404,7 +404,10 @@ async function refreshStats() {
   total: totalCount
  })
  document.getElementById("cockpitOrbit").style.setProperty("--orbit-progress", `${Math.max(0, Math.min(rateValue, 100))}%`)
- document.getElementById("cockpitRateHint").innerText = t("cockpit_rate_hint", { rate: rateValue })
+ document.getElementById("cockpitRateHint").innerText = t("cockpit_rate_hint", {
+  activated: activatedCount,
+  total: totalCount
+ })
  document.getElementById("cockpitRelanceHint").innerText = t("cockpit_relance_hint")
  document.getElementById("cockpitPendingHint").innerText = t("cockpit_pending_hint")
  document.getElementById("cockpitAttentionHint").innerText = t("cockpit_attention_hint")

@@ -717,7 +717,7 @@ window.applyDashboardCopy = function applyDashboardCopy() {
  }
 
  const cockpitRateHint = document.querySelector("#cockpitRateHint")
- if (cockpitRateHint) cockpitRateHint.textContent = t("cockpit_rate_hint", { rate: 0 })
+ if (cockpitRateHint) cockpitRateHint.textContent = t("cockpit_rate_hint", { activated: 0, total: 0 })
  const cockpitOrbitSub = document.querySelector("#cockpitOrbitSub")
  if (cockpitOrbitSub) cockpitOrbitSub.textContent = t("cockpit_orbit_sub", { activated: 0, total: 0 })
  const cockpitRelanceHint = document.querySelector("#cockpitRelanceHint")

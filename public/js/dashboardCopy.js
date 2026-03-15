@@ -21,7 +21,7 @@ window.DASHBOARD_COPY = {
  cockpit_tertiary_action_copy_idle: "Le tableau est calme.",
  cockpit_tertiary_action_copy_total: "La base est prête pour le prochain mouvement.",
  cockpit_activated_label: "Activés",
- cockpit_rate_hint: "{{rate}}% des e-mails en base sont activés.",
+ cockpit_rate_hint: "{{activated}} activés sur {{total}} e-mails en base.",
  cockpit_relance_label: "À relancer",
  cockpit_relance_hint: "Prêts pour un nouveau passage.",
  cockpit_pending_label: "En attente",
@@ -406,7 +406,7 @@ window.applyDashboardCopy = function applyDashboardCopy() {
  }
 
  const cockpitRateHint = document.querySelector("#cockpitRateHint")
- if (cockpitRateHint) cockpitRateHint.textContent = t("cockpit_rate_hint", { rate: 0 })
+ if (cockpitRateHint) cockpitRateHint.textContent = t("cockpit_rate_hint", { activated: 0, total: 0 })
  const cockpitOrbitSub = document.querySelector("#cockpitOrbitSub")
  if (cockpitOrbitSub) cockpitOrbitSub.textContent = t("cockpit_orbit_sub", { activated: 0, total: 0 })
  const cockpitRelanceHint = document.querySelector("#cockpitRelanceHint")
