@@ -167,6 +167,14 @@ h2{
  margin-bottom:16px;
 }
 
+.cockpit-backdrop{
+ position:fixed;
+ inset:0;
+ background:rgba(4,8,15,.52);
+ backdrop-filter:blur(8px);
+ z-index:24;
+}
+
 .mission-hero{
  display:grid;
  grid-template-columns:minmax(260px,.95fr) minmax(300px,.9fr) minmax(300px,.95fr);
@@ -1455,6 +1463,18 @@ body.focus-mode .topbar{
 
 body.cockpit-dense .cockpit{
  gap:12px;
+}
+
+body.cockpit-overlay-open #cockpitPanel{
+ position:fixed;
+ top:50%;
+ left:50%;
+ transform:translate(-50%, -50%);
+ width:min(1240px, calc(100vw - 36px));
+ max-height:min(84vh, 920px);
+ overflow:auto;
+ margin:0;
+ z-index:25;
 }
 
 body.cockpit-dense .mission-hero{

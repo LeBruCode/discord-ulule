@@ -114,20 +114,20 @@ window.alert = (message) => showToast(message)
 
 function setCockpitMode(enabled, { reveal = false } = {}) {
  const cockpit = document.getElementById("cockpitPanel")
+ const backdrop = document.getElementById("cockpitBackdrop")
  document.body.classList.toggle("cockpit-dense", Boolean(enabled))
+ document.body.classList.toggle("cockpit-overlay-open", Boolean(enabled))
  const button = document.getElementById("cockpitModeBtn")
  if (button) {
   button.classList.toggle("is-active", Boolean(enabled))
   button.setAttribute("aria-pressed", enabled ? "true" : "false")
  }
  if (cockpit) cockpit.classList.toggle("hidden", !enabled)
+ if (backdrop) backdrop.classList.toggle("hidden", !enabled)
  try {
   window.localStorage.setItem(COCKPIT_MODE_KEY, enabled ? "1" : "0")
  } catch (error) {
   console.debug("cockpit mode persistence skipped", error)
- }
- if (reveal && enabled && cockpit) {
-  cockpit.scrollIntoView({ behavior: "smooth", block: "start" })
  }
 }
 
@@ -1479,6 +1479,9 @@ document.getElementById("focusScrim")?.addEventListener("click", () => {
  closeCopyDrawer()
  closeBrandingDrawer()
  closeConfirm(false)
+})
+document.getElementById("cockpitBackdrop")?.addEventListener("click", () => {
+ setCockpitMode(false)
 })
 document.getElementById("selectionBarResendBtn").addEventListener("click", batchResend)
 document.getElementById("selectionBarExcludeBtn").addEventListener("click", async () => setExcludedForSelected(true))
