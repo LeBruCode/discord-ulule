@@ -517,7 +517,22 @@ function humanizeCopyKey(key) {
   .replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
+async function readDashboardCopyDefaults() {
+ try {
+  const source = await fs.readFile(dashboardCopyFilePath, "utf8")
+  const context = { window: {} }
+  vm.createContext(context)
+  vm.runInContext(source, context)
+  return context.window?.DASHBOARD_COPY || {}
+ } catch (error) {
+  console.error("dashboard copy defaults read error", error)
+  return {}
+ }
+}
+
 async function readDashboardCopyObject() {
+ const defaults = await readDashboardCopyDefaults()
+
  try {
   const { data, error } = await supabase
    .from(APP_SETTINGS_TABLE)
@@ -527,17 +542,13 @@ async function readDashboardCopyObject() {
 
   if (error) throw error
   if (data?.value && typeof data.value === "object") {
-   return data.value
+   return { ...defaults, ...data.value }
   }
  } catch (error) {
   console.warn("dashboard copy read fallback", errorMessage(error))
  }
 
- const source = await fs.readFile(dashboardCopyFilePath, "utf8")
- const context = { window: {} }
- vm.createContext(context)
- vm.runInContext(source, context)
- return context.window?.DASHBOARD_COPY || {}
+ return defaults
 }
 
 async function writeDashboardCopyObject(copy) {
