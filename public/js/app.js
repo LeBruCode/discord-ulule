@@ -9,6 +9,7 @@ let loading = false
 let importPollTimer = null
 let brevoSyncPollTimer = null
 let currentDetailId = null
+let currentDetailEmail = ""
 let copyEditorLoaded = false
 let copyEntries = []
 let brandingState = { logoPath: null, updatedAt: null }
@@ -981,6 +982,7 @@ function exportFiltered() {
 
 function closeDetailDrawer() {
  currentDetailId = null
+ currentDetailEmail = ""
  document.getElementById("detailDrawer").classList.add("hidden")
  syncFocusMode()
 }
@@ -1142,7 +1144,9 @@ async function openDetail(id) {
 
  currentDetailId = id
  const row = payload.data || {}
+ currentDetailEmail = String(row.email || "")
  document.getElementById("detailEmail").innerText = row.email || "-"
+ document.getElementById("detailResendBtn").disabled = !currentDetailEmail
  const detailBadges = [
   renderSmartBadge(formatBrevoStatus(row.brevo_status), {
    kind: ["soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"].includes(String(row.brevo_status || "").toLowerCase()) ? "warn" : (row.used ? "good" : "pending")
@@ -1182,6 +1186,14 @@ async function saveDetailNote() {
  alert(t("alert_note_ok"))
  await openDetail(currentDetailId)
  await loadList()
+}
+
+async function resendDetailEmail() {
+ if (!currentDetailEmail) return
+ await resendEmail(currentDetailEmail)
+ if (currentDetailId) {
+  await openDetail(currentDetailId)
+ }
 }
 
 async function batchDelete() {
@@ -1254,6 +1266,7 @@ document.getElementById("includeFilteredBtn").addEventListener("click", async ()
 document.getElementById("exportBtn").addEventListener("click", exportFiltered)
 document.getElementById("batchDeleteBtn").addEventListener("click", batchDelete)
 document.getElementById("detailCloseBtn").addEventListener("click", closeDetailDrawer)
+document.getElementById("detailResendBtn").addEventListener("click", resendDetailEmail)
 document.getElementById("saveNoteBtn").addEventListener("click", saveDetailNote)
 document.getElementById("copyCloseBtn").addEventListener("click", closeCopyDrawer)
 document.getElementById("brandingOpenBtn").addEventListener("click", openBrandingDrawer)

@@ -703,6 +703,7 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#detailCloseBtn", "detail_close"],
   ["#detailHistoryTitle", "detail_history"],
   ["#detailNoteTitle", "detail_note"],
+  ["#detailResendBtn", "detail_resend"],
   ["#saveNoteBtn", "detail_note_save"],
   ["#copyDrawerEyebrow", "copy_drawer_eyebrow"],
   ["#copyDrawerTitle", "copy_drawer_title"],
