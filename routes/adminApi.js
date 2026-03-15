@@ -898,6 +898,34 @@ async function fetchFilteredRows(filters, { select = "*", limit = 1000, orderAsc
  return result
 }
 
+async function fetchAllFilteredIds(filters, { batchSize = 1000, orderAscending = false } = {}) {
+ const countQuery = applyListFilters(
+  supabase.from("access_tokens").select("id", { count: "exact", head: true }),
+  filters
+ )
+ const countResult = await countQuery
+ if (countResult.error) return { ids: [], total: 0, error: countResult.error }
+
+ const total = countResult.count || 0
+ const ids = []
+
+ for (let offset = 0; offset < total; offset += batchSize) {
+  const end = Math.min(offset + batchSize - 1, total - 1)
+  let query = supabase
+   .from("access_tokens")
+   .select("id")
+
+  query = applyListFilters(query, filters)
+  query = query.order("created_at", { ascending: orderAscending }).range(offset, end)
+
+  const { data, error } = await query
+  if (error) return { ids, total, error }
+  ids.push(...normalizeIdList((data || []).map((row) => row.id)))
+ }
+
+ return { ids, total, error: null }
+}
+
 function buildTimeline(row) {
  const events = [
   { key: "imported", label: "Importé", at: row.created_at, value: row.email },
@@ -1288,19 +1316,8 @@ router.post("/resend-filtered", limitResend, async (req, res) => {
 router.post("/select-filtered", limitList, async (req, res) => {
  try {
   const filters = normalizeListFilters(req.body)
-  const countQuery = applyListFilters(
-   supabase.from("access_tokens").select("id", { count: "exact", head: true }),
-   filters
-  )
-  const countResult = await countQuery
-  if (countResult.error) {
-   console.error("select filtered count error", countResult.error)
-   return res.status(500).json({ error: "server error" })
-  }
-
-  const { data, error } = await fetchFilteredRows(filters, {
-   select: "id",
-   limit: 5000,
+  const { ids, total, error } = await fetchAllFilteredIds(filters, {
+   batchSize: 1000,
    orderAscending: false
   })
 
@@ -1309,9 +1326,7 @@ router.post("/select-filtered", limitList, async (req, res) => {
    return res.status(500).json({ error: "server error" })
   }
 
-  const ids = normalizeIdList((data || []).map((row) => row.id))
-  const total = countResult.count || 0
-  return res.json({ success: true, ids, total, selected: ids.length, capped: total > ids.length })
+  return res.json({ success: true, ids, total, selected: ids.length, capped: false })
  } catch (error) {
   console.error("select filtered route error", error)
   return res.status(500).json({ error: "server error" })
