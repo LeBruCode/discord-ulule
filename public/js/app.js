@@ -792,6 +792,7 @@ function renderCopyEditorEntries() {
 }
 
 async function openCopyDrawer() {
+ closeBrandingDrawer()
  document.getElementById("copyDrawer").classList.remove("hidden")
  if (copyEditorLoaded) {
   renderCopyEditorEntries()
@@ -978,10 +979,10 @@ document.getElementById("exportBtn").addEventListener("click", exportFiltered)
 document.getElementById("batchDeleteBtn").addEventListener("click", batchDelete)
 document.getElementById("detailCloseBtn").addEventListener("click", closeDetailDrawer)
 document.getElementById("saveNoteBtn").addEventListener("click", saveDetailNote)
-document.getElementById("copyEditorBtn").addEventListener("click", openCopyDrawer)
 document.getElementById("copyCloseBtn").addEventListener("click", closeCopyDrawer)
 document.getElementById("brandingOpenBtn").addEventListener("click", openBrandingDrawer)
 document.getElementById("brandingCloseBtn").addEventListener("click", closeBrandingDrawer)
+document.getElementById("copyFromBrandingBtn").addEventListener("click", openCopyDrawer)
 document.getElementById("saveCopyBtn").addEventListener("click", saveCopyEditor)
 document.getElementById("brandingRemoveBtn").addEventListener("click", removeBrandingLogo)
 document.getElementById("brandingSizeRange").addEventListener("input", (event) => {
