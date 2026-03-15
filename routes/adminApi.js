@@ -926,6 +926,34 @@ async function fetchAllFilteredIds(filters, { batchSize = 1000, orderAscending =
  return { ids, total, error: null }
 }
 
+async function fetchAllFilteredRows(filters, { select = "*", batchSize = 1000, orderAscending = false } = {}) {
+ const countQuery = applyListFilters(
+  supabase.from("access_tokens").select("id", { count: "exact", head: true }),
+  filters
+ )
+ const countResult = await countQuery
+ if (countResult.error) return { rows: [], total: 0, error: countResult.error }
+
+ const total = countResult.count || 0
+ const rows = []
+
+ for (let offset = 0; offset < total; offset += batchSize) {
+  const end = Math.min(offset + batchSize - 1, total - 1)
+  let query = supabase
+   .from("access_tokens")
+   .select(select)
+
+  query = applyListFilters(query, filters)
+  query = query.order("created_at", { ascending: orderAscending }).range(offset, end)
+
+  const { data, error } = await query
+  if (error) return { rows, total, error }
+  rows.push(...(Array.isArray(data) ? data : []))
+ }
+
+ return { rows, total, error: null }
+}
+
 function buildTimeline(row) {
  const events = [
   { key: "imported", label: "Importé", at: row.created_at, value: row.email },
@@ -1287,9 +1315,9 @@ router.post("/batch-resend", limitResend, async (req, res) => {
 router.post("/resend-filtered", limitResend, async (req, res) => {
  try {
   const filters = normalizeListFilters(req.body)
-  const { data, error } = await fetchFilteredRows(filters, {
+  const { rows, error } = await fetchAllFilteredRows(filters, {
    select: "id,email,token,email_sent,brevo_status,resend_excluded",
-   limit: 5000,
+   batchSize: 1000,
    orderAscending: true
   })
   if (error) {
@@ -1297,16 +1325,16 @@ router.post("/resend-filtered", limitResend, async (req, res) => {
    return res.status(500).json({ error: "server error" })
   }
 
-  const rows = (Array.isArray(data) ? data : []).filter((row) => row.resend_excluded !== true)
+  const eligibleRows = (Array.isArray(rows) ? rows : []).filter((row) => row.resend_excluded !== true)
   let sent = 0
   let failed = 0
-  for (const row of rows) {
+  for (const row of eligibleRows) {
    const result = await sendOneAccessToken(row)
    sent += result.sent
    failed += result.failed
   }
 
-  return res.json({ success: true, processed: rows.length, sent, failed })
+  return res.json({ success: true, processed: eligibleRows.length, sent, failed })
  } catch (error) {
   console.error("filtered resend route error", error)
   return res.status(500).json({ error: "server error" })
@@ -1364,9 +1392,9 @@ router.post("/exclude-filtered", limitResend, async (req, res) => {
  try {
   const filters = normalizeListFilters(req.body)
   const excluded = Boolean(req.body?.excluded)
-  const { data, error } = await fetchFilteredRows(filters, {
+  const { rows, error } = await fetchAllFilteredRows(filters, {
    select: "id",
-   limit: 5000,
+   batchSize: 1000,
    orderAscending: false
   })
   if (error) {
@@ -1374,7 +1402,7 @@ router.post("/exclude-filtered", limitResend, async (req, res) => {
    return res.status(500).json({ error: "server error" })
   }
 
-  const ids = normalizeIdList((data || []).map((row) => row.id))
+  const ids = normalizeIdList((rows || []).map((row) => row.id))
   if (!ids.length) return res.json({ success: true, updated: 0, excluded })
 
   const { data: updatedData, error: updateError } = await supabase
@@ -1574,9 +1602,9 @@ router.post("/dashboard-copy", limitResend, async (req, res) => {
 router.get("/export", limitList, async (req, res) => {
  try {
   const filters = normalizeListFilters(req.query)
-  const { data, error } = await fetchFilteredRows(filters, {
+  const { rows, error } = await fetchAllFilteredRows(filters, {
    select: "email,email_sent,used,email_sent_at,used_at,brevo_status,email_error,resend_excluded,admin_note,created_at",
-   limit: 5000,
+   batchSize: 1000,
    orderAscending: false
   })
   if (error) {
@@ -1584,11 +1612,11 @@ router.get("/export", limitList, async (req, res) => {
    return res.status(500).json({ error: "server error" })
   }
 
-  const rows = Array.isArray(data) ? data : []
+  const normalizedRows = Array.isArray(rows) ? rows : []
   const header = ["email", "email_sent", "used", "email_sent_at", "used_at", "brevo_status", "email_error", "resend_excluded", "admin_note", "created_at"]
   const csvLines = [
    header.join(","),
-   ...rows.map((row) => header.map((key) => {
+   ...normalizedRows.map((row) => header.map((key) => {
     const value = row[key]
     const normalized = value == null ? "" : String(value)
     return `"${normalized.replaceAll('"', '""')}"`
