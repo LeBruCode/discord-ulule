@@ -703,6 +703,15 @@ td:nth-child(7){
  justify-content:center;
 }
 
+.resend-btn{
+ font-size:18px;
+}
+
+.delete-btn{
+ font-size:14px;
+ color:#fff;
+}
+
 .detail-btn{
  background:#152238;
  border-color:#2d4061;
