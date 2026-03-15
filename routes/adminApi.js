@@ -560,6 +560,7 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#statusSentOption", "status_sent"],
   ["#statusUnsentOption", "status_unsent"],
   ["#statusActivatedOption", "status_activated"],
+  ["#statusUnactivatedOption", "status_unactivated"],
   ["#brevoFilterAllOption", "brevo_filter_all"],
   ["#brevoQueuedOption", "brevo_filter_queued"],
   ["#brevoRequestOption", "brevo_filter_request"],
@@ -777,7 +778,8 @@ function applyListFilters(query, { search = "", status = "all", brevoStatus = "a
  if (search) query = query.ilike("email", `%${search}%`)
  if (status === "sent") query = query.eq("email_sent", true)
  if (status === "unsent") query = query.or("email_sent.eq.false,email_sent.is.null")
-  if (status === "activated") query = query.eq("used", true)
+ if (status === "activated") query = query.eq("used", true)
+ if (status === "unactivated") query = query.or("used.eq.false,used.is.null")
  if (brevoStatus && brevoStatus !== "all") query = query.eq("brevo_status", brevoStatus)
  return query
 }
