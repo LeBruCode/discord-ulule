@@ -157,42 +157,195 @@ h2{
 
 .cockpit{
  display:grid;
- grid-template-columns:minmax(0,1.55fr) minmax(280px,.9fr);
  gap:16px;
  margin-bottom:16px;
 }
 
-.cockpit-hero,
-.cockpit-side{
- background:linear-gradient(180deg, rgba(18,29,48,.92), rgba(10,18,32,.96));
- border:1px solid #243655;
- border-radius:20px;
- box-shadow:var(--shadow);
-}
-
-.cockpit-hero{
- padding:20px;
-}
-
-.cockpit-hero-main{
+.mission-hero{
  display:grid;
+ grid-template-columns:minmax(260px,.95fr) minmax(300px,.9fr) minmax(300px,.95fr);
  gap:18px;
+ padding:22px;
+ border-radius:24px;
+ border:1px solid rgba(51,73,106,.88);
+ background:
+  radial-gradient(circle at top left, rgba(63,140,255,.16), transparent 34%),
+  radial-gradient(circle at 78% 14%, rgba(47,163,110,.13), transparent 26%),
+  linear-gradient(180deg, rgba(18,29,48,.96), rgba(9,15,26,.98));
+ box-shadow:0 24px 54px rgba(0,0,0,.34);
+ overflow:hidden;
+ position:relative;
 }
 
-.cockpit-kpis{
+.mission-hero::after{
+ content:"";
+ position:absolute;
+ inset:auto -120px -140px auto;
+ width:300px;
+ height:300px;
+ border-radius:50%;
+ background:radial-gradient(circle, rgba(63,140,255,.12), rgba(63,140,255,0) 70%);
+ pointer-events:none;
+}
+
+.mission-copy{
  display:grid;
- grid-template-columns:repeat(3, minmax(0,1fr));
+ align-content:start;
+ gap:14px;
+ min-width:0;
+}
+
+.mission-copy h2{
+ margin:0;
+ font-size:42px;
+ line-height:1;
+ color:#f1f6ff;
+ letter-spacing:-.04em;
+}
+
+.mission-copy .panel-copy{
+ font-size:15px;
+ max-width:34ch;
+ margin:0;
+}
+
+.mission-orbit-wrap{
+ display:grid;
+ place-items:center;
+}
+
+.mission-orbit{
+ --orbit-progress:0%;
+ width:min(320px, 100%);
+ aspect-ratio:1;
+ display:grid;
+ place-items:center;
+ padding:18px;
+ border-radius:50%;
+ background:
+  radial-gradient(circle at center, rgba(7,11,18,1) 0 55%, transparent 55%),
+  conic-gradient(from -90deg, rgba(47,163,110,.95) 0 var(--orbit-progress), rgba(56,77,108,.24) var(--orbit-progress) 100%);
+ box-shadow:
+  inset 0 0 0 1px rgba(84,111,149,.34),
+  0 28px 60px rgba(0,0,0,.35);
+ position:relative;
+}
+
+.mission-orbit::before{
+ content:"";
+ position:absolute;
+ inset:20px;
+ border-radius:50%;
+ border:1px solid rgba(96,128,172,.28);
+}
+
+.mission-orbit-core{
+ position:relative;
+ z-index:1;
+ width:72%;
+ aspect-ratio:1;
+ display:grid;
+ place-items:center;
+ text-align:center;
+ padding:22px;
+ border-radius:50%;
+ background:radial-gradient(circle at 30% 20%, rgba(25,40,63,.95), rgba(8,14,25,.98));
+ border:1px solid rgba(73,100,138,.4);
+}
+
+.mission-orbit-core span{
+ font-size:11px;
+ text-transform:uppercase;
+ letter-spacing:.14em;
+ color:#9bb3d7;
+}
+
+.mission-orbit-core b{
+ font-size:54px;
+ line-height:.95;
+ color:#f5f9ff;
+ letter-spacing:-.05em;
+}
+
+.mission-orbit-core small{
+ color:var(--muted);
+ font-size:12px;
+ line-height:1.45;
+ max-width:16ch;
+}
+
+.mission-actions{
+ display:grid;
+ align-content:start;
  gap:12px;
 }
 
-.cockpit-kpi,
-.cockpit-mini{
+.mission-action-list{
+ display:grid;
+ gap:12px;
+}
+
+.mission-action-card{
+ display:grid;
+ gap:8px;
+ padding:16px 18px;
+ border-radius:18px;
+ border:1px solid rgba(55,78,112,.78);
+ background:rgba(8,14,25,.7);
+ min-height:124px;
+}
+
+.mission-action-card span{
+ color:#c9daf6;
+ font-size:12px;
+ text-transform:uppercase;
+ letter-spacing:.08em;
+}
+
+.mission-action-card strong{
+ font-size:34px;
+ line-height:1;
+ color:#f4f8ff;
+}
+
+.mission-action-card p{
+ margin:0;
+ color:var(--muted);
+ font-size:13px;
+ line-height:1.5;
+ max-width:28ch;
+}
+
+.mission-action-card-primary,
+.mission-action-card.tone-pending{
+ background:linear-gradient(180deg, rgba(19,32,50,.9), rgba(10,18,31,.92));
+ border-color:rgba(73,115,171,.82);
+}
+
+.mission-action-card.tone-good{
+ border-color:rgba(47,163,110,.42);
+ background:linear-gradient(180deg, rgba(14,31,26,.88), rgba(10,18,22,.9));
+}
+
+.mission-action-card.tone-warn{
+ border-color:rgba(196,63,83,.48);
+ background:linear-gradient(180deg, rgba(39,15,22,.9), rgba(18,10,14,.92));
+}
+
+.mission-strip{
+ display:grid;
+ grid-template-columns:repeat(6, minmax(0,1fr));
+ gap:12px;
+}
+
+.cockpit-kpi{
  display:grid;
  gap:8px;
  padding:16px;
  border-radius:18px;
  border:1px solid rgba(55,78,112,.8);
  background:rgba(8,14,25,.72);
+ box-shadow:var(--shadow);
 }
 
 .cockpit-kpi-primary{
@@ -202,32 +355,26 @@ h2{
  border-color:rgba(79,122,167,.85);
 }
 
-.cockpit-kpi span,
-.cockpit-mini span{
+.cockpit-kpi-ghost{
+ background:linear-gradient(180deg, rgba(15,22,34,.72), rgba(8,14,25,.82));
+}
+
+.cockpit-kpi span{
  color:#c9daf6;
  font-size:12px;
  text-transform:uppercase;
  letter-spacing:.08em;
 }
 
-.cockpit-kpi b,
-.cockpit-mini b{
+.cockpit-kpi b{
  font-size:34px;
  line-height:1;
 }
 
-.cockpit-kpi small,
-.cockpit-mini small{
+.cockpit-kpi small{
  color:var(--muted);
  font-size:12px;
  line-height:1.45;
-}
-
-.cockpit-side{
- padding:16px;
- display:grid;
- gap:12px;
- align-content:start;
 }
 
 .brevo-stats-grid{
@@ -1192,7 +1339,11 @@ body.focus-mode .topbar{
 }
 
 body.cockpit-dense .cockpit{
- grid-template-columns:minmax(0,1.7fr) minmax(250px,.7fr);
+ gap:12px;
+}
+
+body.cockpit-dense .mission-hero{
+ grid-template-columns:minmax(220px,.8fr) minmax(260px,.8fr) minmax(260px,.9fr);
 }
 
 body.cockpit-dense .cockpit-kpi b{
@@ -1213,8 +1364,10 @@ body.cockpit-dense .cockpit-kpi b{
 @media (max-width:900px){
  .container{padding:14px;}
  h1{font-size:24px;}
- .cockpit{grid-template-columns:1fr;}
- .cockpit-kpis{grid-template-columns:1fr;}
+ .mission-hero{grid-template-columns:1fr;}
+ .mission-copy h2{font-size:32px;}
+ .mission-strip{grid-template-columns:repeat(2,minmax(0,1fr));}
+ .mission-orbit{width:min(280px, 100%);}
  .editor-grid{grid-template-columns:1fr;}
  .branding-panel{grid-template-columns:1fr;}
  .stats{grid-template-columns:repeat(2,minmax(140px,1fr));}

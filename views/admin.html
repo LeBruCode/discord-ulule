@@ -40,14 +40,43 @@
 </div>
 
 <section class="cockpit">
-<div class="cockpit-hero">
+<div class="mission-hero">
+<div class="mission-copy">
 <p id="cockpitEyebrow" class="eyebrow">Pilotage en direct</p>
-<div class="cockpit-hero-main">
-<div>
-<h2 id="cockpitTitle">Ton centre de gravité</h2>
-<p id="cockpitCopy" class="panel-copy">Ici, tu vois tout de suite ce qui va bien, ce qui attend, et ce qui mérite une relance.</p>
+<h2 id="cockpitTitle">Mission control</h2>
+<p id="cockpitCopy" class="panel-copy">Ici, tu vois tout de suite ce qui pousse, ce qui coince, et où tu peux agir maintenant.</p>
 </div>
-<div class="cockpit-kpis">
+<div class="mission-orbit-wrap">
+<div id="cockpitOrbit" class="mission-orbit" style="--orbit-progress:0%;">
+<div class="mission-orbit-core">
+<span id="cockpitOrbitLabel">Taux d'activation</span>
+<b id="cockpitRateDisplay">0%</b>
+<small id="cockpitOrbitSub">0 activés sur 0 contacts</small>
+</div>
+</div>
+</div>
+<div class="mission-actions">
+<p id="cockpitActionsTitle" class="action-label">À faire maintenant</p>
+<div class="mission-action-list">
+<article class="mission-action-card mission-action-card-primary">
+<span id="cockpitPrimaryActionLabel">Priorité chaude</span>
+<strong id="cockpitPrimaryActionValue">0</strong>
+<p id="cockpitPrimaryActionCopy">Tout est calme pour l'instant.</p>
+</article>
+<article class="mission-action-card">
+<span id="cockpitSecondaryActionLabel">Juste derrière</span>
+<strong id="cockpitSecondaryActionValue">0</strong>
+<p id="cockpitSecondaryActionCopy">Rien ne pousse au portillon.</p>
+</article>
+<article class="mission-action-card">
+<span id="cockpitTertiaryActionLabel">À surveiller</span>
+<strong id="cockpitTertiaryActionValue">0</strong>
+<p id="cockpitTertiaryActionCopy">Le tableau est calme.</p>
+</article>
+</div>
+</div>
+</div>
+<div class="mission-strip">
 <div class="cockpit-kpi cockpit-kpi-primary">
 <span id="cockpitActivatedLabel">Activés</span>
 <b id="cockpitActivated">0</b>
@@ -63,19 +92,20 @@
 <b id="cockpitPending">0</b>
 <small id="cockpitPendingHint">Brevo n'a pas encore tout raconté.</small>
 </div>
-</div>
-</div>
-</div>
-<div class="cockpit-side">
-<div class="cockpit-mini">
+<div class="cockpit-kpi">
 <span id="cockpitAttentionLabel">À surveiller</span>
 <b id="cockpitAttention">0</b>
 <small id="cockpitAttentionHint">Blocages, rebonds et autres froissements.</small>
 </div>
-<div class="cockpit-mini">
+<div class="cockpit-kpi">
 <span id="cockpitUnactivatedLabel">Non activés</span>
 <b id="cockpitUnactivated">0</b>
 <small id="cockpitUnactivatedHint">Ils ont encore besoin d'un coup de pouce.</small>
+</div>
+<div class="cockpit-kpi cockpit-kpi-ghost">
+<span id="cockpitTotalLabel">Base active</span>
+<b id="cockpitTotal">0</b>
+<small id="cockpitTotalHint">Le terrain de jeu complet, sans doublons de renvoi.</small>
 </div>
 </div>
 </section>

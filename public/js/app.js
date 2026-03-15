@@ -192,6 +192,18 @@ function renderSmartBadge(label, { kind = "neutral", icon = "" } = {}) {
  return `<span class="smart-badge ${badgeTone(kind)}">${icon ? `<span class="smart-badge-icon">${iconSvg(icon)}</span>` : ""}<span>${escapeHtml(label)}</span></span>`
 }
 
+function setMissionAction(slot, { value = 0, copy = "", tone = "" } = {}) {
+ const card = document.getElementById(`cockpit${slot}ActionValue`)?.closest(".mission-action-card")
+ const valueNode = document.getElementById(`cockpit${slot}ActionValue`)
+ const copyNode = document.getElementById(`cockpit${slot}ActionCopy`)
+ if (valueNode) valueNode.innerText = String(value || 0)
+ if (copyNode) copyNode.innerText = copy
+ if (card) {
+  card.classList.remove("tone-good", "tone-pending", "tone-warn")
+  if (tone) card.classList.add(`tone-${tone}`)
+ }
+}
+
 function buildBrandingAssetUrl(branding = {}) {
  const rawSource = branding.logoDataUrl || branding.logoPath || ""
  if (!rawSource) return ""
@@ -367,20 +379,57 @@ function updateSelectAllState() {
 
 async function refreshStats() {
  const stats = await fetch("/stats").then((r) => r.json())
- document.getElementById("total").innerText = stats.total || 0
- document.getElementById("sent").innerText = stats.sent || 0
- document.getElementById("activated").innerText = stats.activated || 0
- document.getElementById("rate").innerText = `${stats.rate || 0}%`
- document.getElementById("cockpitActivated").innerText = stats.activated || 0
- document.getElementById("cockpitRelance").innerText = stats.relanceable || 0
- document.getElementById("cockpitPending").innerText = stats.pending || 0
- document.getElementById("cockpitAttention").innerText = stats.attention || 0
- document.getElementById("cockpitUnactivated").innerText = stats.unactivated || 0
- document.getElementById("cockpitRateHint").innerText = t("cockpit_rate_hint", { rate: stats.rate || 0 })
+ const totalCount = Number(stats.total || 0)
+ const activatedCount = Number(stats.activated || 0)
+ const sentCount = Number(stats.sent || 0)
+ const relanceableCount = Number(stats.relanceable || 0)
+ const pendingCount = Number(stats.pending || 0)
+ const attentionCount = Number(stats.attention || 0)
+ const unactivatedCount = Number(stats.unactivated || 0)
+ const rateValue = Number(stats.rate || 0)
+
+ document.getElementById("total").innerText = totalCount
+ document.getElementById("sent").innerText = sentCount
+ document.getElementById("activated").innerText = activatedCount
+ document.getElementById("rate").innerText = `${rateValue}%`
+ document.getElementById("cockpitActivated").innerText = activatedCount
+ document.getElementById("cockpitRelance").innerText = relanceableCount
+ document.getElementById("cockpitPending").innerText = pendingCount
+ document.getElementById("cockpitAttention").innerText = attentionCount
+ document.getElementById("cockpitUnactivated").innerText = unactivatedCount
+ document.getElementById("cockpitTotal").innerText = totalCount
+ document.getElementById("cockpitRateDisplay").innerText = `${rateValue}%`
+ document.getElementById("cockpitOrbitSub").innerText = t("cockpit_orbit_sub", {
+  activated: activatedCount,
+  total: totalCount
+ })
+ document.getElementById("cockpitOrbit").style.setProperty("--orbit-progress", `${Math.max(0, Math.min(rateValue, 100))}%`)
+ document.getElementById("cockpitRateHint").innerText = t("cockpit_rate_hint", { rate: rateValue })
  document.getElementById("cockpitRelanceHint").innerText = t("cockpit_relance_hint")
  document.getElementById("cockpitPendingHint").innerText = t("cockpit_pending_hint")
  document.getElementById("cockpitAttentionHint").innerText = t("cockpit_attention_hint")
  document.getElementById("cockpitUnactivatedHint").innerText = t("cockpit_unactivated_hint")
+ document.getElementById("cockpitTotalHint").innerText = t("cockpit_total_hint")
+
+ const primary = attentionCount > 0
+  ? { value: attentionCount, copy: t("cockpit_primary_action_copy_attention"), tone: "warn" }
+  : relanceableCount > 0
+   ? { value: relanceableCount, copy: t("cockpit_primary_action_copy_relance"), tone: "pending" }
+   : { value: activatedCount, copy: t("cockpit_primary_action_copy_idle"), tone: "good" }
+
+ const secondary = pendingCount > 0
+  ? { value: pendingCount, copy: t("cockpit_secondary_action_copy_pending"), tone: "pending" }
+  : unactivatedCount > 0
+   ? { value: unactivatedCount, copy: t("cockpit_secondary_action_copy_unactivated"), tone: "warn" }
+   : { value: sentCount, copy: t("cockpit_secondary_action_copy_idle"), tone: "good" }
+
+ const tertiary = totalCount > 0
+  ? { value: totalCount, copy: t("cockpit_tertiary_action_copy_total"), tone: "neutral" }
+  : { value: 0, copy: t("cockpit_tertiary_action_copy_idle"), tone: "neutral" }
+
+ setMissionAction("Primary", primary)
+ setMissionAction("Secondary", secondary)
+ setMissionAction("Tertiary", tertiary)
 }
 
 async function refreshBrevoStats() {

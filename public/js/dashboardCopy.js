@@ -4,8 +4,22 @@ window.DASHBOARD_COPY = {
  logout: "Se déconnecter",
  cockpit_mode_btn: "Mode cockpit",
  cockpit_eyebrow: "Pilotage en direct",
- cockpit_title: "Ton centre de gravité",
- cockpit_copy: "Ici, tu vois tout de suite ce qui va bien, ce qui attend, et ce qui mérite une relance.",
+ cockpit_title: "Mission control",
+ cockpit_copy: "Ici, tu vois tout de suite ce qui pousse, ce qui coince, et où tu peux agir maintenant.",
+ cockpit_orbit_label: "Taux d'activation",
+ cockpit_orbit_sub: "{{activated}} activés sur {{total}} contacts",
+ cockpit_actions_title: "À faire maintenant",
+ cockpit_primary_action_label: "Priorité chaude",
+ cockpit_primary_action_copy_idle: "Tout est calme pour l'instant.",
+ cockpit_primary_action_copy_relance: "Ce sont les meilleurs candidats pour un nouveau passage.",
+ cockpit_primary_action_copy_attention: "Ces lignes demandent une vérification ou une relance ciblée.",
+ cockpit_secondary_action_label: "Juste derrière",
+ cockpit_secondary_action_copy_idle: "Rien ne pousse au portillon.",
+ cockpit_secondary_action_copy_pending: "Brevo doit encore livrer sa vérité.",
+ cockpit_secondary_action_copy_unactivated: "Ils ont reçu quelque chose, mais n'ont pas encore rejoint le serveur.",
+ cockpit_tertiary_action_label: "À surveiller",
+ cockpit_tertiary_action_copy_idle: "Le tableau est calme.",
+ cockpit_tertiary_action_copy_total: "La base est prête pour le prochain mouvement.",
  cockpit_activated_label: "Activés",
  cockpit_rate_hint: "{{rate}}% du total ont déjà rejoint la fête.",
  cockpit_relance_label: "À relancer",
@@ -16,6 +30,8 @@ window.DASHBOARD_COPY = {
  cockpit_attention_hint: "Blocages, rebonds et autres froissements.",
  cockpit_unactivated_label: "Non activés",
  cockpit_unactivated_hint: "Ils ont encore besoin d'un coup de pouce.",
+ cockpit_total_label: "Base active",
+ cockpit_total_hint: "Le terrain de jeu complet, sans doublons de renvoi.",
  branding_eyebrow: "Logo du projet",
  branding_title: "Logo du projet",
  branding_copy: "Ajoute un logo pour rattacher ce dashboard à ton projet. PNG ou JPEG, en glissant-déposant ou en cliquant.",
@@ -262,11 +278,17 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#cockpitEyebrow", "cockpit_eyebrow"],
   ["#cockpitTitle", "cockpit_title"],
   ["#cockpitCopy", "cockpit_copy"],
+  ["#cockpitOrbitLabel", "cockpit_orbit_label"],
+  ["#cockpitActionsTitle", "cockpit_actions_title"],
+  ["#cockpitPrimaryActionLabel", "cockpit_primary_action_label"],
+  ["#cockpitSecondaryActionLabel", "cockpit_secondary_action_label"],
+  ["#cockpitTertiaryActionLabel", "cockpit_tertiary_action_label"],
   ["#cockpitActivatedLabel", "cockpit_activated_label"],
   ["#cockpitRelanceLabel", "cockpit_relance_label"],
   ["#cockpitPendingLabel", "cockpit_pending_label"],
   ["#cockpitAttentionLabel", "cockpit_attention_label"],
   ["#cockpitUnactivatedLabel", "cockpit_unactivated_label"],
+  ["#cockpitTotalLabel", "cockpit_total_label"],
   ["#statsTotalLabel", "stats_total"],
   ["#statsSentLabel", "stats_sent"],
   ["#statsActivatedLabel", "stats_activated"],
@@ -385,6 +407,8 @@ window.applyDashboardCopy = function applyDashboardCopy() {
 
  const cockpitRateHint = document.querySelector("#cockpitRateHint")
  if (cockpitRateHint) cockpitRateHint.textContent = t("cockpit_rate_hint", { rate: 0 })
+ const cockpitOrbitSub = document.querySelector("#cockpitOrbitSub")
+ if (cockpitOrbitSub) cockpitOrbitSub.textContent = t("cockpit_orbit_sub", { activated: 0, total: 0 })
  const cockpitRelanceHint = document.querySelector("#cockpitRelanceHint")
  if (cockpitRelanceHint) cockpitRelanceHint.textContent = t("cockpit_relance_hint")
  const cockpitPendingHint = document.querySelector("#cockpitPendingHint")
@@ -393,6 +417,14 @@ window.applyDashboardCopy = function applyDashboardCopy() {
  if (cockpitAttentionHint) cockpitAttentionHint.textContent = t("cockpit_attention_hint")
  const cockpitUnactivatedHint = document.querySelector("#cockpitUnactivatedHint")
  if (cockpitUnactivatedHint) cockpitUnactivatedHint.textContent = t("cockpit_unactivated_hint")
+ const cockpitTotalHint = document.querySelector("#cockpitTotalHint")
+ if (cockpitTotalHint) cockpitTotalHint.textContent = t("cockpit_total_hint")
+ const cockpitPrimaryActionCopy = document.querySelector("#cockpitPrimaryActionCopy")
+ if (cockpitPrimaryActionCopy) cockpitPrimaryActionCopy.textContent = t("cockpit_primary_action_copy_idle")
+ const cockpitSecondaryActionCopy = document.querySelector("#cockpitSecondaryActionCopy")
+ if (cockpitSecondaryActionCopy) cockpitSecondaryActionCopy.textContent = t("cockpit_secondary_action_copy_idle")
+ const cockpitTertiaryActionCopy = document.querySelector("#cockpitTertiaryActionCopy")
+ if (cockpitTertiaryActionCopy) cockpitTertiaryActionCopy.textContent = t("cockpit_tertiary_action_copy_idle")
 
  const placeholders = [
   ["#emails", "import_placeholder"],

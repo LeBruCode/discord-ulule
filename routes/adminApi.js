@@ -593,11 +593,17 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#cockpitEyebrow", "cockpit_eyebrow"],
   ["#cockpitTitle", "cockpit_title"],
   ["#cockpitCopy", "cockpit_copy"],
+  ["#cockpitOrbitLabel", "cockpit_orbit_label"],
+  ["#cockpitActionsTitle", "cockpit_actions_title"],
+  ["#cockpitPrimaryActionLabel", "cockpit_primary_action_label"],
+  ["#cockpitSecondaryActionLabel", "cockpit_secondary_action_label"],
+  ["#cockpitTertiaryActionLabel", "cockpit_tertiary_action_label"],
   ["#cockpitActivatedLabel", "cockpit_activated_label"],
   ["#cockpitRelanceLabel", "cockpit_relance_label"],
   ["#cockpitPendingLabel", "cockpit_pending_label"],
   ["#cockpitAttentionLabel", "cockpit_attention_label"],
   ["#cockpitUnactivatedLabel", "cockpit_unactivated_label"],
+  ["#cockpitTotalLabel", "cockpit_total_label"],
   ["#statsTotalLabel", "stats_total"],
   ["#statsSentLabel", "stats_sent"],
   ["#statsActivatedLabel", "stats_activated"],
@@ -712,6 +718,8 @@ window.applyDashboardCopy = function applyDashboardCopy() {
 
  const cockpitRateHint = document.querySelector("#cockpitRateHint")
  if (cockpitRateHint) cockpitRateHint.textContent = t("cockpit_rate_hint", { rate: 0 })
+ const cockpitOrbitSub = document.querySelector("#cockpitOrbitSub")
+ if (cockpitOrbitSub) cockpitOrbitSub.textContent = t("cockpit_orbit_sub", { activated: 0, total: 0 })
  const cockpitRelanceHint = document.querySelector("#cockpitRelanceHint")
  if (cockpitRelanceHint) cockpitRelanceHint.textContent = t("cockpit_relance_hint")
  const cockpitPendingHint = document.querySelector("#cockpitPendingHint")
@@ -720,6 +728,14 @@ window.applyDashboardCopy = function applyDashboardCopy() {
  if (cockpitAttentionHint) cockpitAttentionHint.textContent = t("cockpit_attention_hint")
  const cockpitUnactivatedHint = document.querySelector("#cockpitUnactivatedHint")
  if (cockpitUnactivatedHint) cockpitUnactivatedHint.textContent = t("cockpit_unactivated_hint")
+ const cockpitTotalHint = document.querySelector("#cockpitTotalHint")
+ if (cockpitTotalHint) cockpitTotalHint.textContent = t("cockpit_total_hint")
+ const cockpitPrimaryActionCopy = document.querySelector("#cockpitPrimaryActionCopy")
+ if (cockpitPrimaryActionCopy) cockpitPrimaryActionCopy.textContent = t("cockpit_primary_action_copy_idle")
+ const cockpitSecondaryActionCopy = document.querySelector("#cockpitSecondaryActionCopy")
+ if (cockpitSecondaryActionCopy) cockpitSecondaryActionCopy.textContent = t("cockpit_secondary_action_copy_idle")
+ const cockpitTertiaryActionCopy = document.querySelector("#cockpitTertiaryActionCopy")
+ if (cockpitTertiaryActionCopy) cockpitTertiaryActionCopy.textContent = t("cockpit_tertiary_action_copy_idle")
 
  const placeholders = [
   ["#emails", "import_placeholder"],
