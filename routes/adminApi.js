@@ -14,9 +14,9 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const dashboardCopyFilePath = path.join(__dirname, "..", "public", "js", "dashboardCopy.js")
 const dataDirectoryPath = path.join(__dirname, "..", "data")
-const uploadsDirectoryPath = path.join(__dirname, "..", "public", "uploads")
 const dashboardBrandingFilePath = path.join(dataDirectoryPath, "dashboardBranding.json")
-const dashboardLogoBaseName = "dashboard-logo"
+const APP_SETTINGS_TABLE = "app_settings"
+const DASHBOARD_BRANDING_KEY = "dashboard_branding"
 const LOGO_MIME_EXTENSIONS = {
  "image/png": "png",
  "image/jpeg": "jpg"
@@ -96,27 +96,78 @@ async function ensureDirectory(directoryPath) {
  await fs.mkdir(directoryPath, { recursive: true })
 }
 
-async function readDashboardBranding() {
+function normalizeDashboardBranding(input = {}) {
+ const numericLogoWidth = Number(input?.logoWidth)
+ return {
+  logoPath: typeof input?.logoPath === "string" ? input.logoPath : null,
+  logoDataUrl: typeof input?.logoDataUrl === "string" ? input.logoDataUrl : null,
+  updatedAt: typeof input?.updatedAt === "string" ? input.updatedAt : null,
+  logoWidth: Number.isFinite(numericLogoWidth) ? Math.min(Math.max(Math.round(numericLogoWidth), MIN_LOGO_WIDTH), MAX_LOGO_WIDTH) : DEFAULT_LOGO_WIDTH
+ }
+}
+
+async function readDashboardBrandingFromFile() {
  try {
   const raw = await fs.readFile(dashboardBrandingFilePath, "utf8")
-  const parsed = JSON.parse(raw)
-  const numericLogoWidth = Number(parsed?.logoWidth)
-  return {
-   logoPath: typeof parsed?.logoPath === "string" ? parsed.logoPath : null,
-   updatedAt: typeof parsed?.updatedAt === "string" ? parsed.updatedAt : null,
-   logoWidth: Number.isFinite(numericLogoWidth) ? Math.min(Math.max(Math.round(numericLogoWidth), MIN_LOGO_WIDTH), MAX_LOGO_WIDTH) : DEFAULT_LOGO_WIDTH
-  }
+  return normalizeDashboardBranding(JSON.parse(raw))
  } catch (error) {
   if (error?.code === "ENOENT") {
-   return { logoPath: null, updatedAt: null, logoWidth: DEFAULT_LOGO_WIDTH }
+   return normalizeDashboardBranding()
   }
   throw error
  }
 }
 
+async function readDashboardBranding() {
+ try {
+  const { data, error } = await supabase
+   .from(APP_SETTINGS_TABLE)
+   .select("value,updated_at")
+   .eq("key", DASHBOARD_BRANDING_KEY)
+   .maybeSingle()
+
+  if (error) throw error
+  if (data?.value) {
+   return normalizeDashboardBranding({
+    ...data.value,
+    updatedAt: data.value?.updatedAt || data.updated_at || null
+   })
+  }
+ } catch (error) {
+  console.warn("dashboard branding read fallback", errorMessage(error))
+ }
+
+ return readDashboardBrandingFromFile()
+}
+
 async function writeDashboardBranding(branding) {
+ const normalized = normalizeDashboardBranding(branding)
+ const updatedAt = normalized.updatedAt || new Date().toISOString()
+ const nextBranding = { ...normalized, updatedAt }
+
+ try {
+  const { error } = await supabase
+   .from(APP_SETTINGS_TABLE)
+   .upsert({
+    key: DASHBOARD_BRANDING_KEY,
+    value: {
+     logoPath: nextBranding.logoPath,
+     logoDataUrl: nextBranding.logoDataUrl,
+     logoWidth: nextBranding.logoWidth,
+     updatedAt
+    },
+    updated_at: updatedAt
+   }, { onConflict: "key" })
+
+  if (error) throw error
+  return nextBranding
+ } catch (error) {
+  console.warn("dashboard branding write fallback", errorMessage(error))
+ }
+
  await ensureDirectory(dataDirectoryPath)
- await fs.writeFile(dashboardBrandingFilePath, `${JSON.stringify(branding, null, 2)}\n`, "utf8")
+ await fs.writeFile(dashboardBrandingFilePath, `${JSON.stringify(nextBranding, null, 2)}\n`, "utf8")
+ return nextBranding
 }
 
 function parseLogoDataUrl(dataUrl) {
@@ -133,16 +184,6 @@ function parseLogoDataUrl(dataUrl) {
  return { mimeType, extension, buffer }
 }
 
-async function removeStoredDashboardLogos() {
- await ensureDirectory(uploadsDirectoryPath)
- const files = await fs.readdir(uploadsDirectoryPath).catch(() => [])
- await Promise.all(
-  files
-   .filter((fileName) => fileName.startsWith(`${dashboardLogoBaseName}.`))
-   .map((fileName) => fs.unlink(path.join(uploadsDirectoryPath, fileName)).catch(() => {}))
- )
-}
-
 async function saveDashboardLogo(dataUrl) {
  const currentBranding = await readDashboardBranding()
  const parsed = parseLogoDataUrl(dataUrl)
@@ -150,47 +191,36 @@ async function saveDashboardLogo(dataUrl) {
   throw new Error("invalid logo file")
  }
 
- await ensureDirectory(uploadsDirectoryPath)
- await removeStoredDashboardLogos()
-
- const fileName = `${dashboardLogoBaseName}.${parsed.extension}`
- const absolutePath = path.join(uploadsDirectoryPath, fileName)
- await fs.writeFile(absolutePath, parsed.buffer)
-
- const branding = {
-  logoPath: `/uploads/${fileName}`,
+ return writeDashboardBranding({
+  ...currentBranding,
+  logoPath: null,
+  logoDataUrl: dataUrl,
   updatedAt: new Date().toISOString(),
   logoWidth: currentBranding.logoWidth || DEFAULT_LOGO_WIDTH
- }
-
- await writeDashboardBranding(branding)
- return branding
+ })
 }
 
 async function clearDashboardLogo() {
  const currentBranding = await readDashboardBranding()
- await removeStoredDashboardLogos()
- const branding = {
+ return writeDashboardBranding({
+  ...currentBranding,
   logoPath: null,
+  logoDataUrl: null,
   updatedAt: new Date().toISOString(),
   logoWidth: currentBranding.logoWidth || DEFAULT_LOGO_WIDTH
- }
- await writeDashboardBranding(branding)
- return branding
+ })
 }
 
 async function updateDashboardBrandingSettings(input = {}) {
  const currentBranding = await readDashboardBranding()
  const nextWidth = Number(input.logoWidth)
- const branding = {
+ return writeDashboardBranding({
   ...currentBranding,
   logoWidth: Number.isFinite(nextWidth)
    ? Math.min(Math.max(Math.round(nextWidth), MIN_LOGO_WIDTH), MAX_LOGO_WIDTH)
    : currentBranding.logoWidth || DEFAULT_LOGO_WIDTH,
   updatedAt: new Date().toISOString()
- }
- await writeDashboardBranding(branding)
- return branding
+ })
 }
 
 function buildBrevoSyncCandidateQuery(selectClause, selectOptions = undefined) {

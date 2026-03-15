@@ -59,22 +59,25 @@ function formatYesNo(value) {
  return value ? t("yes") : t("no")
 }
 
-function buildBrandingAssetUrl(logoPath, updatedAt) {
- if (!logoPath) return ""
+function buildBrandingAssetUrl(branding = {}) {
+ const rawSource = branding.logoDataUrl || branding.logoPath || ""
+ if (!rawSource) return ""
+ if (rawSource.startsWith("data:")) return rawSource
+ const updatedAt = branding.updatedAt || null
  const version = updatedAt ? new Date(updatedAt).getTime() : Date.now()
- return `${logoPath}${logoPath.includes("?") ? "&" : "?"}v=${version}`
+ return `${rawSource}${rawSource.includes("?") ? "&" : "?"}v=${version}`
 }
 
 function applyBranding(branding = {}) {
  brandingState = branding
  const logoPath = branding.logoPath || null
-  const updatedAt = branding.updatedAt || null
+ const logoDataUrl = branding.logoDataUrl || null
  const logoWidth = Number(branding.logoWidth) || 96
-  const logoUrl = buildBrandingAssetUrl(logoPath, updatedAt)
-  const brandLogo = document.getElementById("brandLogo")
-  const preview = document.getElementById("brandingPreview")
-  const status = document.getElementById("brandingStatus")
-  const removeButton = document.getElementById("brandingRemoveBtn")
+ const logoUrl = buildBrandingAssetUrl(branding)
+ const brandLogo = document.getElementById("brandLogo")
+ const preview = document.getElementById("brandingPreview")
+ const status = document.getElementById("brandingStatus")
+ const removeButton = document.getElementById("brandingRemoveBtn")
  const sizeRange = document.getElementById("brandingSizeRange")
  const sizeValue = document.getElementById("brandingSizeValue")
 
@@ -84,11 +87,11 @@ function applyBranding(branding = {}) {
  sizeValue.innerText = `${logoWidth} px`
 
  if (logoUrl) {
-  brandLogo.src = logoUrl
+ brandLogo.src = logoUrl
   preview.src = logoUrl
   brandLogo.classList.remove("hidden")
   preview.classList.remove("hidden")
-  status.innerText = logoPath.split("/").pop() || t("branding_loaded")
+  status.innerText = logoPath ? logoPath.split("/").pop() : (logoDataUrl ? t("branding_loaded") : t("branding_empty"))
   removeButton.disabled = false
   return
  }
