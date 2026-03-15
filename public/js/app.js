@@ -386,7 +386,7 @@ async function refreshStats() {
  const pendingCount = Number(stats.pending || 0)
  const attentionCount = Number(stats.attention || 0)
  const unactivatedCount = Number(stats.unactivated || 0)
- const rateValue = Number(stats.rate || 0)
+ const rateValue = totalCount ? Math.round((activatedCount / totalCount) * 100) : 0
 
  document.getElementById("total").innerText = totalCount
  document.getElementById("sent").innerText = sentCount
