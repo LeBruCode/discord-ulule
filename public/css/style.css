@@ -438,18 +438,21 @@ input[type="checkbox"]{
 }
 
 button{
- background:linear-gradient(180deg, var(--accent), var(--accent-2));
- border:1px solid #2b69d5;
+ background:linear-gradient(180deg, #223754, #18283d);
+ border:1px solid #314a69;
  padding:9px 14px;
  border-radius:10px;
- color:white;
+ color:#e7f0ff;
  cursor:pointer;
  font-weight:600;
- box-shadow:0 6px 20px rgba(33,90,191,.35);
+ box-shadow:0 10px 24px rgba(5,12,24,.24);
+ transition:transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease;
 }
 
 button:hover{
- filter:brightness(1.06);
+ transform:translateY(-1px);
+ border-color:#456487;
+ box-shadow:0 14px 28px rgba(5,12,24,.32);
 }
 
 button:disabled{
@@ -459,23 +462,26 @@ button:disabled{
 }
 
 button.ghost{
- background:#121b2c;
- border:1px solid #2b3f62;
+ background:rgba(18,27,44,.82);
+ border:1px solid #2a3d59;
  box-shadow:none;
+ color:#c8d8f1;
 }
 
 #batchResendBtn,
 .resend-btn{
- background:linear-gradient(180deg, #2f9a66, #267d53);
- border-color:#2f9a66;
- box-shadow:0 6px 20px rgba(28,116,73,.32);
+ background:linear-gradient(180deg, #1b4f46, #163c36);
+ border-color:#2c6b60;
+ color:#dff7ef;
+ box-shadow:0 10px 24px rgba(10,31,26,.28);
 }
 
 #batchDeleteBtn,
 .delete-btn{
- background:linear-gradient(180deg, #c43f53, #992f3f);
- border-color:#c43f53;
- box-shadow:0 6px 20px rgba(153,47,63,.3);
+ background:linear-gradient(180deg, #522733, #411d27);
+ border-color:#7b3b4c;
+ color:#ffe5ea;
+ box-shadow:0 10px 24px rgba(33,11,18,.28);
 }
 
 #queueStatus{
