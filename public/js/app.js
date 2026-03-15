@@ -102,14 +102,22 @@ function closeConfirm(result) {
 
 window.alert = (message) => showToast(message)
 
-function setCockpitMode(enabled) {
+function setCockpitMode(enabled, { reveal = false } = {}) {
+ const cockpit = document.getElementById("cockpitPanel")
  document.body.classList.toggle("cockpit-dense", Boolean(enabled))
  const button = document.getElementById("cockpitModeBtn")
- if (button) button.classList.toggle("is-active", Boolean(enabled))
+ if (button) {
+  button.classList.toggle("is-active", Boolean(enabled))
+  button.setAttribute("aria-pressed", enabled ? "true" : "false")
+ }
+ if (cockpit) cockpit.classList.toggle("hidden", !enabled)
  try {
   window.localStorage.setItem(COCKPIT_MODE_KEY, enabled ? "1" : "0")
  } catch (error) {
   console.debug("cockpit mode persistence skipped", error)
+ }
+ if (reveal && enabled && cockpit) {
+  cockpit.scrollIntoView({ behavior: "smooth", block: "start" })
  }
 }
 
@@ -133,6 +141,9 @@ async function loadLatestDashboardCopy() {
    if (typeof window.applyDashboardCopy === "function") {
     window.applyDashboardCopy()
    }
+   refreshStats().catch((error) => {
+    console.debug("stats refresh skipped after copy load", error)
+   })
    syncCollapseButtons()
   }
  } catch (error) {
@@ -1074,6 +1085,7 @@ async function saveCopyEditor() {
  if (typeof window.applyDashboardCopy === "function") {
   window.applyDashboardCopy()
  }
+ await refreshStats()
  copyEntries = Object.entries(entries).map(([key, value]) => ({
   key,
   label: key.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
@@ -1255,7 +1267,7 @@ document.getElementById("reconcileBtn").addEventListener("click", reconcileSentE
 document.getElementById("brevoSyncBtn").addEventListener("click", startBrevoSync)
 document.getElementById("brevoSyncStopBtn").addEventListener("click", stopBrevoSync)
 document.getElementById("cockpitModeBtn").addEventListener("click", () => {
- setCockpitMode(!document.body.classList.contains("cockpit-dense"))
+ setCockpitMode(!document.body.classList.contains("cockpit-dense"), { reveal: true })
 })
 document.getElementById("batchResendBtn").addEventListener("click", batchResend)
 document.getElementById("filterResendBtn").addEventListener("click", resendFiltered)
