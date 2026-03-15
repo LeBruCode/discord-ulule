@@ -12,6 +12,7 @@ let currentDetailId = null
 let copyEditorLoaded = false
 let copyEntries = []
 let brandingState = { logoPath: null, updatedAt: null }
+const COCKPIT_MODE_KEY = "dashboard-cockpit-mode"
 
 const selectedIds = new Set()
 let currentRowIds = []
@@ -22,7 +23,9 @@ function iconSvg(name) {
  const icons = {
   detail: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
   resend: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v10H4z"></path><path d="m4 8 8 6 8-6"></path></svg>',
-  delete: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6 7l1 12h10l1-12"></path><path d="M9 7V4h6v3"></path></svg>'
+  delete: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6 7l1 12h10l1-12"></path><path d="M9 7V4h6v3"></path></svg>',
+  discord: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 8.4c1.1-.5 2.2-.8 3.3-.8 1.1 0 2.2.3 3.3.8"></path><path d="M7.1 16.7c-1-.7-1.8-1.8-2.3-3.3.5-2.4 1.6-4.2 3.1-5.4.8-.1 1.6 0 2.4.4l.4.8"></path><path d="M16.9 16.7c1-.7 1.8-1.8 2.3-3.3-.5-2.4-1.6-4.2-3.1-5.4-.8-.1-1.6 0-2.4.4l-.4.8"></path><circle cx="9.5" cy="12.5" r="1"></circle><circle cx="14.5" cy="12.5" r="1"></circle><path d="M8.8 17.5c1 .5 2.1.8 3.2.8 1.1 0 2.2-.3 3.2-.8"></path></svg>',
+  spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 1.7 4.5L18 8.2l-4.3 1.7L12 14.4l-1.7-4.5L6 8.2l4.3-1.7L12 2z"></path><path d="m19 14 1 2.6 2.5 1-2.5 1-1 2.4-1-2.4-2.5-1 2.5-1L19 14z"></path><path d="m5 15 .8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z"></path></svg>'
  }
  return icons[name] || ""
 }
@@ -78,6 +81,7 @@ async function showConfirm(message, { confirmLabel = t("confirm_ok"), cancelLabe
  cancelButton.textContent = cancelLabel
  okButton.textContent = confirmLabel
  modal.classList.remove("hidden")
+ syncFocusMode()
 
  return await new Promise((resolve) => {
   confirmResolve = resolve
@@ -92,9 +96,31 @@ function closeConfirm(result) {
   confirmResolve = null
   resolve(result)
  }
+ syncFocusMode()
 }
 
 window.alert = (message) => showToast(message)
+
+function setCockpitMode(enabled) {
+ document.body.classList.toggle("cockpit-dense", Boolean(enabled))
+ const button = document.getElementById("cockpitModeBtn")
+ if (button) button.classList.toggle("is-active", Boolean(enabled))
+ try {
+  window.localStorage.setItem(COCKPIT_MODE_KEY, enabled ? "1" : "0")
+ } catch (error) {
+  console.debug("cockpit mode persistence skipped", error)
+ }
+}
+
+function syncFocusMode() {
+ const active = !document.getElementById("detailDrawer")?.classList.contains("hidden")
+  || !document.getElementById("copyDrawer")?.classList.contains("hidden")
+  || !document.getElementById("brandingDrawer")?.classList.contains("hidden")
+  || !document.getElementById("confirmModal")?.classList.contains("hidden")
+ const scrim = document.getElementById("focusScrim")
+ document.body.classList.toggle("focus-mode", active)
+ if (scrim) scrim.classList.toggle("hidden", !active)
+}
 
 async function loadLatestDashboardCopy() {
  try {
@@ -153,6 +179,17 @@ function formatBrevoStatus(value) {
 
 function formatYesNo(value) {
  return value ? t("yes") : t("no")
+}
+
+function badgeTone(kind) {
+ if (kind === "good") return "smart-good"
+ if (kind === "warn") return "smart-warn"
+ if (kind === "pending") return "smart-pending"
+ return "smart-neutral"
+}
+
+function renderSmartBadge(label, { kind = "neutral", icon = "" } = {}) {
+ return `<span class="smart-badge ${badgeTone(kind)}">${icon ? `<span class="smart-badge-icon">${iconSvg(icon)}</span>` : ""}<span>${escapeHtml(label)}</span></span>`
 }
 
 function buildBrandingAssetUrl(branding = {}) {
@@ -334,6 +371,16 @@ async function refreshStats() {
  document.getElementById("sent").innerText = stats.sent || 0
  document.getElementById("activated").innerText = stats.activated || 0
  document.getElementById("rate").innerText = `${stats.rate || 0}%`
+ document.getElementById("cockpitActivated").innerText = stats.activated || 0
+ document.getElementById("cockpitRelance").innerText = stats.relanceable || 0
+ document.getElementById("cockpitPending").innerText = stats.pending || 0
+ document.getElementById("cockpitAttention").innerText = stats.attention || 0
+ document.getElementById("cockpitUnactivated").innerText = stats.unactivated || 0
+ document.getElementById("cockpitRateHint").innerText = t("cockpit_rate_hint", { rate: stats.rate || 0 })
+ document.getElementById("cockpitRelanceHint").innerText = t("cockpit_relance_hint")
+ document.getElementById("cockpitPendingHint").innerText = t("cockpit_pending_hint")
+ document.getElementById("cockpitAttentionHint").innerText = t("cockpit_attention_hint")
+ document.getElementById("cockpitUnactivatedHint").innerText = t("cockpit_unactivated_hint")
 }
 
 async function refreshBrevoStats() {
@@ -512,7 +559,7 @@ function renderRows(rows) {
  if (!rows.length) {
   currentRowIds = []
   updateSelectAllState()
-  table.innerHTML = `<tr><td colspan="9">${escapeHtml(t("table_empty"))}</td></tr>`
+  table.innerHTML = `<tr><td colspan="9"><div class="empty-state"><strong>${escapeHtml(t("table_empty"))}</strong><span>${escapeHtml(t("cockpit_pending_hint"))}</span></div></td></tr>`
   return
  }
 
@@ -523,8 +570,6 @@ function renderRows(rows) {
   .map((row) => {
    const id = row.id == null ? "" : String(row.id)
    const email = escapeHtml(row.email || "")
-   const sent = formatYesNo(row.email_sent)
-   const used = formatYesNo(row.used)
    const sentAt = escapeHtml(formatDate(row.email_sent_at))
    const usedAt = escapeHtml(formatDate(row.used_at))
    const brevoStatusKey = String(row.brevo_status || "").trim().toLowerCase()
@@ -532,11 +577,35 @@ function renderRows(rows) {
    const excluded = row.resend_excluded === true
    const error = escapeHtml(row.email_error || "-")
    const checked = selectedIds.has(id) ? "checked" : ""
+   const rowBadges = []
+   rowBadges.push(
+    row.used
+     ? renderSmartBadge(t("badge_active"), { kind: "good", icon: row.discord_id ? "discord" : "spark" })
+     : renderSmartBadge(t("badge_unactivated"), { kind: "pending" })
+   )
+   if (row.discord_id) {
+    rowBadges.push(renderSmartBadge(t("badge_discord_joined"), { kind: "good", icon: "discord" }))
+   }
+   if (excluded) {
+    rowBadges.push(renderSmartBadge(t("row_excluded_pill"), { kind: "warn" }))
+   }
+   if (["request", "queued", "sent"].includes(brevoStatusKey)) {
+    rowBadges.push(renderSmartBadge(t("badge_pending"), { kind: "pending" }))
+   }
+   if (["soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"].includes(brevoStatusKey)) {
+    rowBadges.push(renderSmartBadge(t("badge_attention"), { kind: "warn" }))
+   }
+   const sentBadge = row.email_sent
+    ? renderSmartBadge(t("badge_sent"), { kind: "good" })
+    : renderSmartBadge(t("badge_unsent"), { kind: "neutral" })
+   const activatedBadge = row.used
+    ? renderSmartBadge(t("badge_active"), { kind: "good", icon: row.discord_id ? "discord" : "spark" })
+    : renderSmartBadge(t("badge_unactivated"), { kind: "pending" })
    return `<tr>
     <td class="select-col"><input class="row-select" type="checkbox" data-id="${id}" ${checked}></td>
-    <td class="email-cell" title="${email}">${email}${excluded ? ` <span class="inline-pill">${escapeHtml(t("row_excluded_pill"))}</span>` : ""}</td>
-    <td class="status-cell">${sent}</td>
-    <td class="status-cell">${used}</td>
+    <td class="email-cell" title="${email}"><div class="email-main">${email}</div><div class="row-badges">${rowBadges.join("")}</div></td>
+    <td class="status-cell">${sentBadge}</td>
+    <td class="status-cell">${activatedBadge}</td>
     <td class="datetime-cell">${sentAt}</td>
     <td class="datetime-cell">${usedAt}</td>
     <td class="status-pill-cell"><span class="brevo-badge brevo-${brevoStatusKey.replace(/[^a-z_]+/g, "-")}">${brevoStatus}</span></td>
@@ -861,18 +930,22 @@ function exportFiltered() {
 function closeDetailDrawer() {
  currentDetailId = null
  document.getElementById("detailDrawer").classList.add("hidden")
+ syncFocusMode()
 }
 
 function closeCopyDrawer() {
  document.getElementById("copyDrawer").classList.add("hidden")
+ syncFocusMode()
 }
 
 function openBrandingDrawer() {
  document.getElementById("brandingDrawer").classList.remove("hidden")
+ syncFocusMode()
 }
 
 function closeBrandingDrawer() {
  document.getElementById("brandingDrawer").classList.add("hidden")
+ syncFocusMode()
 }
 
 function renderCopyEditorEntries() {
@@ -902,6 +975,7 @@ function renderCopyEditorEntries() {
 async function openCopyDrawer() {
  closeBrandingDrawer()
  document.getElementById("copyDrawer").classList.remove("hidden")
+ syncFocusMode()
  await loadLatestDashboardCopy()
  if (copyEditorLoaded) {
   const response = await fetch("/admin/api/dashboard-copy", { cache: "no-store" })
@@ -942,7 +1016,7 @@ async function saveCopyEditor() {
   return
  }
 
- window.DASHBOARD_COPY = entries
+ window.DASHBOARD_COPY = { ...(window.DASHBOARD_COPY || {}), ...entries }
  if (typeof window.applyDashboardCopy === "function") {
   window.applyDashboardCopy()
  }
@@ -993,7 +1067,17 @@ function renderTimelineItem(item) {
  const label = escapeHtml(item.label || "-")
  const at = escapeHtml(formatDate(item.at))
  const value = escapeHtml(item.value || "-")
- return `<div class="timeline-item"><div class="timeline-dot"></div><div><b>${label}</b><p>${value}</p><span>${at}</span></div></div>`
+ const rawLabel = String(item.label || "").toLowerCase()
+ let icon = "spark"
+ let tone = "timeline-default"
+ if (rawLabel.includes("brevo")) tone = "timeline-brevo"
+ if (rawLabel.includes("activ")) tone = "timeline-activated"
+ if (rawLabel.includes("discord")) {
+  tone = "timeline-discord"
+  icon = "discord"
+ }
+ if (rawLabel.includes("erreur")) tone = "timeline-error"
+ return `<div class="timeline-item ${tone}"><div class="timeline-dot">${iconSvg(icon)}</div><div class="timeline-content"><b>${label}</b><p>${value}</p><span>${at}</span></div></div>`
 }
 
 async function openDetail(id) {
@@ -1007,14 +1091,26 @@ async function openDetail(id) {
  currentDetailId = id
  const row = payload.data || {}
  document.getElementById("detailEmail").innerText = row.email || "-"
- document.getElementById("detailMeta").innerHTML = `
-  <span class="inline-pill">${formatBrevoStatus(row.brevo_status)}</span>
-  <span class="inline-pill">${row.resend_excluded ? t("detail_status_excluded") : t("detail_status_allowed")}</span>
-  <span class="inline-pill">${t("detail_status_activated", { value: formatYesNo(row.used) })}</span>
- `
+ const detailBadges = [
+  renderSmartBadge(formatBrevoStatus(row.brevo_status), {
+   kind: ["soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"].includes(String(row.brevo_status || "").toLowerCase()) ? "warn" : (row.used ? "good" : "pending")
+  }),
+  renderSmartBadge(row.resend_excluded ? t("detail_status_excluded") : t("detail_status_allowed"), {
+   kind: row.resend_excluded ? "warn" : "neutral"
+  }),
+  renderSmartBadge(t("detail_status_activated", { value: formatYesNo(row.used) }), {
+   kind: row.used ? "good" : "pending",
+   icon: row.discord_id ? "discord" : ""
+  })
+ ]
+ if (row.discord_id) {
+  detailBadges.push(renderSmartBadge(t("badge_discord_joined"), { kind: "good", icon: "discord" }))
+ }
+ document.getElementById("detailMeta").innerHTML = detailBadges.join("")
  document.getElementById("detailTimeline").innerHTML = (payload.timeline || []).map(renderTimelineItem).join("") || `<p class="panel-copy">${escapeHtml(t("detail_no_history"))}</p>`
  document.getElementById("detailNote").value = row.admin_note || ""
  document.getElementById("detailDrawer").classList.remove("hidden")
+ syncFocusMode()
 }
 
 async function saveDetailNote() {
@@ -1093,6 +1189,9 @@ document.getElementById("sendBtn").addEventListener("click", sendEmails)
 document.getElementById("reconcileBtn").addEventListener("click", reconcileSentEmails)
 document.getElementById("brevoSyncBtn").addEventListener("click", startBrevoSync)
 document.getElementById("brevoSyncStopBtn").addEventListener("click", stopBrevoSync)
+document.getElementById("cockpitModeBtn").addEventListener("click", () => {
+ setCockpitMode(!document.body.classList.contains("cockpit-dense"))
+})
 document.getElementById("batchResendBtn").addEventListener("click", batchResend)
 document.getElementById("filterResendBtn").addEventListener("click", resendFiltered)
 document.getElementById("selectFilteredBtn").addEventListener("click", selectFiltered)
@@ -1121,6 +1220,12 @@ document.getElementById("confirmModalCancel").addEventListener("click", () => cl
 document.getElementById("confirmModalOk").addEventListener("click", () => closeConfirm(true))
 document.getElementById("confirmModal").addEventListener("click", (event) => {
  if (event.target.id === "confirmModal") closeConfirm(false)
+})
+document.getElementById("focusScrim")?.addEventListener("click", () => {
+ closeDetailDrawer()
+ closeCopyDrawer()
+ closeBrandingDrawer()
+ closeConfirm(false)
 })
 document.addEventListener("keydown", (event) => {
  if (event.key === "Escape" && !document.getElementById("confirmModal").classList.contains("hidden")) {
@@ -1213,6 +1318,7 @@ setInterval(() => {
 }, 10000)
 
 setupBrandingDropzone()
+setCockpitMode(window.localStorage.getItem(COCKPIT_MODE_KEY) === "1")
 loadLatestDashboardCopy()
  .then(() => refreshAll())
  .catch((error) => {

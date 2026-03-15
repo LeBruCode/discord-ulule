@@ -588,7 +588,16 @@ window.applyDashboardCopy = function applyDashboardCopy() {
  const textMap = [
   ["[data-copy='eyebrow']", "eyebrow"],
   ["[data-copy='title']", "title"],
+  ["#cockpitModeBtn", "cockpit_mode_btn"],
   ["#logoutBtn", "logout"],
+  ["#cockpitEyebrow", "cockpit_eyebrow"],
+  ["#cockpitTitle", "cockpit_title"],
+  ["#cockpitCopy", "cockpit_copy"],
+  ["#cockpitActivatedLabel", "cockpit_activated_label"],
+  ["#cockpitRelanceLabel", "cockpit_relance_label"],
+  ["#cockpitPendingLabel", "cockpit_pending_label"],
+  ["#cockpitAttentionLabel", "cockpit_attention_label"],
+  ["#cockpitUnactivatedLabel", "cockpit_unactivated_label"],
   ["#statsTotalLabel", "stats_total"],
   ["#statsSentLabel", "stats_sent"],
   ["#statsActivatedLabel", "stats_activated"],
@@ -700,6 +709,17 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   const node = document.querySelector(selector)
   if (node) node.textContent = t(key)
  }
+
+ const cockpitRateHint = document.querySelector("#cockpitRateHint")
+ if (cockpitRateHint) cockpitRateHint.textContent = t("cockpit_rate_hint", { rate: 0 })
+ const cockpitRelanceHint = document.querySelector("#cockpitRelanceHint")
+ if (cockpitRelanceHint) cockpitRelanceHint.textContent = t("cockpit_relance_hint")
+ const cockpitPendingHint = document.querySelector("#cockpitPendingHint")
+ if (cockpitPendingHint) cockpitPendingHint.textContent = t("cockpit_pending_hint")
+ const cockpitAttentionHint = document.querySelector("#cockpitAttentionHint")
+ if (cockpitAttentionHint) cockpitAttentionHint.textContent = t("cockpit_attention_hint")
+ const cockpitUnactivatedHint = document.querySelector("#cockpitUnactivatedHint")
+ if (cockpitUnactivatedHint) cockpitUnactivatedHint.textContent = t("cockpit_unactivated_hint")
 
  const placeholders = [
   ["#emails", "import_placeholder"],

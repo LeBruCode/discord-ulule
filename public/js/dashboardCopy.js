@@ -2,6 +2,20 @@ window.DASHBOARD_COPY = {
  title: "Le dashboard Discord",
  eyebrow: "Développé avec amour par Bruno",
  logout: "Se déconnecter",
+ cockpit_mode_btn: "Mode cockpit",
+ cockpit_eyebrow: "Pilotage en direct",
+ cockpit_title: "Ton centre de gravité",
+ cockpit_copy: "Ici, tu vois tout de suite ce qui va bien, ce qui attend, et ce qui mérite une relance.",
+ cockpit_activated_label: "Activés",
+ cockpit_rate_hint: "{{rate}}% du total ont déjà rejoint la fête.",
+ cockpit_relance_label: "À relancer",
+ cockpit_relance_hint: "Prêts pour un nouveau passage.",
+ cockpit_pending_label: "En attente",
+ cockpit_pending_hint: "Brevo n'a pas encore tout raconté.",
+ cockpit_attention_label: "À surveiller",
+ cockpit_attention_hint: "Blocages, rebonds et autres froissements.",
+ cockpit_unactivated_label: "Non activés",
+ cockpit_unactivated_hint: "Ils ont encore besoin d'un coup de pouce.",
  branding_eyebrow: "Logo du projet",
  branding_title: "Logo du projet",
  branding_copy: "Ajoute un logo pour rattacher ce dashboard à ton projet. PNG ou JPEG, en glissant-déposant ou en cliquant.",
@@ -117,6 +131,13 @@ brevo_sync_stop_btn: "Stopper la resync",
  row_detail_title: "Détail",
  row_resend_title: "Renvoyer",
  row_delete_title: "Supprimer",
+ badge_discord_joined: "Discord ok",
+ badge_active: "Activé",
+ badge_unactivated: "En attente",
+ badge_sent: "Envoyé",
+ badge_unsent: "À envoyer",
+ badge_attention: "À surveiller",
+ badge_pending: "Brevo attend",
  yes: "Oui",
  no: "Non",
  brevo_status_none: "Aucun statut",
@@ -144,7 +165,7 @@ brevo_sync_stop_btn: "Stopper la resync",
  brevo_sync_running: "Resynchronisation Brevo: {{processed}}/{{total}} ({{progress}}%) • {{matched}} retrouvés • {{updated}} mis à jour • {{missing}} sans correspondance • {{failed}} en échec • en cours: {{currentEmail}}",
  brevo_sync_finished: "Resynchronisation Brevo terminée: {{processed}}/{{total}} • {{matched}} retrouvés • {{updated}} mis à jour • {{missing}} sans correspondance • {{failed}} en échec",
  brevo_sync_unavailable: "Statut de la resynchronisation indisponible",
- table_empty: "Aucun e-mail trouvé.",
+ table_empty: "Rien à relancer. Tu peux souffler.",
  table_load_error: "Impossible de charger la liste pour le moment.",
  confirm_delete_row: "Supprimer {{email}} de la base ?",
  confirm_delete_rows: "Supprimer {{count}} ligne(s) ?",
@@ -234,9 +255,18 @@ window.applyDashboardCopy = function applyDashboardCopy() {
  const t = window.dashboardT
  document.title = t("title")
  const textMap = [
-  ["[data-copy='eyebrow']", "eyebrow"],
-  ["[data-copy='title']", "title"],
+ ["[data-copy='eyebrow']", "eyebrow"],
+ ["[data-copy='title']", "title"],
+  ["#cockpitModeBtn", "cockpit_mode_btn"],
   ["#logoutBtn", "logout"],
+  ["#cockpitEyebrow", "cockpit_eyebrow"],
+  ["#cockpitTitle", "cockpit_title"],
+  ["#cockpitCopy", "cockpit_copy"],
+  ["#cockpitActivatedLabel", "cockpit_activated_label"],
+  ["#cockpitRelanceLabel", "cockpit_relance_label"],
+  ["#cockpitPendingLabel", "cockpit_pending_label"],
+  ["#cockpitAttentionLabel", "cockpit_attention_label"],
+  ["#cockpitUnactivatedLabel", "cockpit_unactivated_label"],
   ["#statsTotalLabel", "stats_total"],
   ["#statsSentLabel", "stats_sent"],
   ["#statsActivatedLabel", "stats_activated"],
@@ -352,6 +382,17 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   const node = document.querySelector(selector)
   if (node) node.textContent = t(key)
  }
+
+ const cockpitRateHint = document.querySelector("#cockpitRateHint")
+ if (cockpitRateHint) cockpitRateHint.textContent = t("cockpit_rate_hint", { rate: 0 })
+ const cockpitRelanceHint = document.querySelector("#cockpitRelanceHint")
+ if (cockpitRelanceHint) cockpitRelanceHint.textContent = t("cockpit_relance_hint")
+ const cockpitPendingHint = document.querySelector("#cockpitPendingHint")
+ if (cockpitPendingHint) cockpitPendingHint.textContent = t("cockpit_pending_hint")
+ const cockpitAttentionHint = document.querySelector("#cockpitAttentionHint")
+ if (cockpitAttentionHint) cockpitAttentionHint.textContent = t("cockpit_attention_hint")
+ const cockpitUnactivatedHint = document.querySelector("#cockpitUnactivatedHint")
+ if (cockpitUnactivatedHint) cockpitUnactivatedHint.textContent = t("cockpit_unactivated_hint")
 
  const placeholders = [
   ["#emails", "import_placeholder"],

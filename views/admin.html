@@ -25,6 +25,7 @@
 <img id="brandLogo" class="brand-logo hidden" alt="Logo du dashboard">
 </div>
 <div class="topbar-actions">
+<button id="cockpitModeBtn" type="button" class="ghost" data-copy="cockpitModeBtn">Mode cockpit</button>
 <button id="brandingOpenBtn" type="button" class="ghost icon-only" aria-label="Logo du projet" title="Logo du projet">
 <svg viewBox="0 0 24 24" aria-hidden="true">
 <path d="M12 3l1.2 2.43 2.68.39-1.94 1.89.46 2.67L12 9.1l-2.4 1.27.46-2.67-1.94-1.89 2.68-.39L12 3z"></path>
@@ -37,6 +38,47 @@
 </form>
 </div>
 </div>
+
+<section class="cockpit">
+<div class="cockpit-hero">
+<p id="cockpitEyebrow" class="eyebrow">Pilotage en direct</p>
+<div class="cockpit-hero-main">
+<div>
+<h2 id="cockpitTitle">Ton centre de gravité</h2>
+<p id="cockpitCopy" class="panel-copy">Ici, tu vois tout de suite ce qui va bien, ce qui attend, et ce qui mérite une relance.</p>
+</div>
+<div class="cockpit-kpis">
+<div class="cockpit-kpi cockpit-kpi-primary">
+<span id="cockpitActivatedLabel">Activés</span>
+<b id="cockpitActivated">0</b>
+<small id="cockpitRateHint">0% du total ont déjà rejoint la fête.</small>
+</div>
+<div class="cockpit-kpi">
+<span id="cockpitRelanceLabel">À relancer</span>
+<b id="cockpitRelance">0</b>
+<small id="cockpitRelanceHint">Prêts pour un nouveau passage.</small>
+</div>
+<div class="cockpit-kpi">
+<span id="cockpitPendingLabel">En attente</span>
+<b id="cockpitPending">0</b>
+<small id="cockpitPendingHint">Brevo n'a pas encore tout raconté.</small>
+</div>
+</div>
+</div>
+</div>
+<div class="cockpit-side">
+<div class="cockpit-mini">
+<span id="cockpitAttentionLabel">À surveiller</span>
+<b id="cockpitAttention">0</b>
+<small id="cockpitAttentionHint">Blocages, rebonds et autres froissements.</small>
+</div>
+<div class="cockpit-mini">
+<span id="cockpitUnactivatedLabel">Non activés</span>
+<b id="cockpitUnactivated">0</b>
+<small id="cockpitUnactivatedHint">Ils ont encore besoin d'un coup de pouce.</small>
+</div>
+</div>
+</section>
 
 <section class="stats">
 <div class="card"><span id="statsTotalLabel">Total</span><b id="total">0</b></div>
@@ -306,6 +348,7 @@
 </div>
 </aside>
 
+<div id="focusScrim" class="focus-scrim hidden" aria-hidden="true"></div>
 <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
 <div id="confirmModal" class="confirm-modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">

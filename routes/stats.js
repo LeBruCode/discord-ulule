@@ -23,10 +23,39 @@ router.get("/",async(req,res)=>{
    .eq("used",true)
   if (activatedError) throw activatedError
 
+  const {count:unactivated, error: unactivatedError}=await supabase
+   .from("access_tokens")
+   .select("*",{count:"exact",head:true})
+   .or("used.is.null,used.eq.false")
+  if (unactivatedError) throw unactivatedError
+
+  const {count:relanceable, error: relanceableError}=await supabase
+   .from("access_tokens")
+   .select("*",{count:"exact",head:true})
+   .or("used.is.null,used.eq.false")
+   .not("resend_excluded", "is", "true")
+  if (relanceableError) throw relanceableError
+
+  const {count:pending, error: pendingError}=await supabase
+   .from("access_tokens")
+   .select("*",{count:"exact",head:true})
+   .in("brevo_status", ["request", "queued", "sent"])
+  if (pendingError) throw pendingError
+
+  const {count:attention, error: attentionError}=await supabase
+   .from("access_tokens")
+   .select("*",{count:"exact",head:true})
+   .in("brevo_status", ["soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"])
+  if (attentionError) throw attentionError
+
   res.json({
    total,
    sent,
    activated,
+   unactivated,
+   relanceable,
+   pending,
+   attention,
    rate: total?Math.round(activated/total*100):0
   })
  } catch (error) {
