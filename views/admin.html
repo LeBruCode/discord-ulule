@@ -26,6 +26,7 @@
 </div>
 <div class="topbar-actions">
 <button id="cockpitModeBtn" type="button" class="ghost" data-copy="cockpitModeBtn">Mode cockpit</button>
+<button id="dailyModeBtn" type="button" class="ghost" data-copy="dailyModeBtn">Mode quotidien</button>
 <button id="brandingOpenBtn" type="button" class="ghost icon-only" aria-label="Logo du projet" title="Logo du projet">
 <svg viewBox="0 0 24 24" aria-hidden="true">
 <path d="M12 3l1.2 2.43 2.68.39-1.94 1.89.46 2.67L12 9.1l-2.4 1.27.46-2.67-1.94-1.89 2.68-.39L12 3z"></path>
@@ -62,16 +63,19 @@
 <span id="cockpitPrimaryActionLabel">Priorité chaude</span>
 <strong id="cockpitPrimaryActionValue">0</strong>
 <p id="cockpitPrimaryActionCopy">Tout est calme pour l'instant.</p>
+<button id="cockpitPrimaryActionBtn" type="button" class="ghost mission-action-btn">Voir</button>
 </article>
 <article class="mission-action-card">
 <span id="cockpitSecondaryActionLabel">Juste derrière</span>
 <strong id="cockpitSecondaryActionValue">0</strong>
 <p id="cockpitSecondaryActionCopy">Rien ne pousse au portillon.</p>
+<button id="cockpitSecondaryActionBtn" type="button" class="ghost mission-action-btn">Voir</button>
 </article>
 <article class="mission-action-card">
 <span id="cockpitTertiaryActionLabel">À surveiller</span>
 <strong id="cockpitTertiaryActionValue">0</strong>
 <p id="cockpitTertiaryActionCopy">Le tableau est calme.</p>
+<button id="cockpitTertiaryActionBtn" type="button" class="ghost mission-action-btn">Voir</button>
 </article>
 </div>
 </div>
@@ -192,6 +196,8 @@
 <input id="search" placeholder="Cherche un e-mail, un doute, un héros.">
 <select id="status">
 <option id="statusAllOption" value="all">Tous</option>
+<option id="statusTodoOption" value="todo">À traiter</option>
+<option id="statusCleanOption" value="clean">Propres</option>
 <option id="statusSentOption" value="sent">Envoyés</option>
 <option id="statusUnsentOption" value="unsent">Non envoyés</option>
 <option id="statusActivatedOption" value="activated">Activés</option>
@@ -345,6 +351,16 @@
 </div>
 <button id="detailCloseBtn" type="button" class="ghost">Refermer ça</button>
 </div>
+<div id="detailSummary" class="detail-summary">
+<div class="detail-summary-copy">
+<span id="detailSummaryLabel">Statut du contact</span>
+<strong id="detailSummaryValue">En attente</strong>
+<p id="detailSummaryText">On peut encore agir ici.</p>
+</div>
+<div class="detail-summary-actions">
+<button id="detailSummaryActionBtn" type="button">Voir quoi faire</button>
+</div>
+</div>
 <div class="detail-meta" id="detailMeta"></div>
 <div class="detail-section">
 <h3 id="detailHistoryTitle">Historique</h3>
@@ -360,6 +376,19 @@
 </div>
 </div>
 </aside>
+
+<div id="selectionBar" class="selection-bar hidden" aria-live="polite">
+<div class="selection-bar-copy">
+<strong id="selectionBarCount">0 sélection</strong>
+<span id="selectionBarText">Tu peux agir tout de suite sur ta sélection.</span>
+</div>
+<div class="selection-bar-actions">
+<button id="selectionBarResendBtn" type="button">Renvoyer</button>
+<button id="selectionBarExcludeBtn" type="button" class="ghost">Exclure</button>
+<button id="selectionBarIncludeBtn" type="button" class="ghost">Réintégrer</button>
+<button id="selectionBarDeleteBtn" type="button" class="ghost danger">Supprimer</button>
+</div>
+</div>
 
 <aside class="detail-drawer hidden" id="copyDrawer">
 <div class="detail-card">

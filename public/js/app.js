@@ -15,6 +15,7 @@ let copyEntries = []
 let copyEditorDirty = false
 let brandingState = { logoPath: null, updatedAt: null }
 const COCKPIT_MODE_KEY = "dashboard-cockpit-mode"
+const DAILY_MODE_KEY = "dashboard-daily-mode"
 
 const selectedIds = new Set()
 let currentRowIds = []
@@ -130,6 +131,20 @@ function setCockpitMode(enabled, { reveal = false } = {}) {
  }
 }
 
+function setDailyMode(enabled) {
+ document.body.classList.toggle("daily-ops", Boolean(enabled))
+ const button = document.getElementById("dailyModeBtn")
+ if (button) {
+  button.classList.toggle("is-active", Boolean(enabled))
+  button.setAttribute("aria-pressed", enabled ? "true" : "false")
+ }
+ try {
+  window.localStorage.setItem(DAILY_MODE_KEY, enabled ? "1" : "0")
+ } catch (error) {
+  console.debug("daily mode persistence skipped", error)
+ }
+}
+
 function syncFocusMode() {
  const active = !document.getElementById("detailDrawer")?.classList.contains("hidden")
   || !document.getElementById("copyDrawer")?.classList.contains("hidden")
@@ -217,8 +232,12 @@ function setMissionAction(slot, { value = 0, copy = "", tone = "" } = {}) {
  const card = document.getElementById(`cockpit${slot}ActionValue`)?.closest(".mission-action-card")
  const valueNode = document.getElementById(`cockpit${slot}ActionValue`)
  const copyNode = document.getElementById(`cockpit${slot}ActionCopy`)
+ const buttonNode = document.getElementById(`cockpit${slot}ActionBtn`)
  if (valueNode) valueNode.innerText = String(value || 0)
  if (copyNode) copyNode.innerText = copy
+ if (buttonNode) {
+  buttonNode.dataset.filterStatus = tone === "good" ? "clean" : (slot === "Secondary" && tone === "pending" ? "todo" : (slot === "Tertiary" ? "all" : "todo"))
+ }
  if (card) {
   card.classList.remove("tone-good", "tone-pending", "tone-warn")
   if (tone) card.classList.add(`tone-${tone}`)
@@ -391,14 +410,42 @@ function updatePaginationMeta() {
  document.getElementById("nextBtn").disabled = loading || clampedPage >= totalPages
 }
 
+function updateSelectionBar() {
+ const bar = document.getElementById("selectionBar")
+ const countNode = document.getElementById("selectionBarCount")
+ if (!bar || !countNode) return
+ const count = selectedIds.size
+ bar.classList.toggle("hidden", count === 0)
+ countNode.textContent = t("selection_bar_count", {
+  count,
+  plural: count > 1 ? "s" : ""
+ })
+}
+
+function applyQuickView(status, { revealList = true } = {}) {
+ const statusNode = document.getElementById("status")
+ const brevoNode = document.getElementById("brevoStatus")
+ const searchNode = document.getElementById("search")
+  if (statusNode) statusNode.value = status
+ if (brevoNode) brevoNode.value = "all"
+ if (searchNode) searchNode.value = ""
+ page = 1
+ loadList()
+ if (revealList) {
+  document.getElementById("listTitle")?.scrollIntoView({ behavior: "smooth", block: "start" })
+ }
+}
+
 function updateSelectAllState() {
  const selectAll = document.getElementById("selectAll")
  if (!currentRowIds.length) {
   selectAll.checked = false
+  updateSelectionBar()
   return
  }
  const selectedOnPage = currentRowIds.filter((id) => selectedIds.has(id)).length
  selectAll.checked = selectedOnPage === currentRowIds.length
+ updateSelectionBar()
 }
 
 async function refreshStats() {
@@ -1217,7 +1264,7 @@ function renderTimelineItem(item) {
   icon = "discord"
  }
  if (rawLabel.includes("erreur")) tone = "timeline-error"
- return `<div class="timeline-item ${tone}"><div class="timeline-dot">${iconSvg(icon)}</div><div class="timeline-content"><b>${label}</b><p>${value}</p><span>${at}</span></div></div>`
+ return `<div class="timeline-item ${tone}"><div class="timeline-dot">${iconSvg(icon)}</div><div class="timeline-content"><b>${label}</b><p>${value}</p><span>${at}</span></div><div class="timeline-tail"></div></div>`
 }
 
 async function openDetail(id) {
@@ -1252,6 +1299,26 @@ async function openDetail(id) {
  document.getElementById("detailMeta").innerHTML = detailBadges.join("")
  document.getElementById("detailTimeline").innerHTML = (payload.timeline || []).map(renderTimelineItem).join("") || `<p class="panel-copy">${escapeHtml(t("detail_no_history"))}</p>`
  document.getElementById("detailNote").value = row.admin_note || ""
+ const detailSummaryValue = document.getElementById("detailSummaryValue")
+ const detailSummaryText = document.getElementById("detailSummaryText")
+ const detailSummaryActionBtn = document.getElementById("detailSummaryActionBtn")
+ const brevoIssue = ["soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"].includes(String(row.brevo_status || "").toLowerCase())
+ if (row.used) {
+  detailSummaryValue.textContent = t("detail_summary_active")
+  detailSummaryText.textContent = t("detail_summary_text_active")
+  detailSummaryActionBtn.textContent = t("detail_summary_action_active")
+  detailSummaryActionBtn.dataset.action = "close"
+ } else if (brevoIssue) {
+  detailSummaryValue.textContent = t("detail_summary_issue")
+  detailSummaryText.textContent = t("detail_summary_text_issue")
+  detailSummaryActionBtn.textContent = t("detail_summary_action_issue")
+  detailSummaryActionBtn.dataset.action = "history"
+ } else {
+  detailSummaryValue.textContent = t("detail_summary_waiting")
+  detailSummaryText.textContent = t("detail_summary_text_waiting")
+  detailSummaryActionBtn.textContent = t("detail_summary_action_waiting")
+  detailSummaryActionBtn.dataset.action = "resend"
+ }
  document.getElementById("detailDrawer").classList.remove("hidden")
  syncFocusMode()
 }
@@ -1283,6 +1350,20 @@ async function resendDetailEmail() {
  if (currentDetailId) {
   await openDetail(currentDetailId)
  }
+}
+
+function handleDetailSummaryAction() {
+ const button = document.getElementById("detailSummaryActionBtn")
+ const action = button?.dataset.action || "close"
+ if (action === "close") {
+  closeDetailDrawer()
+  return
+ }
+ if (action === "history") {
+  document.getElementById("detailHistoryTitle")?.scrollIntoView({ behavior: "smooth", block: "start" })
+  return
+ }
+ resendDetailEmail()
 }
 
 async function batchDelete() {
@@ -1345,6 +1426,9 @@ document.getElementById("brevoSyncStopBtn").addEventListener("click", stopBrevoS
 document.getElementById("cockpitModeBtn").addEventListener("click", () => {
  setCockpitMode(!document.body.classList.contains("cockpit-dense"), { reveal: true })
 })
+document.getElementById("dailyModeBtn").addEventListener("click", () => {
+ setDailyMode(!document.body.classList.contains("daily-ops"))
+})
 document.getElementById("batchResendBtn").addEventListener("click", batchResend)
 document.getElementById("filterResendBtn").addEventListener("click", resendFiltered)
 document.getElementById("selectFilteredBtn").addEventListener("click", selectFiltered)
@@ -1355,6 +1439,7 @@ document.getElementById("includeFilteredBtn").addEventListener("click", async ()
 document.getElementById("exportBtn").addEventListener("click", exportFiltered)
 document.getElementById("batchDeleteBtn").addEventListener("click", batchDelete)
 document.getElementById("detailCloseBtn").addEventListener("click", closeDetailDrawer)
+document.getElementById("detailSummaryActionBtn").addEventListener("click", handleDetailSummaryAction)
 document.getElementById("detailResendBtn").addEventListener("click", resendDetailEmail)
 document.getElementById("saveNoteBtn").addEventListener("click", saveDetailNote)
 document.getElementById("copyCloseBtn").addEventListener("click", closeCopyDrawer)
@@ -1395,6 +1480,13 @@ document.getElementById("focusScrim")?.addEventListener("click", () => {
  closeBrandingDrawer()
  closeConfirm(false)
 })
+document.getElementById("selectionBarResendBtn").addEventListener("click", batchResend)
+document.getElementById("selectionBarExcludeBtn").addEventListener("click", async () => setExcludedForSelected(true))
+document.getElementById("selectionBarIncludeBtn").addEventListener("click", async () => setExcludedForSelected(false))
+document.getElementById("selectionBarDeleteBtn").addEventListener("click", batchDelete)
+for (const button of document.querySelectorAll(".mission-action-btn")) {
+ button.addEventListener("click", () => applyQuickView(button.dataset.filterStatus || "all"))
+}
 document.addEventListener("keydown", (event) => {
  if (event.key === "Escape" && !document.getElementById("confirmModal").classList.contains("hidden")) {
   closeConfirm(false)
@@ -1499,6 +1591,7 @@ setInterval(() => {
 
 setupBrandingDropzone()
 setCockpitMode(window.localStorage.getItem(COCKPIT_MODE_KEY) === "1")
+setDailyMode(window.localStorage.getItem(DAILY_MODE_KEY) === "1")
 loadLatestDashboardCopy()
  .then(() => refreshAll())
  .catch((error) => {

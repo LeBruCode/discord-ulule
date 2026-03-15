@@ -589,6 +589,7 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["[data-copy='eyebrow']", "eyebrow"],
   ["[data-copy='title']", "title"],
   ["#cockpitModeBtn", "cockpit_mode_btn"],
+  ["#dailyModeBtn", "daily_mode_btn"],
   ["#logoutBtn", "logout"],
   ["#cockpitEyebrow", "cockpit_eyebrow"],
   ["#cockpitTitle", "cockpit_title"],
@@ -596,8 +597,11 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#cockpitOrbitLabel", "cockpit_orbit_label"],
   ["#cockpitActionsTitle", "cockpit_actions_title"],
   ["#cockpitPrimaryActionLabel", "cockpit_primary_action_label"],
+  ["#cockpitPrimaryActionBtn", "cockpit_primary_action_btn"],
   ["#cockpitSecondaryActionLabel", "cockpit_secondary_action_label"],
+  ["#cockpitSecondaryActionBtn", "cockpit_secondary_action_btn"],
   ["#cockpitTertiaryActionLabel", "cockpit_tertiary_action_label"],
+  ["#cockpitTertiaryActionBtn", "cockpit_tertiary_action_btn"],
   ["#cockpitActivatedLabel", "cockpit_activated_label"],
   ["#cockpitRelanceLabel", "cockpit_relance_label"],
   ["#cockpitPendingLabel", "cockpit_pending_label"],
@@ -663,6 +667,8 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#exportBtn", "export_btn"],
   ["#batchDeleteBtn", "delete_selected_btn"],
   ["#statusAllOption", "status_all"],
+  ["#statusTodoOption", "status_todo"],
+  ["#statusCleanOption", "status_clean"],
   ["#statusSentOption", "status_sent"],
   ["#statusUnsentOption", "status_unsent"],
   ["#statusActivatedOption", "status_activated"],
@@ -702,6 +708,7 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["[data-copy='detailEyebrow']", "detail_eyebrow"],
   ["#detailCloseBtn", "detail_close"],
   ["#detailHistoryTitle", "detail_history"],
+  ["#detailSummaryLabel", "detail_summary_label"],
   ["#detailNoteTitle", "detail_note"],
   ["#detailResendBtn", "detail_resend"],
   ["#saveNoteBtn", "detail_note_save"],
@@ -709,7 +716,12 @@ window.applyDashboardCopy = function applyDashboardCopy() {
   ["#copyDrawerTitle", "copy_drawer_title"],
   ["#copyCloseBtn", "copy_drawer_close"],
   ["#copyDrawerCopy", "copy_drawer_copy"],
-  ["#saveCopyBtn", "copy_save_btn"]
+  ["#saveCopyBtn", "copy_save_btn"],
+  ["#selectionBarText", "selection_bar_text"],
+  ["#selectionBarResendBtn", "selection_bar_resend"],
+  ["#selectionBarExcludeBtn", "selection_bar_exclude"],
+  ["#selectionBarIncludeBtn", "selection_bar_include"],
+  ["#selectionBarDeleteBtn", "selection_bar_delete"]
  ]
 
  for (const [selector, key] of textMap) {
@@ -934,6 +946,8 @@ function normalizeListFilters(input = {}) {
 
 function applyListFilters(query, { search = "", status = "all", brevoStatus = "all" }) {
  if (search) query = query.ilike("email", `%${search}%`)
+ if (status === "todo") query = query.or(`used.eq.false,used.is.null,brevo_status.eq.request,brevo_status.eq.queued,brevo_status.eq.sent,brevo_status.eq.soft_bounce,brevo_status.eq.hard_bounce,brevo_status.eq.blocked,brevo_status.eq.error,brevo_status.eq.deferred,brevo_status.eq.invalid,brevo_status.eq.spam`)
+ if (status === "clean") query = query.or(`used.eq.true,brevo_status.eq.delivered,brevo_status.eq.opened,brevo_status.eq.unique_opened,brevo_status.eq.click,brevo_status.eq.unique_clicked`)
  if (status === "sent") query = query.eq("email_sent", true)
  if (status === "unsent") query = query.or("email_sent.eq.false,email_sent.is.null")
  if (status === "activated") query = query.eq("used", true)
