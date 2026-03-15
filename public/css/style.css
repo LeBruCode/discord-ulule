@@ -83,7 +83,7 @@ h2{
  gap:16px;
  margin-bottom:18px;
  position:sticky;
- top:12px;
+ top:0;
  z-index:20;
  padding:0 18px;
  border:1px solid rgba(35,49,72,.82);
