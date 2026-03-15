@@ -448,6 +448,13 @@ textarea{
  margin-top:14px;
 }
 
+#copySearch{
+ display:block;
+ width:100%;
+ min-width:0;
+ margin:0 0 16px;
+}
+
 .copy-editor-row{
  display:grid;
  gap:8px;
