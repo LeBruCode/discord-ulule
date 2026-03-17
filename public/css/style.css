@@ -1874,3 +1874,33 @@ body.daily-ops .mission-copy .panel-copy{
  font-size:12px;
  font-family:"IBM Plex Mono", monospace;
 }
+
+.activation-chart-shell{
+ position:relative;
+}
+
+.activation-chart-tooltip{
+ position:absolute;
+ transform:translate(-50%, -100%);
+ pointer-events:none;
+ min-width:170px;
+ padding:10px 12px;
+ border-radius:14px;
+ border:1px solid rgba(91,126,180,.55);
+ background:rgba(10,17,29,.96);
+ box-shadow:0 18px 36px rgba(0,0,0,.28);
+ backdrop-filter:blur(8px);
+ z-index:2;
+}
+
+.activation-chart-tooltip strong{
+ display:block;
+ color:#eef4ff;
+ font-size:12px;
+ margin-bottom:3px;
+}
+
+.activation-chart-tooltip span{
+ color:#9eb2d2;
+ font-size:12px;
+}

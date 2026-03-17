@@ -179,6 +179,7 @@ function renderActivationChart(points) {
  }).join("")
 
  node.innerHTML = `
+  <div class="activation-chart-shell">
   <svg viewBox="0 0 ${width} ${height}" class="activation-chart-svg" role="img" aria-label="${escapeHtml(t("activation_chart_title"))}">
    <defs>
     <linearGradient id="activationArea" x1="0" x2="0" y1="0" y2="1">
@@ -191,17 +192,49 @@ function renderActivationChart(points) {
    <polyline points="${polyline}" class="activation-line"></polyline>
    ${coordinates.map((point) => `
     <g class="activation-point-group">
-     <circle cx="${point.x}" cy="${point.y}" r="5.5" class="activation-point">
-      <title>${new Date(point.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} : ${point.count}</title>
-     </circle>
-     <circle cx="${point.x}" cy="${point.y}" r="14" class="activation-hit">
-      <title>${new Date(point.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} : ${point.count}</title>
-     </circle>
+     <circle cx="${point.x}" cy="${point.y}" r="5.5" class="activation-point" data-date="${escapeHtml(point.date)}" data-count="${escapeHtml(String(point.count))}"></circle>
+     <circle cx="${point.x}" cy="${point.y}" r="14" class="activation-hit" data-date="${escapeHtml(point.date)}" data-count="${escapeHtml(String(point.count))}"></circle>
     </g>
    `).join("")}
    <g class="activation-labels">${labels}</g>
   </svg>
+  <div class="activation-chart-tooltip hidden" id="activationChartTooltip"></div>
+  </div>
  `
+
+ const shell = node.querySelector(".activation-chart-shell")
+ const tooltip = node.querySelector(".activation-chart-tooltip")
+ if (!shell || !tooltip) return
+
+ shell.addEventListener("pointerleave", () => {
+  tooltip.classList.add("hidden")
+ })
+
+ shell.addEventListener("pointermove", (event) => {
+  const target = event.target.closest?.(".activation-hit, .activation-point")
+  if (!target) {
+   tooltip.classList.add("hidden")
+   return
+  }
+
+  const date = String(target.getAttribute("data-date") || "")
+  const count = Number(target.getAttribute("data-count") || 0)
+  const label = new Date(date).toLocaleDateString("fr-FR", {
+   weekday: "long",
+   day: "numeric",
+   month: "long",
+   year: "numeric"
+  })
+
+  tooltip.innerHTML = `<strong>${escapeHtml(label)}</strong><span>${count} activation${count > 1 ? "s" : ""}</span>`
+  tooltip.classList.remove("hidden")
+
+  const bounds = shell.getBoundingClientRect()
+  const offsetX = event.clientX - bounds.left
+  const offsetY = event.clientY - bounds.top
+  tooltip.style.left = `${offsetX}px`
+  tooltip.style.top = `${Math.max(offsetY - 18, 12)}px`
+ })
 }
 
 async function refreshActivationChart() {
@@ -1743,9 +1776,9 @@ document.getElementById("brandingSizeRange").addEventListener("input", (event) =
 })
 document.getElementById("brandingSizeRange").addEventListener("change", saveBrandingSize)
 document.getElementById("copySearch").addEventListener("input", renderCopyEditorEntries)
-document.getElementById("supportSearchBtn").addEventListener("click", () => runSupportLookup({ open: false }))
-document.getElementById("supportOpenBtn").addEventListener("click", () => runSupportLookup({ open: true }))
-document.getElementById("supportLookup").addEventListener("keydown", (event) => {
+document.getElementById("supportSearchBtn")?.addEventListener("click", () => runSupportLookup({ open: false }))
+document.getElementById("supportOpenBtn")?.addEventListener("click", () => runSupportLookup({ open: true }))
+document.getElementById("supportLookup")?.addEventListener("keydown", (event) => {
  if (event.key === "Enter") {
   event.preventDefault()
   runSupportLookup({ open: true })
