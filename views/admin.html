@@ -122,6 +122,45 @@
 <div class="card"><span id="statsRateLabel">Taux</span><b id="rate">0%</b></div>
 </section>
 
+<section class="mission-side-grid">
+<div class="panel mission-side-panel">
+<div class="panel-head compact-head">
+<div>
+<h2 id="noticeTitle">Centre de notifications</h2>
+<p id="noticeCopy" class="panel-copy">Ici, tu retrouves les dernières actions utiles et ce qui mérite ton attention.</p>
+</div>
+</div>
+<div id="notificationList" class="notification-list"></div>
+</div>
+
+<div class="panel mission-side-panel">
+<div class="panel-head compact-head">
+<div>
+<h2 id="dayPulseTitle">Le pouls des dernières 24 heures</h2>
+<p id="dayPulseCopy" class="panel-copy">Une vue vivante pour voir ce qui a bougé aujourd'hui, sans fouiller le tableau.</p>
+</div>
+</div>
+<div id="dayPulseSummary" class="day-pulse-summary"></div>
+<div id="dayPulseList" class="day-pulse-list"></div>
+</div>
+
+<div class="panel mission-side-panel support-panel">
+<div class="panel-head compact-head">
+<div>
+<h2 id="supportTitle">Vue support</h2>
+<p id="supportCopy" class="panel-copy">Tape un e-mail, retrouve la personne vite, et ouvre son détail sans faire le tour du tableau.</p>
+</div>
+</div>
+<div class="support-search-row">
+<input id="supportLookup" type="search" placeholder="Colle un e-mail pour ouvrir sa fiche support.">
+<button id="supportSearchBtn" type="button" class="ghost">Chercher</button>
+<button id="supportOpenBtn" type="button">Ouvrir la fiche</button>
+</div>
+<p id="supportHint" class="support-hint">Aucune recherche support lancée pour le moment.</p>
+<div id="supportPreview" class="support-preview hidden"></div>
+</div>
+</section>
+
 <section class="panel panel-tight">
 <h2 id="brevoTitle">Statuts Brevo</h2>
 <div class="brevo-stats-grid" id="brevoStatsGrid">
@@ -256,6 +295,7 @@
 <button id="excludeFilteredBtn" type="button" class="ghost">Exclure le filtre</button>
 <button id="includeFilteredBtn" type="button" class="ghost">Réintégrer le filtre</button>
 </div>
+<p id="resendGuardrail" class="guardrail-note">Les envois de masse ignorent automatiquement les personnes déjà activées dans Discord.</p>
 </div>
 
 <div class="action-block action-block-danger">

@@ -14,8 +14,10 @@ let copyEditorLoaded = false
 let copyEntries = []
 let copyEditorDirty = false
 let brandingState = { logoPath: null, updatedAt: null }
+let supportMatch = null
 const COCKPIT_MODE_KEY = "dashboard-cockpit-mode"
 const DAILY_MODE_KEY = "dashboard-daily-mode"
+const NOTIFICATION_STORE_KEY = "dashboard-notifications"
 
 const selectedIds = new Set()
 let currentRowIds = []
@@ -68,6 +70,75 @@ function showToast(message, { tone = inferToastTone(message), duration = 4200 } 
  toast.querySelector(".toast-close")?.addEventListener("click", close)
  stack.appendChild(toast)
  window.setTimeout(close, duration)
+}
+
+function readNotifications() {
+ try {
+  const raw = window.localStorage.getItem(NOTIFICATION_STORE_KEY)
+  const parsed = raw ? JSON.parse(raw) : []
+  return Array.isArray(parsed) ? parsed : []
+ } catch (error) {
+  console.debug("notification storage read skipped", error)
+  return []
+ }
+}
+
+function writeNotifications(entries) {
+ try {
+  window.localStorage.setItem(NOTIFICATION_STORE_KEY, JSON.stringify(entries.slice(0, 12)))
+ } catch (error) {
+  console.debug("notification storage write skipped", error)
+ }
+}
+
+function pushNotification(message, { tone = inferToastTone(message) } = {}) {
+ const entries = readNotifications()
+ entries.unshift({
+  id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  message: String(message || ""),
+  tone,
+  at: new Date().toISOString()
+ })
+ writeNotifications(entries)
+ renderNotificationCenter()
+}
+
+function renderNotificationCenter(live = {}) {
+ const node = document.getElementById("notificationList")
+ if (!node) return
+
+ const items = []
+ if (live.queueRunning) {
+  items.push({ id: "queue-running", message: t("notice_running_queue"), tone: "info", at: new Date().toISOString() })
+ }
+ if (live.syncRunning) {
+  items.push({ id: "sync-running", message: t("notice_running_sync"), tone: "info", at: new Date().toISOString() })
+ }
+ items.push(...readNotifications())
+
+ const unique = []
+ const seen = new Set()
+ for (const item of items) {
+  if (!item?.id || seen.has(item.id)) continue
+  seen.add(item.id)
+  unique.push(item)
+  if (unique.length >= 8) break
+ }
+
+ if (!unique.length) {
+  node.innerHTML = `<div class="mini-empty">${escapeHtml(t("notice_empty"))}</div>`
+  return
+ }
+
+ node.innerHTML = unique.map((item) => `
+  <article class="notice-item notice-${escapeHtml(item.tone || "info")}">
+   <div class="notice-bullet"></div>
+   <div class="notice-copy">
+    <strong>${escapeHtml(item.message || "")}</strong>
+    <span>${escapeHtml(formatDate(item.at))}</span>
+   </div>
+  </article>
+ `).join("")
 }
 
 async function showConfirm(message, { confirmLabel = t("confirm_ok"), cancelLabel = t("confirm_cancel"), title = t("confirm_title") } = {}) {
@@ -422,6 +493,106 @@ function updateSelectionBar() {
  })
 }
 
+async function refreshDayPulse() {
+ const summaryNode = document.getElementById("dayPulseSummary")
+ const listNode = document.getElementById("dayPulseList")
+ if (!summaryNode || !listNode) return
+
+ try {
+  const response = await fetch("/stats/activity")
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || "activity request failed")
+
+  const summary = payload.summary || {}
+  summaryNode.innerHTML = `
+   <div class="pulse-chip"><b>${Number(summary.imported || 0)}</b><span>${escapeHtml(t("day_pulse_imported"))}</span></div>
+   <div class="pulse-chip"><b>${Number(summary.sent || 0)}</b><span>${escapeHtml(t("day_pulse_sent"))}</span></div>
+   <div class="pulse-chip"><b>${Number(summary.activated || 0)}</b><span>${escapeHtml(t("day_pulse_activated"))}</span></div>
+  `
+
+  const events = Array.isArray(payload.events) ? payload.events : []
+  if (!events.length) {
+   listNode.innerHTML = `<div class="mini-empty">${escapeHtml(t("day_pulse_empty"))}</div>`
+   return
+  }
+
+  listNode.innerHTML = events.map((event) => `
+   <article class="pulse-item pulse-${escapeHtml(event.tone || "neutral")}">
+    <div class="pulse-icon">${iconSvg(event.tone === "activated" ? "discord" : event.tone === "success" ? "spark" : "resend")}</div>
+    <div class="pulse-copy">
+     <strong>${escapeHtml(event.title || "-")}</strong>
+     <p>${escapeHtml(event.copy || "-")}</p>
+    </div>
+    <time>${escapeHtml(formatDate(event.at))}</time>
+   </article>
+  `).join("")
+ } catch (error) {
+  console.error("day pulse refresh error", error)
+  listNode.innerHTML = `<div class="mini-empty">${escapeHtml(t("day_pulse_empty"))}</div>`
+ }
+}
+
+async function runSupportLookup({ open = false } = {}) {
+ const input = document.getElementById("supportLookup")
+ const hint = document.getElementById("supportHint")
+ const preview = document.getElementById("supportPreview")
+ const value = String(input?.value || "").trim().toLowerCase()
+
+ if (!value) {
+  supportMatch = null
+  preview?.classList.add("hidden")
+  if (hint) hint.textContent = t("support_idle")
+  return
+ }
+
+ try {
+  const params = new URLSearchParams({
+   page: "1",
+   limit: "1",
+   search: value,
+   status: "all",
+   brevoStatus: "all",
+   sort: "last_import_desc"
+  })
+  const response = await fetch(`/admin/api/list?${params.toString()}`)
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || "support lookup failed")
+
+  const row = Array.isArray(payload.data) ? payload.data[0] : null
+  if (!row) {
+   supportMatch = null
+   preview?.classList.add("hidden")
+   if (hint) hint.textContent = t("support_empty")
+   return
+  }
+
+  supportMatch = row
+  if (hint) hint.textContent = t("support_found", { email: row.email || value })
+  if (preview) {
+   preview.classList.remove("hidden")
+   preview.innerHTML = [
+    renderSmartBadge(row.used ? t("badge_active") : t("badge_unactivated"), {
+     kind: row.used ? "good" : "pending",
+     icon: row.discord_id ? "discord" : ""
+    }),
+    renderSmartBadge(formatBrevoStatus(row.brevo_status), {
+     kind: ["soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"].includes(String(row.brevo_status || "").toLowerCase())
+      ? "warn"
+      : (row.used ? "good" : "neutral")
+    })
+   ].join("")
+  }
+
+  if (open) {
+   await openDetail(row.id)
+   showToast(t("support_opened", { email: row.email || value }), { tone: "success" })
+  }
+ } catch (error) {
+  console.error("support lookup error", error)
+  showToast(t("alert_support_failed"), { tone: "error" })
+ }
+}
+
 function applyQuickView(status, { revealList = true } = {}) {
  const statusNode = document.getElementById("status")
  const brevoNode = document.getElementById("brevoStatus")
@@ -523,7 +694,7 @@ async function refreshQueueStatus() {
  try {
   const status = await fetch("/admin/api/send-status").then((r) => r.json())
   const queueStatus = document.getElementById("queueStatus")
- if (status.running) {
+  if (status.running) {
    if (status.total) {
     queueStatus.innerText = t("queue_running_progress", {
      processed: status.processed || 0,
@@ -531,18 +702,23 @@ async function refreshQueueStatus() {
      progress: status.progress || 0,
      currentEmail: status.currentEmail || "-"
     })
-    return
+    renderNotificationCenter({ queueRunning: true, syncRunning: Boolean(brevoSyncPollTimer) })
+    return status
    }
    queueStatus.innerText = t("queue_running")
-   return
+   renderNotificationCenter({ queueRunning: true, syncRunning: Boolean(brevoSyncPollTimer) })
+   return status
   }
 
   const sent = status.lastStats?.sent || 0
   const failed = status.lastStats?.failed || 0
   const processed = status.lastStats?.processed || 0
   queueStatus.innerText = t("queue_last_batch", { processed, sent, failed })
+  renderNotificationCenter({ queueRunning: false, syncRunning: Boolean(brevoSyncPollTimer) })
+  return status
  } catch (error) {
   document.getElementById("queueStatus").innerText = t("queue_unavailable")
+  return null
  }
 }
 
@@ -589,6 +765,7 @@ function renderBrevoSyncStatus(status) {
  stopButton.disabled = !status?.running
 
  if (status?.running) {
+  renderNotificationCenter({ queueRunning: false, syncRunning: true })
   statusNode.innerText = t("brevo_sync_running", {
    processed: status.processed || 0,
    total: status.total || 0,
@@ -611,10 +788,12 @@ function renderBrevoSyncStatus(status) {
    missing: status.missing || 0,
    failed: status.failed || 0
   })
+  renderNotificationCenter({ queueRunning: false, syncRunning: false })
   return
  }
 
  statusNode.innerText = t("brevo_sync_idle")
+ renderNotificationCenter({ queueRunning: false, syncRunning: false })
 }
 
 async function refreshBrevoSyncStatus() {
@@ -792,7 +971,9 @@ async function importEmails() {
   return
  }
  emailsInput.value = ""
- alert(t("alert_import_started", { total: payload.total || 0 }))
+ const importMessage = t("alert_import_started", { total: payload.total || 0 })
+ alert(importMessage)
+ pushNotification(importMessage, { tone: "success" })
  startImportPolling()
  page = 1
  await refreshAll()
@@ -808,7 +989,9 @@ async function sendEmails() {
   alert(payload.error || t("alert_send_failed"))
   return
  }
- alert(t("alert_send_started", { queued: payload.queued || 0 }))
+ const sendMessage = t("alert_send_started", { queued: payload.queued || 0 })
+ alert(sendMessage)
+ pushNotification(sendMessage, { tone: "success" })
  await refreshAll()
 }
 
@@ -876,7 +1059,9 @@ async function startBrevoSync() {
   return
  }
 
- alert(t("alert_brevo_sync_started"))
+ const syncMessage = t("alert_brevo_sync_started")
+ alert(syncMessage)
+ pushNotification(syncMessage, { tone: "info" })
  startBrevoSyncPolling()
  await refreshBrevoSyncStatus()
 }
@@ -915,7 +1100,9 @@ async function resendEmail(email) {
   alert(payload.details || payload.error || t("alert_resend_failed"))
   return
  }
- alert(t("alert_resend_ok", { email }))
+ const resendMessage = t("alert_resend_ok", { email })
+ alert(resendMessage)
+ pushNotification(resendMessage, { tone: "success" })
  await refreshAll()
 }
 
@@ -935,7 +1122,9 @@ async function deleteRow(id, email) {
  }
 
  selectedIds.delete(id)
- alert(t("alert_delete_ok", { email }))
+ const deleteMessage = t("alert_delete_ok", { email })
+ alert(deleteMessage)
+ pushNotification(deleteMessage, { tone: "success" })
  page = 1
  await refreshAll()
 }
@@ -961,11 +1150,13 @@ async function batchResend() {
   return
  }
 
- alert(t("alert_batch_resend_ok", {
+ const batchResendMessage = t("alert_batch_resend_ok", {
   processed: payload.processed || 0,
   sent: payload.sent || 0,
   failed: payload.failed || 0
- }))
+ })
+ alert(batchResendMessage)
+ pushNotification(batchResendMessage, { tone: payload.failed ? "info" : "success" })
  await refreshAll()
 }
 
@@ -1043,10 +1234,12 @@ async function setExcludedForSelected(excluded) {
   return
  }
 
- alert(t("alert_exclude_ok", {
+ const excludeSelectedMessage = t("alert_exclude_ok", {
   updated: payload.updated || 0,
   action: excluded ? t("action_excluded_selected") : t("action_included_selected")
- }))
+ })
+ alert(excludeSelectedMessage)
+ pushNotification(excludeSelectedMessage, { tone: "info" })
  await refreshAll()
 }
 
@@ -1068,10 +1261,12 @@ async function setExcludedForFiltered(excluded) {
   return
  }
 
- alert(t("alert_exclude_ok", {
+ const excludeFilteredMessage = t("alert_exclude_ok", {
   updated: payload.updated || 0,
   action: excluded ? t("action_excluded_filtered") : t("action_included_filtered")
- }))
+ })
+ alert(excludeFilteredMessage)
+ pushNotification(excludeFilteredMessage, { tone: "info" })
  await refreshAll()
 }
 
@@ -1213,7 +1408,9 @@ async function saveCopyEditor({ confirmFirst = true } = {}) {
  copyEditorDirty = false
  renderCopyEditorEntries()
  syncCollapseButtons()
- alert(t("alert_copy_saved"))
+ const copySavedMessage = t("alert_copy_saved")
+ alert(copySavedMessage)
+ pushNotification(copySavedMessage, { tone: "success" })
  return true
 }
 
@@ -1339,7 +1536,9 @@ async function saveDetailNote() {
   return
  }
 
- alert(t("alert_note_ok"))
+ const noteMessage = t("alert_note_ok")
+ alert(noteMessage)
+ pushNotification(noteMessage, { tone: "success" })
  await openDetail(currentDetailId)
  await loadList()
 }
@@ -1388,21 +1587,29 @@ async function batchDelete() {
  }
 
  ids.forEach((id) => selectedIds.delete(id))
- alert(t("alert_batch_delete_ok", { deleted: payload.deleted || 0 }))
+ const batchDeleteMessage = t("alert_batch_delete_ok", { deleted: payload.deleted || 0 })
+ alert(batchDeleteMessage)
+ pushNotification(batchDeleteMessage, { tone: "success" })
  page = 1
  await refreshAll()
 }
 
 async function refreshAll() {
- const [importStatus, brevoSyncStatus] = await Promise.all([
+ const [importStatus, brevoSyncStatus, queueStatus] = await Promise.all([
   refreshImportStatus(),
   refreshBrevoSyncStatus(),
   refreshStats(),
   refreshBrevoStats(),
   refreshBranding(),
   loadList(),
-  refreshQueueStatus()
+  refreshQueueStatus(),
+  refreshDayPulse()
  ])
+
+ renderNotificationCenter({
+  queueRunning: Boolean(queueStatus?.running),
+  syncRunning: Boolean(brevoSyncStatus?.running)
+ })
 
  if (importStatus?.running) {
   if (!importPollTimer) startImportPolling()
@@ -1460,6 +1667,14 @@ document.getElementById("brandingSizeRange").addEventListener("input", (event) =
 })
 document.getElementById("brandingSizeRange").addEventListener("change", saveBrandingSize)
 document.getElementById("copySearch").addEventListener("input", renderCopyEditorEntries)
+document.getElementById("supportSearchBtn").addEventListener("click", () => runSupportLookup({ open: false }))
+document.getElementById("supportOpenBtn").addEventListener("click", () => runSupportLookup({ open: true }))
+document.getElementById("supportLookup").addEventListener("keydown", (event) => {
+ if (event.key === "Enter") {
+  event.preventDefault()
+  runSupportLookup({ open: true })
+ }
+})
 document.getElementById("confirmModalCancel").addEventListener("click", () => closeConfirm(false))
 document.getElementById("confirmModalOk").addEventListener("click", () => closeConfirm(true))
 document.getElementById("confirmModal").addEventListener("click", (event) => {
@@ -1593,6 +1808,7 @@ setInterval(() => {
 }, 10000)
 
 setupBrandingDropzone()
+renderNotificationCenter()
 setCockpitMode(window.localStorage.getItem(COCKPIT_MODE_KEY) === "1")
 setDailyMode(window.localStorage.getItem(DAILY_MODE_KEY) === "1")
 loadLatestDashboardCopy()

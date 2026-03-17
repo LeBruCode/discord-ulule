@@ -65,4 +65,69 @@ router.get("/",async(req,res)=>{
 
 })
 
+router.get("/activity", async (req, res) => {
+ try {
+  const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+  const [
+   importedResult,
+   sentResult,
+   activatedResult,
+   importedEventsResult,
+   sentEventsResult,
+   activatedEventsResult
+  ] = await Promise.all([
+   supabase.from("access_tokens").select("id", { count: "exact", head: true }).gte("created_at", sinceIso),
+   supabase.from("access_tokens").select("id", { count: "exact", head: true }).gte("email_sent_at", sinceIso),
+   supabase.from("access_tokens").select("id", { count: "exact", head: true }).gte("used_at", sinceIso),
+   supabase.from("access_tokens").select("id,email,created_at").gte("created_at", sinceIso).order("created_at", { ascending: false }).limit(6),
+   supabase.from("access_tokens").select("id,email,email_sent_at,brevo_status").gte("email_sent_at", sinceIso).order("email_sent_at", { ascending: false }).limit(6),
+   supabase.from("access_tokens").select("id,email,used_at,discord_id").gte("used_at", sinceIso).order("used_at", { ascending: false }).limit(6)
+  ])
+
+  for (const result of [importedResult, sentResult, activatedResult, importedEventsResult, sentEventsResult, activatedEventsResult]) {
+   if (result.error) throw result.error
+  }
+
+  const events = [
+   ...((importedEventsResult.data || []).map((row) => ({
+    id: `import-${row.id}`,
+    at: row.created_at,
+    tone: "imported",
+    title: "Import ajouté",
+    copy: row.email || "-"
+   }))),
+   ...((sentEventsResult.data || []).map((row) => ({
+    id: `sent-${row.id}`,
+    at: row.email_sent_at,
+    tone: ["delivered", "opened", "unique_opened", "click", "unique_clicked"].includes(String(row.brevo_status || "").toLowerCase()) ? "success" : "pending",
+    title: "Mail relancé",
+    copy: row.email || "-"
+   }))),
+   ...((activatedEventsResult.data || []).map((row) => ({
+    id: `activated-${row.id}`,
+    at: row.used_at,
+    tone: "activated",
+    title: row.discord_id ? "A rejoint Discord" : "Activé",
+    copy: row.email || "-"
+   })))
+  ]
+   .filter((event) => event.at)
+   .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+   .slice(0, 12)
+
+  return res.json({
+   summary: {
+    imported: importedResult.count || 0,
+    sent: sentResult.count || 0,
+    activated: activatedResult.count || 0
+   },
+   events
+  })
+ } catch (error) {
+  console.error("stats activity route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
 export default router
