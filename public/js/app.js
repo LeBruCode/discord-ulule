@@ -18,6 +18,7 @@ let supportMatch = null
 const COCKPIT_MODE_KEY = "dashboard-cockpit-mode"
 const DAILY_MODE_KEY = "dashboard-daily-mode"
 const NOTIFICATION_STORE_KEY = "dashboard-notifications"
+let activationChartRange = "14"
 
 const selectedIds = new Set()
 let currentRowIds = []
@@ -177,6 +178,10 @@ function renderActivationChart(points) {
   if (index !== 0 && index !== coordinates.length - 1 && index % 2 !== 0) return ""
   return `<text x="${point.x}" y="${height - 10}" text-anchor="middle">${escapeHtml(formatShortDate(point.date))}</text>`
  }).join("")
+ const valueLabels = coordinates.map((point) => {
+  if (Number(point.count || 0) <= 0) return ""
+  return `<text x="${point.x}" y="${Math.max(point.y - 14, 16)}" text-anchor="middle" class="activation-value-label">${escapeHtml(String(point.count))}</text>`
+ }).join("")
 
  node.innerHTML = `
   <div class="activation-chart-shell">
@@ -196,6 +201,7 @@ function renderActivationChart(points) {
      <circle cx="${point.x}" cy="${point.y}" r="14" class="activation-hit" data-date="${escapeHtml(point.date)}" data-count="${escapeHtml(String(point.count))}"></circle>
     </g>
    `).join("")}
+   <g class="activation-values">${valueLabels}</g>
    <g class="activation-labels">${labels}</g>
   </svg>
   <div class="activation-chart-tooltip hidden" id="activationChartTooltip"></div>
@@ -230,16 +236,20 @@ function renderActivationChart(points) {
   tooltip.classList.remove("hidden")
 
   const bounds = shell.getBoundingClientRect()
-  const offsetX = event.clientX - bounds.left
-  const offsetY = event.clientY - bounds.top
-  tooltip.style.left = `${offsetX}px`
-  tooltip.style.top = `${Math.max(offsetY - 18, 12)}px`
+  const svgTarget = target instanceof SVGElement ? target : null
+  const pointX = Number(svgTarget?.getAttribute("cx") || 0)
+  const pointY = Number(svgTarget?.getAttribute("cy") || 0)
+  const scaleX = bounds.width / width
+  const scaleY = bounds.height / height
+  tooltip.style.left = `${pointX * scaleX}px`
+  tooltip.style.top = `${Math.max((pointY * scaleY) - 18, 12)}px`
  })
 }
 
 async function refreshActivationChart() {
  try {
-  const response = await fetch("/stats/activations-daily?days=14")
+  const queryValue = activationChartRange === "all" ? "all" : encodeURIComponent(activationChartRange)
+  const response = await fetch(`/stats/activations-daily?days=${queryValue}`)
   const payload = await response.json()
   if (!response.ok) throw new Error(payload.error || "activation chart request failed")
   renderActivationChart(payload.points || [])
@@ -1792,6 +1802,15 @@ document.getElementById("brandingSizeRange").addEventListener("input", (event) =
 })
 document.getElementById("brandingSizeRange").addEventListener("change", saveBrandingSize)
 document.getElementById("copySearch").addEventListener("input", renderCopyEditorEntries)
+document.getElementById("activationChartRangeTabs")?.addEventListener("click", async (event) => {
+ const button = event.target.closest("[data-range]")
+ if (!button) return
+ activationChartRange = button.getAttribute("data-range") || "14"
+ for (const node of event.currentTarget.querySelectorAll("[data-range]")) {
+  node.classList.toggle("is-active", node === button)
+ }
+ await refreshActivationChart()
+})
 document.getElementById("supportSearchBtn")?.addEventListener("click", () => runSupportLookup({ open: false }))
 document.getElementById("supportOpenBtn")?.addEventListener("click", () => runSupportLookup({ open: true }))
 document.getElementById("supportLookup")?.addEventListener("keydown", (event) => {

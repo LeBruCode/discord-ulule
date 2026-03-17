@@ -1991,3 +1991,37 @@ body.daily-ops .mission-copy .panel-copy{
  #dayPulseDrawer .pulse-item{grid-template-columns:auto 1fr;}
  #dayPulseDrawer .pulse-item time{grid-column:2;}
 }
+
+.chart-range-tabs{
+ display:flex;
+ flex-wrap:wrap;
+ gap:8px;
+ align-items:center;
+ justify-content:flex-end;
+}
+
+.chart-range-tabs .ghost{
+ min-width:auto;
+ padding:9px 12px;
+}
+
+.chart-range-tabs .ghost.is-active{
+ background:rgba(83,128,201,.18);
+ border-color:rgba(107,156,235,.5);
+ color:#eef4ff;
+}
+
+.activation-value-label{
+ fill:#dce9ff;
+ font-size:12px;
+ font-family:"IBM Plex Mono", monospace;
+}
+
+.activation-point-group:hover .activation-point{
+ transform:none;
+ fill:#dce9ff;
+}
+
+@media (max-width:900px){
+ .chart-range-tabs{justify-content:flex-start;}
+}

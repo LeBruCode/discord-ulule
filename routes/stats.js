@@ -132,10 +132,28 @@ router.get("/activity", async (req, res) => {
 
 router.get("/activations-daily", async (req, res) => {
  try {
-  const days = Math.min(Math.max(parseInt(req.query.days, 10) || 14, 7), 60)
-  const start = new Date()
+  const rawDays = String(req.query.days || "14").trim().toLowerCase()
+  let days = rawDays === "all" ? "all" : Math.min(Math.max(parseInt(rawDays, 10) || 14, 7), 90)
+  let start = new Date()
   start.setHours(0, 0, 0, 0)
-  start.setDate(start.getDate() - (days - 1))
+  if (days === "all") {
+   const { data: earliestRow, error: earliestError } = await supabase
+    .from("access_tokens")
+    .select("used_at")
+    .eq("used", true)
+    .not("used_at", "is", null)
+    .order("used_at", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+   if (earliestError) throw earliestError
+   if (earliestRow?.used_at) {
+    start = new Date(earliestRow.used_at)
+    start.setHours(0, 0, 0, 0)
+   }
+  } else {
+   start.setDate(start.getDate() - (days - 1))
+  }
   const sinceIso = start.toISOString()
 
   const { data, error } = await supabase
@@ -148,7 +166,11 @@ router.get("/activations-daily", async (req, res) => {
   if (error) throw error
 
   const buckets = new Map()
-  for (let index = 0; index < days; index += 1) {
+  const bucketDays = days === "all"
+   ? Math.max(Math.floor((Date.now() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1, 1)
+   : days
+
+  for (let index = 0; index < bucketDays; index += 1) {
    const day = new Date(start)
    day.setDate(start.getDate() + index)
    const key = day.toISOString().slice(0, 10)
@@ -161,7 +183,7 @@ router.get("/activations-daily", async (req, res) => {
   }
 
   const points = [...buckets.entries()].map(([date, count]) => ({ date, count }))
-  return res.json({ days, points })
+  return res.json({ days: bucketDays, points })
  } catch (error) {
   console.error("stats activations daily route error", error)
   return res.status(500).json({ error: "server error" })
