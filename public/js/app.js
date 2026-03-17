@@ -16,7 +16,6 @@ let copyEditorDirty = false
 let brandingState = { logoPath: null, updatedAt: null }
 let supportMatch = null
 const COCKPIT_MODE_KEY = "dashboard-cockpit-mode"
-const DAILY_MODE_KEY = "dashboard-daily-mode"
 const NOTIFICATION_STORE_KEY = "dashboard-notifications"
 let activationChartRange = "14"
 
@@ -317,20 +316,6 @@ function setCockpitMode(enabled, { reveal = false } = {}) {
   window.localStorage.setItem(COCKPIT_MODE_KEY, enabled ? "1" : "0")
  } catch (error) {
   console.debug("cockpit mode persistence skipped", error)
- }
-}
-
-function setDailyMode(enabled) {
- document.body.classList.toggle("daily-ops", Boolean(enabled))
- const button = document.getElementById("dailyModeBtn")
- if (button) {
-  button.classList.toggle("is-active", Boolean(enabled))
-  button.setAttribute("aria-pressed", enabled ? "true" : "false")
- }
- try {
-  window.localStorage.setItem(DAILY_MODE_KEY, enabled ? "1" : "0")
- } catch (error) {
-  console.debug("daily mode persistence skipped", error)
  }
 }
 
@@ -1766,9 +1751,6 @@ document.getElementById("brevoSyncStopBtn").addEventListener("click", stopBrevoS
 document.getElementById("cockpitModeBtn").addEventListener("click", () => {
  setCockpitMode(!document.body.classList.contains("cockpit-dense"), { reveal: true })
 })
-document.getElementById("dailyModeBtn").addEventListener("click", () => {
- setDailyMode(!document.body.classList.contains("daily-ops"))
-})
 document.getElementById("batchResendBtn").addEventListener("click", batchResend)
 document.getElementById("filterResendBtn").addEventListener("click", resendFiltered)
 document.getElementById("selectFilteredBtn").addEventListener("click", selectFiltered)
@@ -1961,7 +1943,6 @@ setInterval(() => {
 setupBrandingDropzone()
 renderNotificationCenter()
 setCockpitMode(window.localStorage.getItem(COCKPIT_MODE_KEY) === "1")
-setDailyMode(window.localStorage.getItem(DAILY_MODE_KEY) === "1")
 loadLatestDashboardCopy()
  .then(() => refreshAll())
  .catch((error) => {
