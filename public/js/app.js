@@ -326,6 +326,7 @@ function setDailyMode(enabled) {
 
 function syncFocusMode() {
  const active = !document.getElementById("detailDrawer")?.classList.contains("hidden")
+  || !document.getElementById("dayPulseDrawer")?.classList.contains("hidden")
   || !document.getElementById("copyDrawer")?.classList.contains("hidden")
   || !document.getElementById("brandingDrawer")?.classList.contains("hidden")
   || !document.getElementById("confirmModal")?.classList.contains("hidden")
@@ -1391,6 +1392,19 @@ function closeDetailDrawer() {
  syncFocusMode()
 }
 
+function openDayPulseDrawer() {
+ document.getElementById("dayPulseDrawer").classList.remove("hidden")
+ syncFocusMode()
+ refreshDayPulse().catch((error) => {
+  console.error("day pulse drawer refresh error", error)
+ })
+}
+
+function closeDayPulseDrawer() {
+ document.getElementById("dayPulseDrawer").classList.add("hidden")
+ syncFocusMode()
+}
+
 function hasUnsavedCopyChanges() {
  if (!copyEditorDirty) return false
  const currentValues = Object.fromEntries(
@@ -1755,6 +1769,8 @@ document.getElementById("includeFilteredBtn").addEventListener("click", async ()
 document.getElementById("exportBtn").addEventListener("click", exportFiltered)
 document.getElementById("batchDeleteBtn").addEventListener("click", batchDelete)
 document.getElementById("detailCloseBtn").addEventListener("click", closeDetailDrawer)
+document.getElementById("dayPulseOpenBtn").addEventListener("click", openDayPulseDrawer)
+document.getElementById("dayPulseCloseBtn").addEventListener("click", closeDayPulseDrawer)
 document.getElementById("detailSummaryActionBtn").addEventListener("click", handleDetailSummaryAction)
 document.getElementById("detailResendBtn").addEventListener("click", resendDetailEmail)
 document.getElementById("saveNoteBtn").addEventListener("click", saveDetailNote)
@@ -1792,6 +1808,9 @@ document.getElementById("confirmModal").addEventListener("click", (event) => {
 document.getElementById("detailDrawer").addEventListener("click", (event) => {
  if (event.target.id === "detailDrawer") closeDetailDrawer()
 })
+document.getElementById("dayPulseDrawer").addEventListener("click", (event) => {
+ if (event.target.id === "dayPulseDrawer") closeDayPulseDrawer()
+})
 document.getElementById("brandingDrawer").addEventListener("click", (event) => {
  if (event.target.id === "brandingDrawer") closeBrandingDrawer()
 })
@@ -1825,6 +1844,10 @@ document.addEventListener("keydown", (event) => {
  }
  if (event.key === "Escape" && !document.getElementById("detailDrawer").classList.contains("hidden")) {
   closeDetailDrawer()
+   return
+ }
+ if (event.key === "Escape" && !document.getElementById("dayPulseDrawer").classList.contains("hidden")) {
+  closeDayPulseDrawer()
    return
  }
  if (event.key === "Escape" && !document.getElementById("brandingDrawer").classList.contains("hidden")) {

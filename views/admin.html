@@ -27,6 +27,7 @@
 <div class="topbar-actions">
 <button id="cockpitModeBtn" type="button" class="ghost" data-copy="cockpitModeBtn">Mode cockpit</button>
 <button id="dailyModeBtn" type="button" class="ghost" data-copy="dailyModeBtn">Mode quotidien</button>
+<button id="dayPulseOpenBtn" type="button" class="ghost" data-copy="day_pulse_open_btn">Pouls 24h</button>
 <button id="brandingOpenBtn" type="button" class="ghost icon-only" aria-label="Logo du projet" title="Logo du projet">
 <svg viewBox="0 0 24 24" aria-hidden="true">
 <path d="M12 3l1.2 2.43 2.68.39-1.94 1.89.46 2.67L12 9.1l-2.4 1.27.46-2.67-1.94-1.89 2.68-.39L12 3z"></path>
@@ -131,6 +132,21 @@
 </div>
 <div id="activationChart" class="activation-chart" aria-label="Graphique des activations par jour"></div>
 </section>
+
+<aside class="detail-drawer hidden" id="dayPulseDrawer">
+<div class="detail-card">
+<div class="detail-header">
+<div>
+<p id="dayPulseDrawerEyebrow" class="eyebrow">Le pouls des dernières 24 heures</p>
+<h2 id="dayPulseTitle">Le pouls des dernières 24 heures</h2>
+</div>
+<button id="dayPulseCloseBtn" type="button" class="ghost">Refermer ça</button>
+</div>
+<p id="dayPulseCopy" class="panel-copy">Une vue vivante pour voir ce qui a bougé aujourd'hui, sans fouiller le tableau.</p>
+<div id="dayPulseSummary" class="day-pulse-summary"></div>
+<div id="dayPulseList" class="day-pulse-list"></div>
+</div>
+</aside>
 
 <section class="panel panel-tight">
 <h2 id="brevoTitle">Statuts Brevo</h2>
