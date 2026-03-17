@@ -890,7 +890,7 @@ async function processSendQueue() {
   while (true) {
    const { data, error } = await supabase
     .from("access_tokens")
-    .select("id,email,token,email_sent,brevo_status,resend_excluded")
+    .select("id,email,token,used,email_sent,brevo_status,resend_excluded")
     .or([
      "email_sent.eq.false",
      "email_sent.is.null",
@@ -959,6 +959,7 @@ function applyListFilters(query, { search = "", status = "all", brevoStatus = "a
 function applySendEligibility(rows) {
  return (Array.isArray(rows) ? rows : []).filter((row) => {
   if (row.resend_excluded === true) return false
+  if (row.used === true) return false
   if (row.email_sent === true) return false
   if (!row.brevo_status) return true
   return BREVO_FAILED_STATUSES.includes(row.brevo_status)
@@ -1171,7 +1172,7 @@ router.post("/send", limitSend, async (req, res) => {
  try {
   const { data, error } = await supabase
    .from("access_tokens")
-   .select("id,email_sent,brevo_status,resend_excluded")
+   .select("id,used,email_sent,brevo_status,resend_excluded")
    .or([
     "email_sent.eq.false",
     "email_sent.is.null",
@@ -1375,7 +1376,7 @@ router.post("/batch-resend", limitResend, async (req, res) => {
 
   const { data, error } = await supabase
    .from("access_tokens")
-   .select("id,email,token")
+   .select("id,email,token,used,email_sent,brevo_status,resend_excluded")
    .in("id", ids)
 
   if (error) {
@@ -1383,7 +1384,7 @@ router.post("/batch-resend", limitResend, async (req, res) => {
    return res.status(500).json({ error: "server error" })
   }
 
-  const rows = Array.isArray(data) ? data : []
+  const rows = applySendEligibility(data)
   let sent = 0
   let failed = 0
   for (const row of rows) {
@@ -1407,7 +1408,7 @@ router.post("/resend-filtered", limitResend, async (req, res) => {
 
   const filters = normalizeListFilters(req.body)
   const { rows, error } = await fetchAllFilteredRows(filters, {
-   select: "id,email,token,email_sent,brevo_status,resend_excluded",
+   select: "id,email,token,used,email_sent,brevo_status,resend_excluded",
    batchSize: 1000,
    orderAscending: true
   })
@@ -1416,7 +1417,7 @@ router.post("/resend-filtered", limitResend, async (req, res) => {
    return res.status(500).json({ error: "server error" })
   }
 
-  const eligibleRows = (Array.isArray(rows) ? rows : []).filter((row) => row.resend_excluded !== true)
+  const eligibleRows = applySendEligibility(rows)
   runSendQueue(eligibleRows, { mode: "filtered" }).catch((queueError) => {
    console.error("filtered resend queue crash", queueError)
    sendQueueState.running = false
