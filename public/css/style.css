@@ -1815,3 +1815,62 @@ body.daily-ops .mission-copy .panel-copy{
  .mission-side-grid{grid-template-columns:1fr;}
  .support-search-row{grid-template-columns:1fr;}
 }
+
+.activation-chart-panel{
+ overflow:hidden;
+}
+
+.activation-chart{
+ margin-top:8px;
+ padding:8px 0 0;
+}
+
+.activation-chart-svg{
+ width:100%;
+ height:auto;
+ display:block;
+ overflow:visible;
+}
+
+.activation-axis{
+ stroke:rgba(78,110,157,.5);
+ stroke-width:1;
+}
+
+.activation-area{
+ fill:url(#activationArea);
+}
+
+.activation-line{
+ fill:none;
+ stroke:#7fb6ff;
+ stroke-width:3;
+ stroke-linecap:round;
+ stroke-linejoin:round;
+ filter:drop-shadow(0 6px 18px rgba(40,96,183,.24));
+}
+
+.activation-point{
+ fill:#eaf3ff;
+ stroke:#7fb6ff;
+ stroke-width:3;
+ transition:transform .18s ease, fill .18s ease, stroke .18s ease;
+ transform-origin:center;
+}
+
+.activation-hit{
+ fill:transparent;
+ stroke:none;
+ cursor:pointer;
+}
+
+.activation-point-group:hover .activation-point{
+ transform:scale(1.18);
+ fill:#9ad1ff;
+}
+
+.activation-labels text{
+ fill:#8ea8ce;
+ font-size:12px;
+ font-family:"IBM Plex Mono", monospace;
+}

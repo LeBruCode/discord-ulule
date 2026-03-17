@@ -141,6 +141,81 @@ function renderNotificationCenter(live = {}) {
  `).join("")
 }
 
+function formatShortDate(dateValue) {
+ const date = new Date(dateValue)
+ if (Number.isNaN(date.getTime())) return "-"
+ return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })
+}
+
+function renderActivationChart(points) {
+ const node = document.getElementById("activationChart")
+ if (!node) return
+ const items = Array.isArray(points) ? points : []
+ if (!items.length || items.every((point) => Number(point.count || 0) === 0)) {
+  node.innerHTML = `<div class="mini-empty">${escapeHtml(t("activation_chart_empty"))}</div>`
+  return
+ }
+
+ const width = 920
+ const height = 240
+ const paddingX = 28
+ const paddingTop = 22
+ const paddingBottom = 34
+ const usableWidth = width - (paddingX * 2)
+ const usableHeight = height - paddingTop - paddingBottom
+ const maxCount = Math.max(...items.map((point) => Number(point.count || 0)), 1)
+
+ const coordinates = items.map((point, index) => {
+  const x = paddingX + (usableWidth * (items.length === 1 ? 0.5 : index / (items.length - 1)))
+  const y = paddingTop + usableHeight - ((Number(point.count || 0) / maxCount) * usableHeight)
+  return { ...point, x, y }
+ })
+
+ const polyline = coordinates.map((point) => `${point.x},${point.y}`).join(" ")
+ const area = `M ${coordinates[0].x} ${height - paddingBottom} L ${coordinates.map((point) => `${point.x} ${point.y}`).join(" L ")} L ${coordinates[coordinates.length - 1].x} ${height - paddingBottom} Z`
+ const labels = coordinates.map((point, index) => {
+  if (index !== 0 && index !== coordinates.length - 1 && index % 2 !== 0) return ""
+  return `<text x="${point.x}" y="${height - 10}" text-anchor="middle">${escapeHtml(formatShortDate(point.date))}</text>`
+ }).join("")
+
+ node.innerHTML = `
+  <svg viewBox="0 0 ${width} ${height}" class="activation-chart-svg" role="img" aria-label="${escapeHtml(t("activation_chart_title"))}">
+   <defs>
+    <linearGradient id="activationArea" x1="0" x2="0" y1="0" y2="1">
+     <stop offset="0%" stop-color="rgba(99, 163, 255, 0.32)"></stop>
+     <stop offset="100%" stop-color="rgba(99, 163, 255, 0)"></stop>
+    </linearGradient>
+   </defs>
+   <line x1="${paddingX}" y1="${height - paddingBottom}" x2="${width - paddingX}" y2="${height - paddingBottom}" class="activation-axis"></line>
+   <path d="${area}" class="activation-area"></path>
+   <polyline points="${polyline}" class="activation-line"></polyline>
+   ${coordinates.map((point) => `
+    <g class="activation-point-group">
+     <circle cx="${point.x}" cy="${point.y}" r="5.5" class="activation-point">
+      <title>${new Date(point.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} : ${point.count}</title>
+     </circle>
+     <circle cx="${point.x}" cy="${point.y}" r="14" class="activation-hit">
+      <title>${new Date(point.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} : ${point.count}</title>
+     </circle>
+    </g>
+   `).join("")}
+   <g class="activation-labels">${labels}</g>
+  </svg>
+ `
+}
+
+async function refreshActivationChart() {
+ try {
+  const response = await fetch("/stats/activations-daily?days=14")
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || "activation chart request failed")
+  renderActivationChart(payload.points || [])
+ } catch (error) {
+  console.error("activation chart refresh error", error)
+  renderActivationChart([])
+ }
+}
+
 async function showConfirm(message, { confirmLabel = t("confirm_ok"), cancelLabel = t("confirm_cancel"), title = t("confirm_title") } = {}) {
  const modal = document.getElementById("confirmModal")
  const titleNode = document.getElementById("confirmModalTitle")
@@ -1600,6 +1675,7 @@ async function refreshAll() {
   refreshBrevoSyncStatus(),
   refreshStats(),
   refreshBrevoStats(),
+  refreshActivationChart(),
   refreshBranding(),
   loadList(),
   refreshQueueStatus(),

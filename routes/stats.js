@@ -130,4 +130,42 @@ router.get("/activity", async (req, res) => {
  }
 })
 
+router.get("/activations-daily", async (req, res) => {
+ try {
+  const days = Math.min(Math.max(parseInt(req.query.days, 10) || 14, 7), 60)
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - (days - 1))
+  const sinceIso = start.toISOString()
+
+  const { data, error } = await supabase
+   .from("access_tokens")
+   .select("used_at")
+   .eq("used", true)
+   .gte("used_at", sinceIso)
+   .order("used_at", { ascending: true })
+
+  if (error) throw error
+
+  const buckets = new Map()
+  for (let index = 0; index < days; index += 1) {
+   const day = new Date(start)
+   day.setDate(start.getDate() + index)
+   const key = day.toISOString().slice(0, 10)
+   buckets.set(key, 0)
+  }
+
+  for (const row of data || []) {
+   const key = String(row.used_at || "").slice(0, 10)
+   if (buckets.has(key)) buckets.set(key, Number(buckets.get(key) || 0) + 1)
+  }
+
+  const points = [...buckets.entries()].map(([date, count]) => ({ date, count }))
+  return res.json({ days, points })
+ } catch (error) {
+  console.error("stats activations daily route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
 export default router
