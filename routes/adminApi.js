@@ -33,6 +33,7 @@ const importQueueState = {
  total: 0,
  processed: 0,
  inserted: 0,
+ skipped: 0,
  failed: 0,
  currentEmail: null,
  lastError: null,
@@ -1063,6 +1064,7 @@ async function processImportQueue(emails) {
  importQueueState.total = emails.length
  importQueueState.processed = 0
  importQueueState.inserted = 0
+ importQueueState.skipped = 0
  importQueueState.failed = 0
  importQueueState.currentEmail = null
  importQueueState.lastError = null
@@ -1140,7 +1142,38 @@ router.post("/import", limitImport, async (req, res) => {
    return res.status(400).json({ error: "no email to import" })
   }
 
-  processImportQueue(uniqueEmails).catch((queueError) => {
+  const existingEmails = new Set()
+  const chunkSize = 500
+  for (let index = 0; index < uniqueEmails.length; index += chunkSize) {
+   const chunk = uniqueEmails.slice(index, index + chunkSize)
+   const { data, error } = await supabase
+    .from("access_tokens")
+    .select("email")
+    .in("email", chunk)
+
+   if (error) {
+    console.error("import existing emails lookup error", error)
+    return res.status(500).json({ error: "server error" })
+   }
+
+   for (const row of data || []) {
+    const email = String(row.email || "").trim().toLowerCase()
+    if (email) existingEmails.add(email)
+   }
+  }
+
+  const emailsToImport = uniqueEmails.filter((email) => !existingEmails.has(email))
+  const skippedExisting = uniqueEmails.length - emailsToImport.length
+
+  if (!emailsToImport.length) {
+   return res.status(200).json({
+    started: false,
+    total: 0,
+    skippedExisting
+   })
+  }
+
+  processImportQueue(emailsToImport).catch((queueError) => {
    console.error("import queue crash", queueError)
    importQueueState.lastError = errorMessage(queueError)
    importQueueState.running = false
@@ -1150,7 +1183,8 @@ router.post("/import", limitImport, async (req, res) => {
 
   return res.status(202).json({
    started: true,
-   total: uniqueEmails.length
+   total: emailsToImport.length,
+   skippedExisting
   })
  } catch (error) {
   console.error("import route error", error)

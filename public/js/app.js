@@ -1074,8 +1074,15 @@ async function importEmails() {
   alert(payload.error || t("alert_import_failed"))
   return
  }
+ if (payload.started === false) {
+  alert(t("alert_import_nothing_new", { skipped: payload.skippedExisting || 0 }))
+  await refreshAll()
+  return
+ }
  emailsInput.value = ""
- const importMessage = t("alert_import_started", { total: payload.total || 0 })
+ const importMessage = Number(payload.skippedExisting || 0) > 0
+  ? t("alert_import_started_skipped", { total: payload.total || 0, skipped: payload.skippedExisting || 0 })
+  : t("alert_import_started", { total: payload.total || 0 })
  alert(importMessage)
  pushNotification(importMessage, { tone: "success" })
  startImportPolling()
