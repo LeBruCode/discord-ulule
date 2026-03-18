@@ -853,12 +853,12 @@ async function sendOneAccessToken(row) {
  }
 }
 
-async function runSendQueue(rows, { mode = "default" } = {}) {
+async function runSendQueue(rows, { mode = "default", total = null } = {}) {
  const stats = { processed: 0, sent: 0, failed: 0 }
 
  sendQueueState.running = true
  sendQueueState.mode = mode
- sendQueueState.total = Array.isArray(rows) ? rows.length : 0
+ sendQueueState.total = Number.isFinite(total) ? total : (Array.isArray(rows) ? rows.length : 0)
  sendQueueState.processed = 0
  sendQueueState.currentEmail = null
  sendQueueState.lastStartedAt = new Date().toISOString()
@@ -887,7 +887,30 @@ async function processSendQueue() {
  if (sendQueueState.running) return
 
  try {
-  const rowsToSend = []
+  const stats = { processed: 0, sent: 0, failed: 0 }
+  const countQuery = supabase
+   .from("access_tokens")
+   .select("id", { count: "exact", head: true })
+   .or([
+    "email_sent.eq.false",
+    "email_sent.is.null",
+    BREVO_FAILED_STATUSES.map((status) => `brevo_status.eq.${status}`).join(",")
+   ].join(","))
+
+  const { count, error: countError } = await countQuery
+  if (countError) {
+   console.error("send queue count error", countError)
+   return
+  }
+
+  sendQueueState.running = true
+  sendQueueState.mode = "default"
+  sendQueueState.total = count || 0
+  sendQueueState.processed = 0
+  sendQueueState.currentEmail = null
+  sendQueueState.lastStartedAt = new Date().toISOString()
+  sendQueueState.lastFinishedAt = null
+
   while (true) {
    const { data, error } = await supabase
     .from("access_tokens")
@@ -907,9 +930,19 @@ async function processSendQueue() {
 
    const rows = applySendEligibility(data)
    if (!rows.length) break
-   rowsToSend.push(...rows)
+
+   for (const row of rows) {
+    sendQueueState.currentEmail = row.email || null
+    const result = await sendOneAccessToken(row)
+    stats.processed += 1
+    stats.sent += result.sent
+    stats.failed += result.failed
+    sendQueueState.processed = stats.processed
+    await sleep(BREVO_INTER_SEND_DELAY_MS)
+   }
   }
-  await runSendQueue(rowsToSend, { mode: "default" })
+
+  sendQueueState.lastStats = stats
  } finally {
   if (sendQueueState.running) {
    sendQueueState.running = false
@@ -1007,17 +1040,25 @@ async function fetchAllFilteredIds(filters, { batchSize = 1000, orderAscending =
  return { ids, total, error: null }
 }
 
-async function fetchAllFilteredRows(filters, { select = "*", batchSize = 1000, orderAscending = false } = {}) {
+async function getFilteredCount(filters) {
  const countQuery = applyListFilters(
   supabase.from("access_tokens").select("id", { count: "exact", head: true }),
   filters
  )
  const countResult = await countQuery
- if (countResult.error) return { rows: [], total: 0, error: countResult.error }
+ if (countResult.error) return { total: 0, error: countResult.error }
+ return { total: countResult.count || 0, error: null }
+}
 
- const total = countResult.count || 0
- const rows = []
+async function forEachFilteredBatch(
+ filters,
+ { select = "*", batchSize = 1000, orderAscending = false } = {},
+ onBatch
+) {
+ const { total, error } = await getFilteredCount(filters)
+ if (error) return { total: 0, processed: 0, error }
 
+ let processed = 0
  for (let offset = 0; offset < total; offset += batchSize) {
   const end = Math.min(offset + batchSize - 1, total - 1)
   let query = supabase
@@ -1027,12 +1068,30 @@ async function fetchAllFilteredRows(filters, { select = "*", batchSize = 1000, o
   query = applyListFilters(query, filters)
   query = query.order("created_at", { ascending: orderAscending }).range(offset, end)
 
-  const { data, error } = await query
-  if (error) return { rows, total, error }
-  rows.push(...(Array.isArray(data) ? data : []))
+  const { data, error: batchError } = await query
+  if (batchError) return { total, processed, error: batchError }
+
+  const rows = Array.isArray(data) ? data : []
+  processed += rows.length
+  if (rows.length) {
+   await onBatch(rows, { total, processed, offset })
+  }
  }
 
- return { rows, total, error: null }
+ return { total, processed, error: null }
+}
+
+async function fetchAllFilteredRows(filters, { select = "*", batchSize = 1000, orderAscending = false } = {}) {
+ const rows = []
+ const { total, error } = await forEachFilteredBatch(
+  filters,
+  { select, batchSize, orderAscending },
+  async (batchRows) => {
+   rows.push(...batchRows)
+  }
+ )
+
+ return { rows, total, error }
 }
 
 function buildTimeline(row) {
@@ -1441,18 +1500,55 @@ router.post("/resend-filtered", limitResend, async (req, res) => {
   }
 
   const filters = normalizeListFilters(req.body)
-  const { rows, error } = await fetchAllFilteredRows(filters, {
-   select: "id,email,token,used,email_sent,brevo_status,resend_excluded",
-   batchSize: 1000,
-   orderAscending: true
-  })
-  if (error) {
-   console.error("filtered resend fetch error", error)
+  const { total, error: countError } = await getFilteredCount(filters)
+  if (countError) {
+   console.error("filtered resend count error", countError)
    return res.status(500).json({ error: "server error" })
   }
+  const runFilteredQueue = async () => {
+   const stats = { processed: 0, sent: 0, failed: 0 }
+   sendQueueState.running = true
+   sendQueueState.mode = "filtered"
+   sendQueueState.total = total
+   sendQueueState.processed = 0
+   sendQueueState.currentEmail = null
+   sendQueueState.lastStartedAt = new Date().toISOString()
+   sendQueueState.lastFinishedAt = null
 
-  const eligibleRows = applySendEligibility(rows)
-  runSendQueue(eligibleRows, { mode: "filtered" }).catch((queueError) => {
+   try {
+    const batchResult = await forEachFilteredBatch(
+     filters,
+     {
+      select: "id,email,token,used,email_sent,brevo_status,resend_excluded",
+      batchSize: 500,
+      orderAscending: true
+     },
+     async (rows) => {
+      for (const row of applySendEligibility(rows)) {
+       sendQueueState.currentEmail = row.email || null
+       const result = await sendOneAccessToken(row)
+       stats.processed += 1
+       stats.sent += result.sent
+       stats.failed += result.failed
+       sendQueueState.processed = stats.processed
+       await sleep(BREVO_INTER_SEND_DELAY_MS)
+      }
+     }
+    )
+
+    if (batchResult.error) {
+     throw batchResult.error
+    }
+   } finally {
+    sendQueueState.running = false
+    sendQueueState.mode = "idle"
+    sendQueueState.currentEmail = null
+    sendQueueState.lastFinishedAt = new Date().toISOString()
+    sendQueueState.lastStats = stats
+   }
+  }
+
+  runFilteredQueue().catch((queueError) => {
    console.error("filtered resend queue crash", queueError)
    sendQueueState.running = false
    sendQueueState.mode = "idle"
@@ -1460,7 +1556,7 @@ router.post("/resend-filtered", limitResend, async (req, res) => {
    sendQueueState.lastFinishedAt = new Date().toISOString()
   })
 
-  return res.status(202).json({ success: true, queued: eligibleRows.length, running: true })
+  return res.status(202).json({ success: true, queued: total, running: true })
  } catch (error) {
   console.error("filtered resend route error", error)
   return res.status(500).json({ error: "server error" })
@@ -1518,34 +1614,38 @@ router.post("/exclude-filtered", limitResend, async (req, res) => {
  try {
   const filters = normalizeListFilters(req.body)
   const excluded = Boolean(req.body?.excluded)
-  const { rows, error } = await fetchAllFilteredRows(filters, {
-   select: "id",
-   batchSize: 1000,
-   orderAscending: false
-  })
-  if (error) {
-   console.error("exclude filtered fetch error", error)
+  let updated = 0
+  const batchResult = await forEachFilteredBatch(
+   filters,
+   {
+    select: "id",
+    batchSize: 1000,
+    orderAscending: false
+   },
+   async (rows) => {
+    const ids = normalizeIdList(rows.map((row) => row.id))
+    if (!ids.length) return
+
+    const { data: updatedData, error: updateError } = await supabase
+     .from("access_tokens")
+     .update({
+      resend_excluded: excluded,
+      admin_note_updated_at: new Date().toISOString()
+     })
+     .in("id", ids)
+     .select("id")
+
+    if (updateError) throw updateError
+    updated += Array.isArray(updatedData) ? updatedData.length : 0
+   }
+  )
+
+  if (batchResult.error) {
+   console.error("exclude filtered update error", batchResult.error)
    return res.status(500).json({ error: "server error" })
   }
 
-  const ids = normalizeIdList((rows || []).map((row) => row.id))
-  if (!ids.length) return res.json({ success: true, updated: 0, excluded })
-
-  const { data: updatedData, error: updateError } = await supabase
-   .from("access_tokens")
-   .update({
-    resend_excluded: excluded,
-    admin_note_updated_at: new Date().toISOString()
-   })
-   .in("id", ids)
-   .select("id")
-
-  if (updateError) {
-   console.error("exclude filtered update error", updateError)
-   return res.status(500).json({ error: "server error" })
-  }
-
-  return res.json({ success: true, updated: Array.isArray(updatedData) ? updatedData.length : 0, excluded })
+  return res.json({ success: true, updated, excluded })
  } catch (error) {
   console.error("exclude filtered route error", error)
   return res.status(500).json({ error: "server error" })
@@ -1728,30 +1828,40 @@ router.post("/dashboard-copy", limitResend, async (req, res) => {
 router.get("/export", limitList, async (req, res) => {
  try {
   const filters = normalizeListFilters(req.query)
-  const { rows, error } = await fetchAllFilteredRows(filters, {
-   select: "email,email_sent,used,email_sent_at,used_at,brevo_status,email_error,resend_excluded,admin_note,created_at",
-   batchSize: 1000,
-   orderAscending: false
-  })
-  if (error) {
-   console.error("export route error", error)
-   return res.status(500).json({ error: "server error" })
-  }
-
-  const normalizedRows = Array.isArray(rows) ? rows : []
   const header = ["email", "email_sent", "used", "email_sent_at", "used_at", "brevo_status", "email_error", "resend_excluded", "admin_note", "created_at"]
-  const csvLines = [
-   header.join(","),
-   ...normalizedRows.map((row) => header.map((key) => {
-    const value = row[key]
-    const normalized = value == null ? "" : String(value)
-    return `"${normalized.replaceAll('"', '""')}"`
-   }).join(","))
-  ]
-
   res.setHeader("Content-Type", "text/csv; charset=utf-8")
   res.setHeader("Content-Disposition", `attachment; filename="access_tokens_export_${Date.now()}.csv"`)
-  return res.send(csvLines.join("\n"))
+  res.write(`${header.join(",")}\n`)
+
+  const batchResult = await forEachFilteredBatch(
+   filters,
+   {
+    select: "email,email_sent,used,email_sent_at,used_at,brevo_status,email_error,resend_excluded,admin_note,created_at",
+    batchSize: 1000,
+    orderAscending: false
+   },
+   async (rows) => {
+    for (const row of rows) {
+     const csvRow = header.map((key) => {
+      const value = row[key]
+      const normalized = value == null ? "" : String(value)
+      return `"${normalized.replaceAll('"', '""')}"`
+     }).join(",")
+     res.write(`${csvRow}\n`)
+    }
+   }
+  )
+
+  if (batchResult.error) {
+   console.error("export route error", batchResult.error)
+   if (!res.headersSent) {
+    return res.status(500).json({ error: "server error" })
+   }
+   res.destroy(batchResult.error)
+   return
+  }
+
+  return res.end()
  } catch (error) {
   console.error("export route unhandled error", error)
   return res.status(500).json({ error: "server error" })
