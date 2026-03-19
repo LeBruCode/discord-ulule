@@ -139,7 +139,7 @@
 </section>
 
 <aside class="detail-drawer hidden" id="dayPulseDrawer">
-<div class="detail-card day-pulse-card">
+<div class="detail-card day-pulse-card mobile-sheet-card">
 <div class="detail-header">
 <div>
 <p id="dayPulseDrawerEyebrow" class="eyebrow">Le pouls des dernières 24 heures</p>
@@ -147,6 +147,7 @@
 </div>
 <button id="dayPulseCloseBtn" type="button" class="ghost">Refermer ça</button>
 </div>
+<button type="button" class="copy-mobile-close mobile-sheet-close" data-close-sheet="dayPulseDrawer" aria-label="Fermer le pouls des 24 heures">×</button>
 <p id="dayPulseCopy" class="panel-copy">Une vue vivante pour voir ce qui a bougé aujourd'hui, sans fouiller le tableau.</p>
 <div id="dayPulseSummary" class="day-pulse-summary"></div>
 <div id="dayPulseList" class="day-pulse-list"></div>
@@ -302,7 +303,7 @@
 </section>
 
 <aside class="detail-drawer hidden" id="brandingDrawer">
-<div class="detail-card">
+<div class="detail-card mobile-sheet-card">
 <div class="detail-header">
 <div>
 <p id="brandingEyebrow" class="eyebrow">Logo du projet</p>
@@ -310,6 +311,7 @@
 </div>
 <button id="brandingCloseBtn" type="button" class="ghost">Refermer ça</button>
 </div>
+<button type="button" class="copy-mobile-close mobile-sheet-close" data-close-sheet="brandingDrawer" aria-label="Fermer les réglages du logo">×</button>
 <p class="panel-copy" id="brandingCopy">Ajoute un logo pour raccrocher ce dashboard à ton projet. PNG ou JPEG, en glissant-déposant ou en cliquant.</p>
 <div class="detail-actions">
 <button id="copyFromBrandingBtn" type="button" class="ghost">Textes du dashboard</button>
@@ -376,7 +378,7 @@
 </section>
 
 <aside class="detail-drawer hidden" id="detailDrawer">
-<div class="detail-card">
+<div class="detail-card mobile-sheet-card">
 <div class="detail-header">
 <div>
 <p class="eyebrow" data-copy="detailEyebrow">Zoom sur la ligne</p>
@@ -384,6 +386,7 @@
 </div>
 <button id="detailCloseBtn" type="button" class="ghost">Refermer ça</button>
 </div>
+<button type="button" class="copy-mobile-close mobile-sheet-close" data-close-sheet="detailDrawer" aria-label="Fermer le détail">×</button>
 <div id="detailSummary" class="detail-summary">
 <div class="detail-summary-copy">
 <span id="detailSummaryLabel">Statut du contact</span>
@@ -446,11 +449,12 @@
 <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
 <div id="confirmModal" class="confirm-modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
-<div class="confirm-card">
+<div class="confirm-card mobile-confirm-card">
 <div class="confirm-head">
 <p id="confirmModalEyebrow" class="eyebrow">Confirmation</p>
 <h2 id="confirmModalTitle">Tu veux continuer ?</h2>
 </div>
+<button id="confirmModalCloseBtn" type="button" class="copy-mobile-close mobile-sheet-close confirm-mobile-close" aria-label="Fermer la confirmation">×</button>
 <p id="confirmModalMessage" class="panel-copy">-</p>
 <div class="confirm-actions">
 <button id="confirmModalCancel" type="button" class="ghost">Annuler</button>

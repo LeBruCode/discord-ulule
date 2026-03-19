@@ -1811,6 +1811,7 @@ document.getElementById("supportLookup")?.addEventListener("keydown", (event) =>
 })
 document.getElementById("confirmModalCancel").addEventListener("click", () => closeConfirm(false))
 document.getElementById("confirmModalOk").addEventListener("click", () => closeConfirm(true))
+document.getElementById("confirmModalCloseBtn").addEventListener("click", () => closeConfirm(false))
 document.getElementById("confirmModal").addEventListener("click", (event) => {
  if (event.target.id === "confirmModal") closeConfirm(false)
 })
@@ -1826,6 +1827,14 @@ document.getElementById("brandingDrawer").addEventListener("click", (event) => {
 document.getElementById("copyDrawer").addEventListener("click", async (event) => {
  if (event.target.id === "copyDrawer") await closeCopyDrawer()
 })
+for (const button of document.querySelectorAll("[data-close-sheet]")) {
+ button.addEventListener("click", async (event) => {
+  const target = event.currentTarget.getAttribute("data-close-sheet")
+  if (target === "detailDrawer") closeDetailDrawer()
+  if (target === "brandingDrawer") closeBrandingDrawer()
+  if (target === "dayPulseDrawer") closeDayPulseDrawer()
+ })
+}
 document.getElementById("focusScrim")?.addEventListener("click", () => {
  closeDetailDrawer()
  closeCopyDrawer()
