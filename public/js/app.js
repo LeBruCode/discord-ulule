@@ -1774,6 +1774,7 @@ document.getElementById("detailSummaryActionBtn").addEventListener("click", hand
 document.getElementById("detailResendBtn").addEventListener("click", resendDetailEmail)
 document.getElementById("saveNoteBtn").addEventListener("click", saveDetailNote)
 document.getElementById("copyCloseBtn").addEventListener("click", closeCopyDrawer)
+document.getElementById("copyCloseMobileBtn").addEventListener("click", closeCopyDrawer)
 document.getElementById("brandingOpenBtn").addEventListener("click", openBrandingDrawer)
 document.getElementById("brandingCloseBtn").addEventListener("click", closeBrandingDrawer)
 document.getElementById("copyFromBrandingBtn").addEventListener("click", openCopyDrawer)
