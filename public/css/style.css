@@ -36,24 +36,53 @@ body{
  display:grid;
  place-items:center;
  padding:24px;
+ position:relative;
+ overflow-x:hidden;
 }
 
 .landing-shell{
- width:min(920px, 100%);
+ position:relative;
+ z-index:1;
+ width:min(1080px, 100%);
+}
+
+.landing-noise{
+ position:fixed;
+ inset:0;
+ pointer-events:none;
+ background:
+  radial-gradient(circle at 10% 18%, rgba(82,149,255,.16), transparent 28%),
+  radial-gradient(circle at 88% 16%, rgba(49,101,202,.18), transparent 24%),
+  radial-gradient(circle at 55% 82%, rgba(19,44,86,.3), transparent 38%);
+ opacity:.95;
 }
 
 .landing-card{
  display:grid;
- grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);
- gap:24px;
+ grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr);
+ gap:28px;
  align-items:stretch;
- padding:28px;
- border-radius:28px;
- border:1px solid rgba(43,62,95,.82);
+ padding:34px;
+ border-radius:32px;
+ border:1px solid rgba(58,83,126,.72);
  background:
-  radial-gradient(circle at top left, rgba(63,140,255,.14), transparent 34%),
-  linear-gradient(180deg, rgba(18,29,48,.96), rgba(10,16,27,.98));
- box-shadow:0 24px 60px rgba(0,0,0,.32);
+  radial-gradient(circle at top left, rgba(63,140,255,.18), transparent 36%),
+  radial-gradient(circle at 78% 22%, rgba(74,128,220,.14), transparent 28%),
+  linear-gradient(180deg, rgba(18,29,48,.96), rgba(10,16,27,.985));
+ box-shadow:0 28px 70px rgba(0,0,0,.34);
+ position:relative;
+ overflow:hidden;
+}
+
+.landing-card::after{
+ content:"";
+ position:absolute;
+ inset:auto -90px -120px auto;
+ width:280px;
+ height:280px;
+ border-radius:50%;
+ background:radial-gradient(circle, rgba(63,140,255,.12), rgba(63,140,255,0) 70%);
+ pointer-events:none;
 }
 
 .landing-brand{
@@ -63,35 +92,88 @@ body{
  min-width:0;
 }
 
+.landing-brand-top{
+ display:flex;
+ align-items:center;
+ gap:18px;
+}
+
+.landing-brand-copy{
+ display:grid;
+ gap:4px;
+}
+
 .landing-logo{
- width:140px;
+ width:160px;
  height:auto;
  object-fit:contain;
+ filter:drop-shadow(0 10px 24px rgba(10,18,32,.28));
+}
+
+.landing-project{
+ margin:0;
+ color:#f3f7ff;
+ font-size:18px;
+ font-weight:700;
+ letter-spacing:-.03em;
 }
 
 .landing-brand h1{
  margin:0;
- font-size:clamp(32px, 5vw, 54px);
+ font-size:clamp(38px, 5.4vw, 66px);
  line-height:.96;
  letter-spacing:-.04em;
+ max-width:10ch;
+ text-wrap:balance;
 }
 
 .landing-copy{
  margin:0;
- color:#bfd1ef;
+ color:#c6d6f1;
  font-size:15px;
  line-height:1.7;
- max-width:42ch;
+ max-width:46ch;
+}
+
+.landing-highlights{
+ display:flex;
+ flex-wrap:wrap;
+ gap:10px;
+}
+
+.landing-chip{
+ display:inline-flex;
+ align-items:center;
+ gap:8px;
+ padding:10px 14px;
+ border-radius:999px;
+ border:1px solid rgba(78,110,157,.56);
+ background:rgba(10,18,32,.62);
+ color:#d7e5fb;
+ font-size:12px;
+ font-weight:700;
+ letter-spacing:.06em;
+ text-transform:uppercase;
 }
 
 .landing-form{
  display:grid;
  gap:12px;
- padding:20px;
- border-radius:22px;
- border:1px solid rgba(53,77,115,.8);
- background:rgba(8,14,25,.74);
+ padding:24px;
+ border-radius:24px;
+ border:1px solid rgba(73,105,154,.58);
+ background:linear-gradient(180deg, rgba(9,15,25,.88), rgba(10,18,32,.76));
  align-content:start;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+.landing-form-eyebrow{
+ margin:0 0 2px;
+ color:#9eb4d9;
+ font-size:12px;
+ font-weight:700;
+ letter-spacing:.12em;
+ text-transform:uppercase;
 }
 
 .landing-form label{
@@ -112,6 +194,13 @@ body{
  color:#7287ab;
  font-size:12px;
  line-height:1.55;
+}
+
+.landing-form button{
+ margin-top:4px;
+ min-height:48px;
+ font-size:15px;
+ font-weight:700;
 }
 
 .background-glow{
@@ -1935,6 +2024,7 @@ body.daily-ops .mission-copy .panel-copy{
  .mission-side-grid{grid-template-columns:1fr;}
  .support-search-row{grid-template-columns:1fr;}
  .landing-card{grid-template-columns:1fr;}
+ .landing-brand h1{max-width:none;}
 }
 
 @media (max-width:760px){
@@ -1952,8 +2042,14 @@ body.daily-ops .mission-copy .panel-copy{
   padding:16px;
  }
 
+ .landing-brand-top{
+  align-items:flex-start;
+  flex-direction:column;
+  gap:12px;
+ }
+
  .landing-logo{
-  width:min(150px, 42vw) !important;
+  width:min(170px, 46vw) !important;
  }
 
  .detail-drawer{

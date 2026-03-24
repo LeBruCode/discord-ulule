@@ -10,19 +10,31 @@
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body class="landing-body">
+<div class="landing-noise" aria-hidden="true"></div>
 <main class="landing-shell">
 <section class="landing-card">
 <div class="landing-brand">
+<div class="landing-brand-top">
 <img id="landingLogo" class="landing-logo hidden" alt="Logo du projet">
+<div class="landing-brand-copy">
 <p class="eyebrow">Accès contributeurs</p>
-<h1>Coulisses du film sur Discord</h1>
+<p class="landing-project">Le film de Haroun</p>
+</div>
+</div>
+<h1>Rejoins les coulisses sur Discord</h1>
 <p class="landing-copy">
-Tu as contribué à la campagne Ulule ? Renseigne l'adresse e-mail utilisée pour ta contribution.
-On t'envoie un lien pour rejoindre les coulisses sur Discord.
+Tu as participé à la campagne Ulule ? Entre l'adresse e-mail utilisée pour ta contribution.
+On t'envoie un lien pour rejoindre l'espace privé du film, sans détour et sans prise de tête.
 </p>
+<div class="landing-highlights" aria-hidden="true">
+<span class="landing-chip">Accès privé</span>
+<span class="landing-chip">Lien par e-mail</span>
+<span class="landing-chip">Coulisses du film</span>
+</div>
 </div>
 
 <form id="landingForm" class="landing-form">
+<p class="landing-form-eyebrow">On te retrouve en deux secondes</p>
 <label for="landingEmail">Ton e-mail Ulule</label>
 <input id="landingEmail" name="email" type="email" inputmode="email" autocomplete="email" placeholder="toi@exemple.fr" required>
 <button id="landingSubmitBtn" type="submit">Recevoir mon lien</button>
