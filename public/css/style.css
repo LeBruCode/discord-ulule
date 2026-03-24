@@ -145,6 +145,112 @@ body{
  align-self:center;
 }
 
+.landing-story-block,
+.landing-side-block{
+ display:grid;
+ gap:14px;
+ padding:18px;
+ border-radius:22px;
+ border:1px solid rgba(60,88,128,.58);
+ background:rgba(9,15,25,.46);
+}
+
+.landing-section-head{
+ display:grid;
+ gap:4px;
+}
+
+.landing-section-head h2{
+ margin:0;
+ font-size:22px;
+ line-height:1.08;
+ color:#eff5ff;
+ letter-spacing:-.03em;
+}
+
+.landing-steps{
+ display:grid;
+ grid-template-columns:repeat(3, minmax(0, 1fr));
+ gap:12px;
+}
+
+.landing-step{
+ display:grid;
+ gap:8px;
+ padding:16px;
+ border-radius:18px;
+ border:1px solid rgba(72,103,149,.48);
+ background:linear-gradient(180deg, rgba(13,22,37,.92), rgba(8,14,25,.84));
+}
+
+.landing-step span{
+ display:inline-flex;
+ width:36px;
+ height:36px;
+ align-items:center;
+ justify-content:center;
+ border-radius:999px;
+ border:1px solid rgba(96,129,180,.5);
+ background:rgba(63,140,255,.12);
+ color:#dce9ff;
+ font-size:12px;
+ font-weight:700;
+ letter-spacing:.08em;
+}
+
+.landing-step strong,
+.landing-faq-item strong{
+ color:#edf4ff;
+ font-size:14px;
+ line-height:1.35;
+}
+
+.landing-step p,
+.landing-faq-item p{
+ margin:0;
+ color:#a8bcdb;
+ font-size:13px;
+ line-height:1.6;
+}
+
+.landing-inside-list,
+.landing-faq-list{
+ display:grid;
+ gap:10px;
+ margin:0;
+ padding:0;
+ list-style:none;
+}
+
+.landing-inside-list li{
+ position:relative;
+ padding-left:18px;
+ color:#dbe7fb;
+ font-size:14px;
+ line-height:1.6;
+}
+
+.landing-inside-list li::before{
+ content:"";
+ position:absolute;
+ left:0;
+ top:.62em;
+ width:7px;
+ height:7px;
+ border-radius:999px;
+ background:#71a9ff;
+ box-shadow:0 0 0 5px rgba(113,169,255,.12);
+}
+
+.landing-faq-item{
+ display:grid;
+ gap:6px;
+ padding:14px;
+ border-radius:16px;
+ border:1px solid rgba(62,88,128,.42);
+ background:rgba(11,18,31,.7);
+}
+
 .landing-chip{
  display:inline-flex;
  align-items:center;
@@ -2074,6 +2180,15 @@ body.daily-ops .mission-copy .panel-copy{
 
  .landing-logo{
   width:min(170px, 46vw) !important;
+ }
+
+ .landing-steps{
+  grid-template-columns:1fr;
+ }
+
+ .landing-story-block,
+ .landing-side-block{
+  padding:16px;
  }
 
  .detail-drawer{

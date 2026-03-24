@@ -65,7 +65,7 @@ async function handleLandingSubmit(event) {
   }
 
   form.reset()
-  status.textContent = payload.message || t("landing_status_idle")
+  status.textContent = payload.message || t("landing_status_success")
  } catch (error) {
   console.error("landing request error", error)
   status.textContent = t("landing_status_error")
