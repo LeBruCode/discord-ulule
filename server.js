@@ -6,6 +6,7 @@ import helmet from "helmet"
 import path from "path"
 import session from "express-session"
 import { fileURLToPath } from "url"
+import vm from "vm"
 
 import adminApi from "./routes/adminApi.js"
 import statsRoutes from "./routes/stats.js"
@@ -46,6 +47,8 @@ const adminAuthCookieName = getAdminAuthCookieName()
 const adminAuthCookieMaxAgeMs = getAdminAuthCookieMaxAgeMs()
 const APP_SETTINGS_TABLE = "app_settings"
 const DASHBOARD_BRANDING_KEY = "dashboard_branding"
+const DASHBOARD_COPY_KEY = "dashboard_copy"
+const dashboardCopyFilePath = path.join(__dirname, "public", "js", "dashboardCopy.js")
 
 function safeEqualText(a, b) {
  const left = Buffer.from(String(a || ""), "utf8")
@@ -74,6 +77,40 @@ async function readPublicBranding() {
   console.warn("server landing branding read skipped", error?.message || error)
   return { logoPath: null, logoDataUrl: null, logoWidth: 96, updatedAt: null }
  }
+}
+
+async function readPublicCopyDefaults() {
+ try {
+  const source = await fs.readFile(dashboardCopyFilePath, "utf8")
+  const context = { window: {} }
+  vm.createContext(context)
+  vm.runInContext(source, context)
+  return context.window?.DASHBOARD_COPY || {}
+ } catch (error) {
+  console.warn("server landing copy defaults read skipped", error?.message || error)
+  return {}
+ }
+}
+
+async function readPublicCopy() {
+ const defaults = await readPublicCopyDefaults()
+
+ try {
+  const { data, error } = await supabase
+   .from(APP_SETTINGS_TABLE)
+   .select("value")
+   .eq("key", DASHBOARD_COPY_KEY)
+   .maybeSingle()
+
+  if (error) throw error
+  if (data?.value && typeof data.value === "object") {
+   return { ...defaults, ...data.value }
+  }
+ } catch (error) {
+  console.warn("server landing copy read skipped", error?.message || error)
+ }
+
+ return defaults
 }
 
 function buildBrandingAssetUrl(branding = {}) {
@@ -109,11 +146,15 @@ app.get("/", async (req,res)=>{
  try {
   const landingTemplate = await fs.readFile(path.join(__dirname, "views", "landing.html"), "utf8")
   const branding = await readPublicBranding()
+  const copy = await readPublicCopy()
   const logoUrl = buildBrandingAssetUrl(branding)
+  const serializedCopy = JSON.stringify(copy)
+   .replaceAll("</script>", "<\\/script>")
   const html = landingTemplate
    .replaceAll("__LANDING_LOGO_SRC__", logoUrl || "")
    .replaceAll("__LANDING_LOGO_CLASS__", logoUrl ? "" : "hidden")
    .replaceAll("__LANDING_LOGO_WIDTH__", String(Number(branding.logoWidth) || 96))
+   .replaceAll("__LANDING_COPY_JSON__", serializedCopy)
 
   res.setHeader("Cache-Control", "no-store")
   res.send(html)

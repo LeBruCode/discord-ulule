@@ -104,6 +104,12 @@ Petit rappel : si ton adresse est bien dans la liste des contributeurs, tu recev
 </main>
 
 <script src="/js/dashboardCopy.js"></script>
+<script>
+window.DASHBOARD_COPY = { ...(window.DASHBOARD_COPY || {}), ...__LANDING_COPY_JSON__ }
+if (typeof window.applyDashboardCopy === "function") {
+ window.applyDashboardCopy()
+}
+</script>
 <script src="/js/landing.js"></script>
 </body>
 </html>
