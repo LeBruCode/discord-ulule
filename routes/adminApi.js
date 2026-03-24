@@ -1889,6 +1889,38 @@ router.post("/delete", limitDelete, async (req, res) => {
   return res.json({ success: true })
  } catch (error) {
   console.error("delete route unhandled error", error)
+ return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.post("/regenerate-token", limitResend, async (req, res) => {
+ try {
+  const rawId = req.body?.id
+  const id = String(rawId || "").trim()
+  if (!UUID_V4_OR_V7_REGEX.test(id)) {
+   return res.status(400).json({ error: "valid uuid id required" })
+  }
+
+  const nextToken = token()
+  const { data, error } = await supabase
+   .from("access_tokens")
+   .update({ token: nextToken })
+   .eq("id", id)
+   .select("id,email,token")
+   .maybeSingle()
+
+  if (error) {
+   console.error("regenerate token route error", error)
+   return res.status(500).json({ error: "server error" })
+  }
+
+  if (!data) {
+   return res.status(404).json({ error: "not found" })
+  }
+
+  return res.json({ success: true, id: data.id, email: data.email, token: data.token })
+ } catch (error) {
+  console.error("regenerate token route unhandled error", error)
   return res.status(500).json({ error: "server error" })
  }
 })

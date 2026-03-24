@@ -38,6 +38,7 @@ function iconSvg(name) {
  const icons = {
   detail: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
   resend: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v10H4z"></path><path d="m4 8 8 6 8-6"></path></svg>',
+  token: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8.5" cy="15.5" r="3.5"></circle><path d="M11.5 12.5 20 4"></path><path d="M15 6h3v3"></path><path d="M17 4h3v3"></path></svg>',
   delete: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6 7l1 12h10l1-12"></path><path d="M9 7V4h6v3"></path></svg>',
   discord: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 8.4c1.1-.5 2.2-.8 3.3-.8 1.1 0 2.2.3 3.3.8"></path><path d="M7.1 16.7c-1-.7-1.8-1.8-2.3-3.3.5-2.4 1.6-4.2 3.1-5.4.8-.1 1.6 0 2.4.4l.4.8"></path><path d="M16.9 16.7c1-.7 1.8-1.8 2.3-3.3-.5-2.4-1.6-4.2-3.1-5.4-.8-.1-1.6 0-2.4.4l-.4.8"></path><circle cx="9.5" cy="12.5" r="1"></circle><circle cx="14.5" cy="12.5" r="1"></circle><path d="M8.8 17.5c1 .5 2.1.8 3.2.8 1.1 0 2.2-.3 3.2-.8"></path></svg>',
   spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 1.7 4.5L18 8.2l-4.3 1.7L12 14.4l-1.7-4.5L6 8.2l4.3-1.7L12 2z"></path><path d="m19 14 1 2.6 2.5 1-2.5 1-1 2.4-1-2.4-2.5-1 2.5-1L19 14z"></path><path d="m5 15 .8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z"></path></svg>'
@@ -1029,6 +1030,7 @@ function renderRows(rows) {
     <td class="actions-cell">
      <button class="icon-btn detail-btn" data-id="${id}" title="${escapeHtml(t("row_detail_title"))}" aria-label="${escapeHtml(t("row_detail_title"))}">${iconSvg("detail")}</button>
      <button class="icon-btn resend-btn" data-email="${email}" title="${escapeHtml(t("row_resend_title"))}" aria-label="${escapeHtml(t("row_resend_title"))}">${iconSvg("resend")}</button>
+     <button class="icon-btn token-btn" data-id="${id}" data-email="${email}" title="${escapeHtml(t("row_regenerate_token_title"))}" aria-label="${escapeHtml(t("row_regenerate_token_title"))}">${iconSvg("token")}</button>
      <button class="icon-btn delete-btn" data-id="${id}" data-email="${email}" title="${escapeHtml(t("row_delete_title"))}" aria-label="${escapeHtml(t("row_delete_title"))}">${iconSvg("delete")}</button>
     </td>
    </tr>`
@@ -1224,6 +1226,27 @@ async function resendEmail(email) {
  const resendMessage = t("alert_resend_ok", { email })
  alert(resendMessage)
  pushNotification(resendMessage, { tone: "success" })
+ await refreshAll()
+}
+
+async function regenerateToken(id, email) {
+ const confirmed = await confirmAction(t("confirm_regenerate_token", { email }))
+ if (!confirmed) return
+
+ const response = await fetch("/admin/api/regenerate-token", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ id })
+ })
+ const payload = await response.json()
+ if (!response.ok) {
+  alert(payload.error || t("alert_regenerate_token_failed"))
+  return
+ }
+
+ const tokenMessage = t("alert_regenerate_token_ok", { email })
+ alert(tokenMessage)
+ pushNotification(tokenMessage, { tone: "success" })
  await refreshAll()
 }
 
@@ -1716,6 +1739,14 @@ async function resendDetailEmail() {
  }
 }
 
+async function regenerateDetailToken() {
+ if (!currentDetailId || !currentDetailEmail) return
+ await regenerateToken(currentDetailId, currentDetailEmail)
+ if (currentDetailId) {
+  await openDetail(currentDetailId)
+ }
+}
+
 function handleDetailSummaryAction() {
  const button = document.getElementById("detailSummaryActionBtn")
  const action = button?.dataset.action || "close"
@@ -1813,6 +1844,7 @@ document.getElementById("dayPulseOpenBtn").addEventListener("click", openDayPuls
 document.getElementById("dayPulseCloseBtn").addEventListener("click", closeDayPulseDrawer)
 document.getElementById("detailSummaryActionBtn").addEventListener("click", handleDetailSummaryAction)
 document.getElementById("detailResendBtn").addEventListener("click", resendDetailEmail)
+document.getElementById("detailRegenerateTokenBtn").addEventListener("click", regenerateDetailToken)
 document.getElementById("saveNoteBtn").addEventListener("click", saveDetailNote)
 document.getElementById("copyCloseBtn").addEventListener("click", closeCopyDrawer)
 document.getElementById("copyCloseMobileBtn").addEventListener("click", closeCopyDrawer)
@@ -1985,6 +2017,15 @@ document.getElementById("table").addEventListener("click", async (event) => {
   await resendEmail(email)
   return
  }
+
+  const tokenButton = event.target.closest(".token-btn")
+  if (tokenButton) {
+   const id = tokenButton.getAttribute("data-id")
+   const email = tokenButton.getAttribute("data-email")
+   if (!id || !email) return
+   await regenerateToken(id, email)
+   return
+  }
 
  const deleteButton = event.target.closest(".delete-btn")
  if (!deleteButton) return
