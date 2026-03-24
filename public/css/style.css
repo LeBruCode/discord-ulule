@@ -933,6 +933,48 @@ textarea{
  margin:0 0 16px;
 }
 
+.copy-editor-section{
+ display:grid;
+ gap:12px;
+}
+
+.copy-editor-section-head{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:12px;
+ padding:0 2px;
+}
+
+.copy-editor-section-head p{
+ margin:0;
+ font-size:12px;
+ font-weight:800;
+ letter-spacing:.08em;
+ text-transform:uppercase;
+ color:#90aed8;
+}
+
+.copy-editor-section-head span{
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ min-width:32px;
+ height:28px;
+ padding:0 10px;
+ border-radius:999px;
+ border:1px solid rgba(104,149,219,.32);
+ background:rgba(13,24,43,.9);
+ color:#dbe8ff;
+ font-size:12px;
+ font-weight:800;
+}
+
+.copy-editor-section-list{
+ display:grid;
+ gap:12px;
+}
+
 .copy-editor-row{
  display:grid;
  gap:8px;

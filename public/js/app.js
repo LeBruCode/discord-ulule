@@ -18,6 +18,16 @@ let supportMatch = null
 const COCKPIT_MODE_KEY = "dashboard-cockpit-mode"
 const NOTIFICATION_STORE_KEY = "dashboard-notifications"
 let activationChartRange = "14"
+const COPY_ENTRY_GROUPS = {
+ landing: {
+  label: "Page publique",
+  order: 0
+ },
+ dashboard: {
+  label: "Dashboard admin",
+  order: 1
+ }
+}
 
 const selectedIds = new Set()
 let currentRowIds = []
@@ -1444,10 +1454,24 @@ function closeBrandingDrawer() {
  syncFocusMode()
 }
 
+function getCopyEntryGroup(entry) {
+ if (String(entry?.key || "").startsWith("landing_")) return "landing"
+ return "dashboard"
+}
+
+function sortCopyEntries(entries) {
+ return [...entries].sort((left, right) => {
+  const leftGroup = COPY_ENTRY_GROUPS[getCopyEntryGroup(left)]?.order ?? 99
+  const rightGroup = COPY_ENTRY_GROUPS[getCopyEntryGroup(right)]?.order ?? 99
+  if (leftGroup !== rightGroup) return leftGroup - rightGroup
+  return String(left.label || left.key || "").localeCompare(String(right.label || right.key || ""), "fr", { sensitivity: "base" })
+ })
+}
+
 function renderCopyEditorEntries() {
  const container = document.getElementById("copyEditorList")
  const search = document.getElementById("copySearch").value.trim().toLowerCase()
- const entries = copyEntries.filter((entry) => {
+ const entries = sortCopyEntries(copyEntries).filter((entry) => {
   if (!search) return true
   return entry.label.toLowerCase().includes(search) || entry.key.toLowerCase().includes(search) || entry.value.toLowerCase().includes(search)
  })
@@ -1457,15 +1481,32 @@ function renderCopyEditorEntries() {
   return
  }
 
- container.innerHTML = entries.map((entry) => `
-   <div class="copy-editor-row">
-    <label for="copy-${escapeHtml(entry.key)}">
-     <span>${escapeHtml(entry.label)}</span>
-     <code>${escapeHtml(entry.key)}</code>
-    </label>
-    <textarea id="copy-${escapeHtml(entry.key)}" data-copy-key="${escapeHtml(entry.key)}">${escapeHtml(entry.value)}</textarea>
-  </div>
-  `).join("")
+ const groupedEntries = entries.reduce((groups, entry) => {
+  const groupKey = getCopyEntryGroup(entry)
+  if (!groups[groupKey]) groups[groupKey] = []
+  groups[groupKey].push(entry)
+  return groups
+ }, {})
+
+ container.innerHTML = Object.entries(groupedEntries).map(([groupKey, groupEntries]) => `
+  <section class="copy-editor-section">
+   <div class="copy-editor-section-head">
+    <p>${escapeHtml(COPY_ENTRY_GROUPS[groupKey]?.label || "Autres textes")}</p>
+    <span>${groupEntries.length}</span>
+   </div>
+   <div class="copy-editor-section-list">
+    ${groupEntries.map((entry) => `
+     <div class="copy-editor-row">
+      <label for="copy-${escapeHtml(entry.key)}">
+       <span>${escapeHtml(entry.label)}</span>
+       <code>${escapeHtml(entry.key)}</code>
+      </label>
+      <textarea id="copy-${escapeHtml(entry.key)}" data-copy-key="${escapeHtml(entry.key)}">${escapeHtml(entry.value)}</textarea>
+    </div>
+    `).join("")}
+   </div>
+  </section>
+ `).join("")
 }
 
 async function openCopyDrawer() {
@@ -1524,11 +1565,11 @@ async function saveCopyEditor({ confirmFirst = true } = {}) {
   window.applyDashboardCopy()
  }
  await refreshStats()
- copyEntries = Object.entries(entries).map(([key, value]) => ({
+ copyEntries = sortCopyEntries(Object.entries(entries).map(([key, value]) => ({
   key,
   label: key.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
   value: String(value ?? "")
- }))
+ })))
  copyEditorDirty = false
  renderCopyEditorEntries()
  syncCollapseButtons()
