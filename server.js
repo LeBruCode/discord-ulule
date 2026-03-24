@@ -1,6 +1,7 @@
 import express from "express"
 import crypto from "crypto"
 import dotenv from "dotenv"
+import fs from "fs/promises"
 import helmet from "helmet"
 import path from "path"
 import session from "express-session"
@@ -16,6 +17,7 @@ import {
  getAdminAuthCookieMaxAgeMs,
  getAdminAuthCookieName
 } from "./services/adminAuthCookie.js"
+import { supabase } from "./services/supabase.js"
 
 dotenv.config()
 
@@ -42,12 +44,44 @@ const loginAttempts = new Map()
 const sessionMaxAgeMs = 1000 * 60 * 60 * 24 * 7
 const adminAuthCookieName = getAdminAuthCookieName()
 const adminAuthCookieMaxAgeMs = getAdminAuthCookieMaxAgeMs()
+const APP_SETTINGS_TABLE = "app_settings"
+const DASHBOARD_BRANDING_KEY = "dashboard_branding"
 
 function safeEqualText(a, b) {
  const left = Buffer.from(String(a || ""), "utf8")
  const right = Buffer.from(String(b || ""), "utf8")
  if (left.length !== right.length) return false
  return crypto.timingSafeEqual(left, right)
+}
+
+async function readPublicBranding() {
+ try {
+  const { data, error } = await supabase
+   .from(APP_SETTINGS_TABLE)
+   .select("value,updated_at")
+   .eq("key", DASHBOARD_BRANDING_KEY)
+   .maybeSingle()
+
+  if (error) throw error
+  const value = data?.value || {}
+  return {
+   logoPath: typeof value.logoPath === "string" ? value.logoPath : null,
+   logoDataUrl: typeof value.logoDataUrl === "string" ? value.logoDataUrl : null,
+   logoWidth: Number.isFinite(Number(value.logoWidth)) ? Number(value.logoWidth) : 96,
+   updatedAt: value.updatedAt || data?.updated_at || null
+  }
+ } catch (error) {
+  console.warn("server landing branding read skipped", error?.message || error)
+  return { logoPath: null, logoDataUrl: null, logoWidth: 96, updatedAt: null }
+ }
+}
+
+function buildBrandingAssetUrl(branding = {}) {
+ const rawSource = branding.logoDataUrl || branding.logoPath || ""
+ if (!rawSource) return ""
+ if (/^data:/i.test(rawSource)) return rawSource
+ const updatedAt = branding.updatedAt || null
+ return updatedAt ? `${rawSource}?v=${encodeURIComponent(updatedAt)}` : rawSource
 }
 
 app.use(helmet())
@@ -71,8 +105,22 @@ app.use(session({
 
 app.use(express.static(path.join(__dirname,"public")))
 
-app.get("/",(req,res)=>{
- res.sendFile(path.join(__dirname,"views/landing.html"))
+app.get("/", async (req,res)=>{
+ try {
+  const landingTemplate = await fs.readFile(path.join(__dirname, "views", "landing.html"), "utf8")
+  const branding = await readPublicBranding()
+  const logoUrl = buildBrandingAssetUrl(branding)
+  const html = landingTemplate
+   .replaceAll("__LANDING_LOGO_SRC__", logoUrl || "")
+   .replaceAll("__LANDING_LOGO_CLASS__", logoUrl ? "" : "hidden")
+   .replaceAll("__LANDING_LOGO_WIDTH__", String(Number(branding.logoWidth) || 96))
+
+  res.setHeader("Cache-Control", "no-store")
+  res.send(html)
+ } catch (error) {
+  console.error("landing page render error", error)
+  res.sendFile(path.join(__dirname,"views/landing.html"))
+ }
 })
 
 app.get("/login",(req,res)=>{

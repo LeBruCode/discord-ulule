@@ -8,12 +8,14 @@ function buildBrandingAssetUrl(branding = {}) {
 
 async function refreshLandingBranding() {
  try {
+  const logo = document.getElementById("landingLogo")
+  if (logo && logo.getAttribute("src")) return
+
   const response = await fetch("/api/landing-config", { cache: "no-store" })
   const payload = await response.json()
   if (!response.ok) return
 
   const branding = payload.branding || {}
-  const logo = document.getElementById("landingLogo")
   const logoUrl = buildBrandingAssetUrl(branding)
   if (!logo || !logoUrl) return
 
