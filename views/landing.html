@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Coulisses du film</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="landing-body">
+<main class="landing-shell">
+<section class="landing-card">
+<div class="landing-brand">
+<img id="landingLogo" class="landing-logo hidden" alt="Logo du projet">
+<p class="eyebrow">Accès contributeurs</p>
+<h1>Coulisses du film sur Discord</h1>
+<p class="landing-copy">
+Tu as contribué à la campagne Ulule ? Renseigne l'adresse e-mail utilisée pour ta contribution.
+On t'envoie un lien pour rejoindre les coulisses sur Discord.
+</p>
+</div>
+
+<form id="landingForm" class="landing-form">
+<label for="landingEmail">Ton e-mail Ulule</label>
+<input id="landingEmail" name="email" type="email" inputmode="email" autocomplete="email" placeholder="toi@exemple.fr" required>
+<button id="landingSubmitBtn" type="submit">Recevoir mon lien</button>
+<p id="landingStatus" class="landing-status">On vérifie juste ce qu'il faut, puis on te l'envoie.</p>
+<p class="landing-help">
+Petit rappel : si ton adresse est bien dans la liste des contributeurs, tu recevras le lien par e-mail.
+ </p>
+</form>
+</section>
+</main>
+
+<script src="/js/landing.js"></script>
+</body>
+</html>

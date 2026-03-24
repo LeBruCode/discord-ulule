@@ -32,6 +32,88 @@ body{
  min-height:100vh;
 }
 
+.landing-body{
+ display:grid;
+ place-items:center;
+ padding:24px;
+}
+
+.landing-shell{
+ width:min(920px, 100%);
+}
+
+.landing-card{
+ display:grid;
+ grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);
+ gap:24px;
+ align-items:stretch;
+ padding:28px;
+ border-radius:28px;
+ border:1px solid rgba(43,62,95,.82);
+ background:
+  radial-gradient(circle at top left, rgba(63,140,255,.14), transparent 34%),
+  linear-gradient(180deg, rgba(18,29,48,.96), rgba(10,16,27,.98));
+ box-shadow:0 24px 60px rgba(0,0,0,.32);
+}
+
+.landing-brand{
+ display:grid;
+ align-content:center;
+ gap:16px;
+ min-width:0;
+}
+
+.landing-logo{
+ width:140px;
+ height:auto;
+ object-fit:contain;
+}
+
+.landing-brand h1{
+ margin:0;
+ font-size:clamp(32px, 5vw, 54px);
+ line-height:.96;
+ letter-spacing:-.04em;
+}
+
+.landing-copy{
+ margin:0;
+ color:#bfd1ef;
+ font-size:15px;
+ line-height:1.7;
+ max-width:42ch;
+}
+
+.landing-form{
+ display:grid;
+ gap:12px;
+ padding:20px;
+ border-radius:22px;
+ border:1px solid rgba(53,77,115,.8);
+ background:rgba(8,14,25,.74);
+ align-content:start;
+}
+
+.landing-form label{
+ font-size:13px;
+ font-weight:700;
+ color:#dfe9fb;
+}
+
+.landing-status{
+ margin:2px 0 0;
+ color:#8ea2c3;
+ font-size:13px;
+ line-height:1.5;
+}
+
+.landing-help{
+ margin:6px 0 0;
+ color:#7287ab;
+ font-size:12px;
+ line-height:1.55;
+}
+
 .background-glow{
  position:fixed;
  inset:0;
@@ -1852,9 +1934,28 @@ body.daily-ops .mission-copy .panel-copy{
 @media (max-width:1100px){
  .mission-side-grid{grid-template-columns:1fr;}
  .support-search-row{grid-template-columns:1fr;}
+ .landing-card{grid-template-columns:1fr;}
 }
 
 @media (max-width:760px){
+ .landing-body{
+  padding:14px;
+ }
+
+ .landing-card{
+  padding:18px;
+  gap:18px;
+  border-radius:22px;
+ }
+
+ .landing-form{
+  padding:16px;
+ }
+
+ .landing-logo{
+  width:min(150px, 42vw) !important;
+ }
+
  .detail-drawer{
   justify-content:stretch;
   align-items:stretch;

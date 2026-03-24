@@ -1,9 +1,13 @@
 import express from "express"
 import axios from "axios"
 import { supabase } from "../services/supabase.js"
+import { sendMail } from "../services/mailer.js"
 
 const router = express.Router()
 const DISCORD_API = "https://discord.com/api/v10"
+const APP_SETTINGS_TABLE = "app_settings"
+const DASHBOARD_BRANDING_KEY = "dashboard_branding"
+const publicRequestRateLimit = new Map()
 
 function getDiscordConfig() {
  return {
@@ -15,6 +19,43 @@ function getDiscordConfig() {
   roleId: process.env.ROLE_ID || process.env.DISCORD_ROLE_ID,
   webhookSecret: process.env.DISCORD_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET,
   brevoWebhookSecret: process.env.BREVO_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET
+ }
+}
+
+function isRateLimited(ip) {
+ const now = Date.now()
+ const windowMs = 15 * 60 * 1000
+ const maxAttempts = 8
+ const entry = publicRequestRateLimit.get(ip) || { count: 0, resetAt: now + windowMs }
+ if (now > entry.resetAt) {
+  entry.count = 0
+  entry.resetAt = now + windowMs
+ }
+ if (entry.count >= maxAttempts) return true
+ entry.count += 1
+ publicRequestRateLimit.set(ip, entry)
+ return false
+}
+
+async function readPublicBranding() {
+ try {
+  const { data, error } = await supabase
+   .from(APP_SETTINGS_TABLE)
+   .select("value,updated_at")
+   .eq("key", DASHBOARD_BRANDING_KEY)
+   .maybeSingle()
+
+  if (error) throw error
+  const value = data?.value || {}
+  return {
+   logoPath: typeof value.logoPath === "string" ? value.logoPath : null,
+   logoDataUrl: typeof value.logoDataUrl === "string" ? value.logoDataUrl : null,
+   logoWidth: Number.isFinite(Number(value.logoWidth)) ? Number(value.logoWidth) : 96,
+   updatedAt: value.updatedAt || data?.updated_at || null
+  }
+ } catch (error) {
+  console.warn("public branding read skipped", error?.message || error)
+  return { logoPath: null, logoDataUrl: null, logoWidth: 96, updatedAt: null }
  }
 }
 
@@ -259,6 +300,79 @@ router.get("/config", (req, res) => {
   discordOauthReady: Boolean(clientId && redirectUri),
   discordInviteUrl: inviteUrl
  })
+})
+
+router.get("/landing-config", async (req, res) => {
+ try {
+  const branding = await readPublicBranding()
+  return res.json({ branding })
+ } catch (error) {
+  console.error("landing config error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.post("/request-access-link", async (req, res) => {
+ try {
+  const ip = req.ip || "unknown"
+  if (isRateLimited(ip)) {
+   return res.status(429).json({
+    success: true,
+    message: "Si ton adresse existe déjà dans la liste, tu vas recevoir un lien dans quelques instants."
+   })
+  }
+
+  const email = String(req.body?.email || "").trim().toLowerCase()
+  if (!email) {
+   return res.status(400).json({ error: "email required" })
+  }
+
+  const genericMessage = "Si ton adresse existe déjà dans la liste, tu vas recevoir un lien dans quelques instants."
+  const { data, error } = await supabase
+   .from("access_tokens")
+   .select("id,email,token")
+   .eq("email", email)
+   .order("created_at", { ascending: false })
+   .limit(1)
+   .maybeSingle()
+
+  if (error) {
+    console.error("request access lookup error", error)
+    return res.status(500).json({ error: "server error" })
+  }
+
+  if (!data?.email || !data?.token) {
+   return res.json({ success: true, message: genericMessage })
+  }
+
+  try {
+   const sendResponse = await sendMail(data.email, data.token, { accessTokenId: data.id })
+   const messageId = String(sendResponse?.messageId || sendResponse?.message_id || "").trim() || null
+   const nowIso = new Date().toISOString()
+   await supabase
+    .from("access_tokens")
+    .update({
+     email_sent: false,
+     email_sent_at: null,
+     brevo_status: "queued",
+     brevo_event_at: nowIso,
+     brevo_message_id: messageId,
+     email_error: null
+    })
+    .eq("id", data.id)
+  } catch (sendError) {
+   console.error("request access send error", sendError)
+   await supabase
+    .from("access_tokens")
+    .update({ email_error: sendError?.message || "mail send failed" })
+    .eq("id", data.id)
+  }
+
+  return res.json({ success: true, message: genericMessage })
+ } catch (error) {
+  console.error("request access route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
 })
 
 router.get("/discord/authorize", async (req, res) => {
