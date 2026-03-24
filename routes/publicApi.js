@@ -221,11 +221,6 @@ async function applyBrevoEvent(payload) {
  return { ignored: false, id: record.id, status }
 }
 
-function getTokenExpiry(createdAt) {
- const created = new Date(createdAt)
- return new Date(created.getTime() + 1000 * 60 * 60 * 24 * 7)
-}
-
 function getAxiosErrorDetails(error) {
  const status = error?.response?.status
  const data = error?.response?.data
@@ -289,12 +284,11 @@ async function isMemberOfGuild(discordId) {
 async function getAccessTokenRecord(token) {
  const { data, error } = await supabase
   .from("access_tokens")
-  .select("id, used, discord_id, created_at")
+  .select("id, used, discord_id")
   .eq("token", token)
   .single()
 
  if (error || !data) return null
- if (getTokenExpiry(data.created_at) < new Date()) return null
 
  // Main path: native Discord listener should reset this on member leave.
  // Fallback path: verify membership on activation request to auto-heal stale rows.
@@ -423,7 +417,7 @@ router.get("/discord/authorize", async (req, res) => {
  try {
   const token = String(req.query.token || "").trim()
   const record = await getAccessTokenRecord(token)
-  if (!record) return res.status(400).send("Invalid or expired activation token")
+  if (!record) return res.status(400).send("Invalid or unavailable activation token")
 
   const { clientId, redirectUri } = getDiscordConfig()
   if (!clientId || !redirectUri) {
@@ -452,10 +446,10 @@ router.get("/callback", async (req, res) => {
   if (!code || !token) return res.status(400).send("Missing OAuth parameters")
 
   const record = await getAccessTokenRecord(token)
-  if (!record) return res.status(400).send("Invalid or expired activation token")
+  if (!record) return res.status(400).send("Invalid or unavailable activation token")
 
   const { clientId, clientSecret, redirectUri, botToken, guildId, roleId } = getDiscordConfig()
-  if (!clientId || !clientSecret || !redirectUri) {
+  if (!clientId || !clientSecret || !redirectUri || !guildId || !botToken) {
    return res.status(500).send("Discord OAuth env vars are missing")
   }
 
@@ -482,20 +476,21 @@ router.get("/callback", async (req, res) => {
   const discordId = userResponse.data?.id
   if (!discordId) return res.status(502).send("Discord user lookup failed")
 
-  if (guildId && botToken) {
-   try {
-    await discordApiRequest({
-     method: "PUT",
-     url: `${DISCORD_API}/guilds/${guildId}/members/${discordId}`,
-     data: { access_token: accessToken },
-     headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" }
-    })
-   } catch (error) {
-    const status = error?.response?.status
-    if (status !== 204 && status !== 201) {
-     console.error("guild join error", error?.response?.data || error.message)
-    }
-   }
+  let joinSucceeded = false
+  try {
+   const joinResponse = await discordApiRequest({
+    method: "PUT",
+    url: `${DISCORD_API}/guilds/${guildId}/members/${discordId}`,
+    data: { access_token: accessToken },
+    headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" }
+   })
+   joinSucceeded = joinResponse?.status === 201 || joinResponse?.status === 204
+  } catch (error) {
+   console.error("guild join error", error?.response?.data || error.message)
+  }
+
+  if (!joinSucceeded) {
+   return res.status(502).send("Discord join failed")
   }
 
   if (guildId && roleId && botToken) {
