@@ -1,12 +1,20 @@
 import express from "express"
 import axios from "axios"
+import fs from "fs/promises"
+import path from "path"
+import { fileURLToPath } from "url"
+import vm from "vm"
 import { supabase } from "../services/supabase.js"
 import { sendMail } from "../services/mailer.js"
 
 const router = express.Router()
 const DISCORD_API = "https://discord.com/api/v10"
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const dashboardCopyFilePath = path.join(__dirname, "..", "public", "js", "dashboardCopy.js")
 const APP_SETTINGS_TABLE = "app_settings"
 const DASHBOARD_BRANDING_KEY = "dashboard_branding"
+const DASHBOARD_COPY_KEY = "dashboard_copy"
 const publicRequestRateLimit = new Map()
 
 function getDiscordConfig() {
@@ -57,6 +65,40 @@ async function readPublicBranding() {
   console.warn("public branding read skipped", error?.message || error)
   return { logoPath: null, logoDataUrl: null, logoWidth: 96, updatedAt: null }
  }
+}
+
+async function readPublicCopyDefaults() {
+ try {
+  const source = await fs.readFile(dashboardCopyFilePath, "utf8")
+  const context = { window: {} }
+  vm.createContext(context)
+  vm.runInContext(source, context)
+  return context.window?.DASHBOARD_COPY || {}
+ } catch (error) {
+  console.warn("public copy defaults read skipped", error?.message || error)
+  return {}
+ }
+}
+
+async function readPublicCopy() {
+ const defaults = await readPublicCopyDefaults()
+
+ try {
+  const { data, error } = await supabase
+   .from(APP_SETTINGS_TABLE)
+   .select("value")
+   .eq("key", DASHBOARD_COPY_KEY)
+   .maybeSingle()
+
+  if (error) throw error
+  if (data?.value && typeof data.value === "object") {
+   return { ...defaults, ...data.value }
+  }
+ } catch (error) {
+  console.warn("public copy read skipped", error?.message || error)
+ }
+
+ return defaults
 }
 
 function getBrevoEventStatus(eventName) {
@@ -305,7 +347,9 @@ router.get("/config", (req, res) => {
 router.get("/landing-config", async (req, res) => {
  try {
   const branding = await readPublicBranding()
-  return res.json({ branding })
+  const copy = await readPublicCopy()
+  res.setHeader("Cache-Control", "no-store")
+  return res.json({ branding, copy })
  } catch (error) {
   console.error("landing config error", error)
   return res.status(500).json({ error: "server error" })

@@ -7,21 +7,28 @@ function buildBrandingAssetUrl(branding = {}) {
 }
 
 const t = window.dashboardT || ((key) => key)
+const LANDING_CONFIG_REFRESH_MS = 20000
 
 if (typeof window.applyDashboardCopy === "function") {
  window.applyDashboardCopy()
 }
 
-async function refreshLandingBranding() {
+function setLandingStatus(statusKey, fallbackText = "") {
+ const status = document.getElementById("landingStatus")
+ if (!status) return
+
+ status.dataset.statusKey = statusKey || ""
+ if (statusKey && typeof window.dashboardT === "function") {
+  status.textContent = window.dashboardT(statusKey)
+  return
+ }
+
+ status.textContent = fallbackText
+}
+
+function refreshLandingBrandingFromConfig(branding = {}) {
  try {
   const logo = document.getElementById("landingLogo")
-  if (logo && logo.getAttribute("src")) return
-
-  const response = await fetch("/api/landing-config", { cache: "no-store" })
-  const payload = await response.json()
-  if (!response.ok) return
-
-  const branding = payload.branding || {}
   const logoUrl = buildBrandingAssetUrl(branding)
   if (!logo || !logoUrl) return
 
@@ -33,21 +40,44 @@ async function refreshLandingBranding() {
  }
 }
 
+async function refreshLandingConfig() {
+ try {
+  const status = document.getElementById("landingStatus")
+  const currentStatusKey = status?.dataset.statusKey || "landing_status_idle"
+  const response = await fetch("/api/landing-config", { cache: "no-store" })
+  const payload = await response.json()
+  if (!response.ok) return
+
+  if (payload.copy && typeof payload.copy === "object") {
+   window.DASHBOARD_COPY = { ...(window.DASHBOARD_COPY || {}), ...payload.copy }
+   if (typeof window.applyDashboardCopy === "function") {
+    window.applyDashboardCopy()
+   }
+  }
+
+  refreshLandingBrandingFromConfig(payload.branding || {})
+  if (currentStatusKey && currentStatusKey !== "landing_status_idle") {
+   setLandingStatus(currentStatusKey)
+  }
+ } catch (error) {
+  console.error("landing config refresh error", error)
+ }
+}
+
 async function handleLandingSubmit(event) {
  const form = event.currentTarget
  const emailInput = document.getElementById("landingEmail")
- const status = document.getElementById("landingStatus")
  const submitButton = document.getElementById("landingSubmitBtn")
 
  event.preventDefault()
  const email = String(emailInput?.value || "").trim().toLowerCase()
  if (!email) {
-  status.textContent = t("landing_status_missing_email")
+  setLandingStatus("landing_status_missing_email")
   return
  }
 
  submitButton.disabled = true
- status.textContent = t("landing_status_lookup")
+ setLandingStatus("landing_status_lookup")
 
  try {
   const response = await fetch("/api/request-access-link", {
@@ -58,21 +88,30 @@ async function handleLandingSubmit(event) {
   const payload = await response.json()
 
   if (!response.ok) {
-   status.textContent = payload.error === "email required"
-    ? t("landing_status_invalid_email")
-    : t("landing_status_error")
+   setLandingStatus(
+    payload.error === "email required" ? "landing_status_invalid_email" : "landing_status_error"
+   )
    return
   }
 
   form.reset()
-  status.textContent = payload.message || t("landing_status_success")
+  setLandingStatus("landing_status_success", payload.message || t("landing_status_success"))
+  const status = document.getElementById("landingStatus")
+  if (status && payload.message) {
+   status.textContent = payload.message
+  }
  } catch (error) {
   console.error("landing request error", error)
-  status.textContent = t("landing_status_error")
+  setLandingStatus("landing_status_error")
  } finally {
   submitButton.disabled = false
  }
 }
 
 document.getElementById("landingForm")?.addEventListener("submit", handleLandingSubmit)
-refreshLandingBranding()
+refreshLandingConfig()
+
+window.setInterval(() => {
+ if (document.hidden) return
+ refreshLandingConfig()
+}, LANDING_CONFIG_REFRESH_MS)
