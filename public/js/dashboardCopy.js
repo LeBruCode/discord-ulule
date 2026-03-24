@@ -1,4 +1,21 @@
 window.DASHBOARD_COPY = {
+ landing_eyebrow: "Accès contributeurs",
+ landing_project: "Le film de Haroun",
+ landing_title: "Rejoins les coulisses sur Discord",
+ landing_copy: "Tu as participé à la campagne Ulule ? Entre l'adresse e-mail utilisée pour ta contribution. On t'envoie un lien pour rejoindre l'espace privé du film, sans détour et sans prise de tête.",
+ landing_chip_private: "#AccèsPrivé",
+ landing_chip_mail: "#LienParEmail",
+ landing_chip_coulisses: "#CoulissesDuFilm",
+ landing_form_eyebrow: "On te retrouve en deux secondes",
+ landing_email_label: "Ton e-mail Ulule",
+ landing_email_placeholder: "toi@exemple.fr",
+ landing_submit_btn: "Recevoir mon lien",
+ landing_status_idle: "On vérifie juste ce qu'il faut, puis on te l'envoie.",
+ landing_status_lookup: "On regarde si ton adresse est déjà dans la liste...",
+ landing_status_missing_email: "Ajoute ton adresse e-mail pour qu'on puisse te retrouver.",
+ landing_status_invalid_email: "Ajoute une adresse e-mail valide.",
+ landing_status_error: "Ça coince pour l'instant. Réessaie dans quelques minutes.",
+ landing_help: "Petit rappel : si ton adresse est bien dans la liste des contributeurs, tu recevras le lien par e-mail.",
  title: "Le dashboard Discord",
  eyebrow: "Développé avec amour par Bruno",
  logout: "Se déconnecter",
@@ -336,8 +353,20 @@ window.applyDashboardCopy = function applyDashboardCopy() {
  const t = window.dashboardT
  document.title = t("title")
  const textMap = [
- ["[data-copy='eyebrow']", "eyebrow"],
- ["[data-copy='title']", "title"],
+  ["[data-copy='eyebrow']", "eyebrow"],
+  ["[data-copy='title']", "title"],
+  ["[data-copy='landing_eyebrow']", "landing_eyebrow"],
+  ["[data-copy='landing_project']", "landing_project"],
+  ["[data-copy='landing_title']", "landing_title"],
+  ["[data-copy='landing_copy']", "landing_copy"],
+  ["[data-copy='landing_chip_private']", "landing_chip_private"],
+  ["[data-copy='landing_chip_mail']", "landing_chip_mail"],
+  ["[data-copy='landing_chip_coulisses']", "landing_chip_coulisses"],
+  ["[data-copy='landing_form_eyebrow']", "landing_form_eyebrow"],
+  ["[data-copy='landing_email_label']", "landing_email_label"],
+  ["[data-copy='landing_submit_btn']", "landing_submit_btn"],
+  ["[data-copy='landing_status_idle']", "landing_status_idle"],
+  ["[data-copy='landing_help']", "landing_help"],
   ["#cockpitModeBtn", "cockpit_mode_btn"],
   ["#dayPulseOpenBtn", "day_pulse_open_btn"],
   ["#logoutBtn", "logout"],
@@ -518,7 +547,8 @@ window.applyDashboardCopy = function applyDashboardCopy() {
  const cockpitTertiaryActionCopy = document.querySelector("#cockpitTertiaryActionCopy")
  if (cockpitTertiaryActionCopy) cockpitTertiaryActionCopy.textContent = t("cockpit_tertiary_action_copy_idle")
 
- const placeholders = [
+  const placeholders = [
+  ["#landingEmail", "landing_email_placeholder"],
   ["#emails", "import_placeholder"],
   ["#reconcileEmails", "reconcile_placeholder"],
   ["#search", "search_placeholder"],

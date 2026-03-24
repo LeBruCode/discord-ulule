@@ -17,35 +17,36 @@
 <div class="landing-brand-top">
 <img id="landingLogo" class="landing-logo __LANDING_LOGO_CLASS__" src="__LANDING_LOGO_SRC__" style="width:__LANDING_LOGO_WIDTH__px" alt="Logo du projet" loading="eager" fetchpriority="high">
 <div class="landing-brand-copy">
-<p class="eyebrow">Accès contributeurs</p>
-<p class="landing-project">Le film de Haroun</p>
+<p class="eyebrow" data-copy="landing_eyebrow">Accès contributeurs</p>
+<p class="landing-project" data-copy="landing_project">Le film de Haroun</p>
 </div>
 </div>
-<h1>Rejoins les coulisses sur Discord</h1>
-<p class="landing-copy">
+<h1 data-copy="landing_title">Rejoins les coulisses sur Discord</h1>
+<p class="landing-copy" data-copy="landing_copy">
 Tu as participé à la campagne Ulule ? Entre l'adresse e-mail utilisée pour ta contribution.
 On t'envoie un lien pour rejoindre l'espace privé du film, sans détour et sans prise de tête.
 </p>
 <div class="landing-highlights" aria-hidden="true">
-<span class="landing-chip">#AccèsPrivé</span>
-<span class="landing-chip">#LienParEmail</span>
-<span class="landing-chip">#CoulissesDuFilm</span>
+<span class="landing-chip" data-copy="landing_chip_private">#AccèsPrivé</span>
+<span class="landing-chip" data-copy="landing_chip_mail">#LienParEmail</span>
+<span class="landing-chip" data-copy="landing_chip_coulisses">#CoulissesDuFilm</span>
 </div>
 </div>
 
 <form id="landingForm" class="landing-form">
-<p class="landing-form-eyebrow">On te retrouve en deux secondes</p>
-<label for="landingEmail">Ton e-mail Ulule</label>
+<p class="landing-form-eyebrow" data-copy="landing_form_eyebrow">On te retrouve en deux secondes</p>
+<label for="landingEmail" data-copy="landing_email_label">Ton e-mail Ulule</label>
 <input id="landingEmail" name="email" type="email" inputmode="email" autocomplete="email" placeholder="toi@exemple.fr" required>
-<button id="landingSubmitBtn" type="submit">Recevoir mon lien</button>
-<p id="landingStatus" class="landing-status">On vérifie juste ce qu'il faut, puis on te l'envoie.</p>
-<p class="landing-help">
+<button id="landingSubmitBtn" type="submit" data-copy="landing_submit_btn">Recevoir mon lien</button>
+<p id="landingStatus" class="landing-status" data-copy="landing_status_idle">On vérifie juste ce qu'il faut, puis on te l'envoie.</p>
+<p class="landing-help" data-copy="landing_help">
 Petit rappel : si ton adresse est bien dans la liste des contributeurs, tu recevras le lien par e-mail.
  </p>
 </form>
 </section>
 </main>
 
+<script src="/js/dashboardCopy.js"></script>
 <script src="/js/landing.js"></script>
 </body>
 </html>

@@ -6,6 +6,12 @@ function buildBrandingAssetUrl(branding = {}) {
  return updatedAt ? `${rawSource}?v=${encodeURIComponent(updatedAt)}` : rawSource
 }
 
+const t = window.dashboardT || ((key) => key)
+
+if (typeof window.applyDashboardCopy === "function") {
+ window.applyDashboardCopy()
+}
+
 async function refreshLandingBranding() {
  try {
   const logo = document.getElementById("landingLogo")
@@ -36,12 +42,12 @@ async function handleLandingSubmit(event) {
  event.preventDefault()
  const email = String(emailInput?.value || "").trim().toLowerCase()
  if (!email) {
-  status.textContent = "Ajoute ton adresse e-mail pour qu'on puisse te retrouver."
+  status.textContent = t("landing_status_missing_email")
   return
  }
 
  submitButton.disabled = true
- status.textContent = "On regarde si ton adresse est déjà dans la liste..."
+ status.textContent = t("landing_status_lookup")
 
  try {
   const response = await fetch("/api/request-access-link", {
@@ -53,16 +59,16 @@ async function handleLandingSubmit(event) {
 
   if (!response.ok) {
    status.textContent = payload.error === "email required"
-    ? "Ajoute une adresse e-mail valide."
-    : "Ça coince pour l'instant. Réessaie dans quelques minutes."
+    ? t("landing_status_invalid_email")
+    : t("landing_status_error")
    return
   }
 
   form.reset()
-  status.textContent = payload.message || "Si ton adresse existe déjà dans la liste, tu vas recevoir un lien dans quelques instants."
+  status.textContent = payload.message || t("landing_status_idle")
  } catch (error) {
   console.error("landing request error", error)
-  status.textContent = "Ça coince pour l'instant. Réessaie dans quelques minutes."
+  status.textContent = t("landing_status_error")
  } finally {
   submitButton.disabled = false
  }
