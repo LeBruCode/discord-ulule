@@ -87,7 +87,7 @@ body{
 
 .landing-brand{
  display:grid;
- align-content:center;
+ align-content:start;
  gap:16px;
  min-width:0;
 }
@@ -96,6 +96,7 @@ body{
  display:flex;
  align-items:center;
  gap:18px;
+ justify-content:flex-start;
 }
 
 .landing-brand-copy{
@@ -125,6 +126,7 @@ body{
  letter-spacing:-.04em;
  max-width:10ch;
  text-wrap:balance;
+ align-self:center;
 }
 
 .landing-copy{
@@ -133,12 +135,14 @@ body{
  font-size:15px;
  line-height:1.7;
  max-width:46ch;
+ align-self:center;
 }
 
 .landing-highlights{
  display:flex;
  flex-wrap:wrap;
  gap:10px;
+ align-self:center;
 }
 
 .landing-chip{
@@ -2025,6 +2029,16 @@ body.daily-ops .mission-copy .panel-copy{
  .support-search-row{grid-template-columns:1fr;}
  .landing-card{grid-template-columns:1fr;}
  .landing-brand h1{max-width:none;}
+ .landing-brand{
+  justify-items:center;
+  text-align:center;
+ }
+ .landing-copy{
+  margin-inline:auto;
+ }
+ .landing-highlights{
+  justify-content:center;
+ }
 }
 
 @media (max-width:760px){
@@ -2043,9 +2057,19 @@ body.daily-ops .mission-copy .panel-copy{
  }
 
  .landing-brand-top{
-  align-items:flex-start;
+  align-items:center;
   flex-direction:column;
   gap:12px;
+  justify-content:center;
+ }
+
+ .landing-brand-copy{
+  justify-items:center;
+ }
+
+ .landing-project,
+ .landing-brand .eyebrow{
+  text-align:center;
  }
 
  .landing-logo{
