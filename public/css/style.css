@@ -2781,3 +2781,25 @@ body.daily-ops .mission-copy .panel-copy{
  display:grid;
  gap:10px;
 }
+
+
+.inline-ulule-status{
+ margin-top:18px;
+ padding:16px 18px;
+ border:1px solid rgba(120,170,255,.18);
+ border-radius:18px;
+ background:linear-gradient(180deg, rgba(10,18,32,.7), rgba(7,14,26,.92));
+}
+
+.inline-ulule-status-head{
+ display:flex;
+ flex-wrap:wrap;
+ align-items:center;
+ gap:10px;
+ margin-bottom:8px;
+}
+
+.inline-ulule-copy{
+ color:var(--text-soft);
+ font-size:13px;
+}

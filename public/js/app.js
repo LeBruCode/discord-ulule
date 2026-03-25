@@ -378,6 +378,21 @@ function formatDate(value) {
  return date.toLocaleString("fr-FR")
 }
 
+function formatRelativeDate(value) {
+ if (!value) return ""
+ const date = new Date(value)
+ if (Number.isNaN(date.getTime())) return ""
+ const diffMs = date.getTime() - Date.now()
+ const diffMinutes = Math.round(diffMs / 60000)
+ const absMinutes = Math.abs(diffMinutes)
+ if (absMinutes < 1) return "à l'instant"
+ if (absMinutes < 60) return diffMinutes < 0 ? `il y a ${absMinutes} min` : `dans ${absMinutes} min`
+ const hours = Math.round(absMinutes / 60)
+ if (hours < 24) return diffMinutes < 0 ? `il y a ${hours} h` : `dans ${hours} h`
+ const days = Math.round(hours / 24)
+ return diffMinutes < 0 ? `il y a ${days} j` : `dans ${days} j`
+}
+
 function shortRowId(value) {
  const raw = String(value || "").trim()
  if (!raw) return "-"
@@ -914,6 +929,8 @@ function renderUluleStatus(status = {}) {
 
  const lastSync = status.lastFinishedAt || status.lastSuccessAt || null
  const nextSync = status.nextScheduledAt || null
+ const lastSyncLabel = lastSync ? `${formatDate(lastSync)} (${formatRelativeDate(lastSync)})` : t("ulule_never")
+ const nextSyncLabel = nextSync ? `${formatDate(nextSync)} (${formatRelativeDate(nextSync)})` : t("ulule_pending_schedule")
 
  if (status.running) {
   statusNode.innerText = t("ulule_status_running_compact", {
@@ -925,12 +942,12 @@ function renderUluleStatus(status = {}) {
   })
  } else {
   statusNode.innerText = t("ulule_status_last_sync", {
-   date: lastSync ? formatDate(lastSync) : t("ulule_never")
+   date: lastSyncLabel
   })
  }
 
  metaNode.innerText = t("ulule_status_next_sync", {
-  date: nextSync ? formatDate(nextSync) : t("ulule_pending_schedule")
+  date: nextSyncLabel
  })
 }
 
