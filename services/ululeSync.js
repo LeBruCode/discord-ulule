@@ -151,6 +151,20 @@ function rewardLabelFromId(rewardId) {
   return KNOWN_ULULE_REWARD_LABELS[numericId] || null
 }
 
+function getMsUntilNextQuarterHour() {
+  const now = new Date()
+  const next = new Date(now)
+  next.setSeconds(0, 0)
+  const minute = next.getMinutes()
+  const nextQuarter = Math.floor(minute / 15) * 15 + 15
+  if (nextQuarter >= 60) {
+    next.setHours(next.getHours() + 1, 0, 0, 0)
+  } else {
+    next.setMinutes(nextQuarter, 0, 0)
+  }
+  return Math.max(1000, next.getTime() - now.getTime())
+}
+
 function pickSupporterIdentity(user = {}) {
   const firstName = String(user?.first_name || "").trim()
   const lastName = String(user?.last_name || "").trim()
@@ -659,8 +673,9 @@ function startUluleSyncScheduler() {
     }
   }
 
-  scheduleNextRunAt(20 * 1000)
-  setTimeout(runScheduled, 20 * 1000)
+  const initialDelayMs = getMsUntilNextQuarterHour()
+  scheduleNextRunAt(initialDelayMs)
+  setTimeout(runScheduled, initialDelayMs)
   setInterval(runScheduled, ULULE_SYNC_INTERVAL_MS)
   console.log("Ulule sync scheduler ready")
 }
