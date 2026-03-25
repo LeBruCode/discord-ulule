@@ -2032,12 +2032,26 @@ router.get("/list", limitList, async (req, res) => {
 
   if (rowIds.length || rowEmails.length) {
    const ululeRows = []
+   const selectWithSupporter = "access_token_id,email,reward_name,reward_id,supporter_full_name,supporter_first_name,supporter_last_name"
+   const selectLegacy = "access_token_id,email,reward_name,reward_id"
+   const readUluleRows = async (column, values) => {
+    let response = await supabase
+     .from("ulule_imports")
+     .select(selectWithSupporter)
+     .in(column, values)
+
+    if (response.error && /supporter_(full_name|first_name|last_name)/i.test(String(response.error.message || ""))) {
+     response = await supabase
+      .from("ulule_imports")
+      .select(selectLegacy)
+      .in(column, values)
+    }
+
+    return response
+   }
 
    if (rowIds.length) {
-    const { data: byAccessTokenRows, error: byAccessTokenError } = await supabase
-     .from("ulule_imports")
-     .select("access_token_id,email,reward_name,reward_id,supporter_full_name,supporter_first_name,supporter_last_name")
-     .in("access_token_id", rowIds)
+    const { data: byAccessTokenRows, error: byAccessTokenError } = await readUluleRows("access_token_id", rowIds)
 
     if (byAccessTokenError) {
      console.error("list route ulule rewards by access token error", byAccessTokenError)
@@ -2048,10 +2062,7 @@ router.get("/list", limitList, async (req, res) => {
    }
 
    if (rowEmails.length) {
-    const { data: byEmailRows, error: byEmailError } = await supabase
-     .from("ulule_imports")
-     .select("access_token_id,email,reward_name,reward_id,supporter_full_name,supporter_first_name,supporter_last_name")
-     .in("email", rowEmails)
+    const { data: byEmailRows, error: byEmailError } = await readUluleRows("email", rowEmails)
 
     if (byEmailError) {
      console.error("list route ulule rewards by email error", byEmailError)
