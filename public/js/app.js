@@ -1010,49 +1010,27 @@ async function refreshUluleStatus() {
  }
 }
 
-async function loadUluleImports() {
+async function loadUluleRefunds() {
  try {
-  const [importsResponse, refundsResponse] = await Promise.all([
-   fetch("/admin/api/ulule/imports?limit=40"),
-   fetch("/admin/api/ulule/imports?limit=20&refunded=1")
-  ])
-  const [importsPayload, refundsPayload] = await Promise.all([
-   importsResponse.json(),
-   refundsResponse.json()
-  ])
-
-  if (!importsResponse.ok) {
-   throw new Error(importsPayload.error || "ulule imports request failed")
+  const response = await fetch("/admin/api/ulule/imports?limit=20&refunded=1")
+  const payload = await response.json()
+  if (!response.ok) {
+   throw new Error(payload.error || "ulule refunds request failed")
   }
 
-  if (!refundsResponse.ok) {
-   throw new Error(refundsPayload.error || "ulule refunds request failed")
-  }
-
-  renderUluleImports(importsPayload.items || [], {
-   targetId: "ululeImportsList",
-   emptyKey: "ulule_empty"
-  })
-  renderUluleImports(refundsPayload.items || [], {
+  renderUluleImports(payload.items || [], {
    targetId: "ululeRefundsList",
    emptyKey: "ulule_refunds_empty"
   })
 
-  return {
-   imports: importsPayload.items || [],
-   refunds: refundsPayload.items || []
-  }
+  return payload.items || []
  } catch (error) {
-  console.error("ulule imports load error", error)
-  renderUluleImports([], {
-   targetId: "ululeImportsList",
-   emptyKey: "ulule_empty"
-  })
+  console.error("ulule refunds load error", error)
   renderUluleImports([], {
    targetId: "ululeRefundsList",
    emptyKey: "ulule_refunds_empty"
   })
-  return { imports: [], refunds: [] }
+  return []
  }
 }
 
@@ -1063,7 +1041,7 @@ function startUluleStatusPolling() {
   if (!status?.running) {
    clearInterval(ululeSyncPollTimer)
    ululeSyncPollTimer = null
-   await loadUluleImports()
+   await loadUluleRefunds()
   }
  }, 2500)
 }
@@ -2121,7 +2099,8 @@ async function refreshAll() {
   loadList(),
   refreshQueueStatus(),
   refreshDayPulse(),
-  refreshUluleStatus()
+  refreshUluleStatus(),
+  loadUluleRefunds()
  ])
 
  renderNotificationCenter({

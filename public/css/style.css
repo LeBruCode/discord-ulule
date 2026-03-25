@@ -2803,3 +2803,17 @@ body.daily-ops .mission-copy .panel-copy{
  color:var(--text-soft);
  font-size:13px;
 }
+
+
+.inline-ulule-watchlist{
+ margin-top:14px;
+ padding-top:14px;
+ border-top:1px solid rgba(120,170,255,.12);
+ display:grid;
+ gap:10px;
+}
+
+.compact-refund-list{
+ max-height:280px;
+ overflow:auto;
+}
