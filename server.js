@@ -4,9 +4,11 @@ import dotenv from "dotenv"
 import fs from "fs/promises"
 import helmet from "helmet"
 import path from "path"
+import pg from "pg"
 import session from "express-session"
 import { fileURLToPath } from "url"
 import vm from "vm"
+import connectPgSimple from "connect-pg-simple"
 
 import adminApi from "./routes/adminApi.js"
 import statsRoutes from "./routes/stats.js"
@@ -50,6 +52,40 @@ const APP_SETTINGS_TABLE = "app_settings"
 const DASHBOARD_BRANDING_KEY = "dashboard_branding"
 const DASHBOARD_COPY_KEY = "dashboard_copy"
 const dashboardCopyFilePath = path.join(__dirname, "public", "js", "dashboardCopy.js")
+const PgSession = connectPgSimple(session)
+
+function getSessionDatabaseUrl() {
+ return String(process.env.SESSION_DATABASE_URL || process.env.DATABASE_URL || "").trim()
+}
+
+function shouldUseSessionSsl(connectionString) {
+ if (!connectionString) return false
+ return connectionString.includes("supabase.co") || connectionString.includes("sslmode=require")
+}
+
+function buildSessionStore() {
+ const connectionString = getSessionDatabaseUrl()
+ if (!connectionString) {
+  console.warn("Session store fallback: SESSION_DATABASE_URL/DATABASE_URL missing, using MemoryStore")
+  return undefined
+ }
+
+ const pool = new pg.Pool({
+  connectionString,
+  max: 5,
+  ssl: shouldUseSessionSsl(connectionString) ? { rejectUnauthorized: false } : false
+ })
+
+  pool.on("error", (error) => {
+  console.error("session pool error", error)
+ })
+
+ return new PgSession({
+  pool,
+  tableName: "user_sessions",
+  createTableIfMissing: true
+ })
+}
 
 function safeEqualText(a, b) {
  const left = Buffer.from(String(a || ""), "utf8")
@@ -129,6 +165,7 @@ app.use(express.urlencoded({ extended: true, limit: "2mb" }))
 app.use(session({
  name:"discord_access_admin",
  secret:process.env.SESSION_SECRET,
+ store: buildSessionStore(),
  proxy: isProd,
  resave:false,
  saveUninitialized:false,
