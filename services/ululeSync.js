@@ -90,6 +90,46 @@ function pickRewardName(reward = {}) {
   return String(description || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
 }
 
+function normalizeStoredText(value, fallback = null) {
+  if (typeof value === "string") {
+    const trimmed = value.trim()
+    if (trimmed && trimmed.toLowerCase() !== "[object object]") {
+      return trimmed
+    }
+  }
+
+  if (value && typeof value === "object") {
+    const directCandidates = [
+      value.title_fr,
+      value.title_en,
+      value.title,
+      value.name,
+      value.label,
+      value.fr,
+      value.en,
+      value.value
+    ]
+    for (const candidate of directCandidates) {
+      if (typeof candidate === "string" && candidate.trim()) {
+        return candidate.trim()
+      }
+    }
+
+    const description = value.description || value.description_fr || value.description_en || null
+    if (typeof description === "string" && description.trim()) {
+      return description.trim()
+    }
+    if (description && typeof description === "object") {
+      const localized = description.fr || description.en || Object.values(description).find((entry) => typeof entry === "string" && entry.trim())
+      if (typeof localized === "string" && localized.trim()) {
+        return localized.trim()
+      }
+    }
+  }
+
+  return fallback
+}
+
 function pickSupporterIdentity(user = {}) {
   const firstName = String(user?.first_name || "").trim()
   const lastName = String(user?.last_name || "").trim()
@@ -188,10 +228,10 @@ async function saveUluleImport(entry) {
     email: entry.email,
     order_id: entry.orderId,
     reward_id: entry.rewardId,
-    reward_name: entry.rewardName || null,
-    supporter_first_name: entry.supporterFirstName || null,
-    supporter_last_name: entry.supporterLastName || null,
-    supporter_full_name: entry.supporterFullName || null,
+    reward_name: normalizeStoredText(entry.rewardName, null),
+    supporter_first_name: normalizeStoredText(entry.supporterFirstName, null),
+    supporter_last_name: normalizeStoredText(entry.supporterLastName, null),
+    supporter_full_name: normalizeStoredText(entry.supporterFullName, null),
     order_created_at: entry.orderCreatedAt || null,
     access_token_id: entry.accessTokenId || null,
     outcome: entry.outcome,
@@ -566,7 +606,13 @@ async function listUluleImports(limit = 40, { refundedOnly = false } = {}) {
   const { data, error } = await query
 
   if (error) throw error
-  return data || []
+  return (data || []).map((item) => ({
+    ...item,
+    reward_name: normalizeStoredText(item.reward_name, item.reward_id ? `#${item.reward_id}` : null),
+    supporter_first_name: normalizeStoredText(item.supporter_first_name, null),
+    supporter_last_name: normalizeStoredText(item.supporter_last_name, null),
+    supporter_full_name: normalizeStoredText(item.supporter_full_name, null)
+  }))
 }
 
 function startUluleSyncScheduler() {
