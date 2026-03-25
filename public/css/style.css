@@ -1214,7 +1214,7 @@ table{
 .col-used-at{ width:12%; }
 .col-brevo{ width:10%; }
 .col-error{ width:15%; }
-.col-actions{ width:120px; }
+.col-actions{ width:172px; }
 
 thead th{
  position:sticky;
@@ -1417,7 +1417,12 @@ td:nth-child(7){
 }
 
 .actions-cell{
- white-space:nowrap;
+ white-space:normal;
+ display:flex;
+ flex-wrap:wrap;
+ align-items:center;
+ gap:8px;
+ min-width:152px;
 }
 
 .icon-btn{
