@@ -2020,8 +2020,9 @@ router.get("/list", limitList, async (req, res) => {
   }
 
   const rows = Array.isArray(data) ? data : []
-  const rowIds = rows.map((row) => row.id).filter(Boolean)
-  const rowEmails = rows.map((row) => String(row.email || "").trim().toLowerCase()).filter(Boolean)
+  const ululeRowsOnly = rows.filter((row) => row.import_source === "ulule")
+  const rowIds = ululeRowsOnly.map((row) => row.id).filter(Boolean)
+  const rowEmails = ululeRowsOnly.map((row) => String(row.email || "").trim().toLowerCase()).filter(Boolean)
   const rewardNamesByRowId = new Map()
   const supporterNamesByRowId = new Map()
 
@@ -2067,7 +2068,7 @@ router.get("/list", limitList, async (req, res) => {
      const fallbackName = typeof ululeRow.reward_name === "string" && ululeRow.reward_name.trim()
       ? ululeRow.reward_name.trim()
       : `#${ululeRow.reward_id || "-"}`
-     const matchingRows = rows.filter((row) => {
+    const matchingRows = ululeRowsOnly.filter((row) => {
       const sameId = ululeRow.access_token_id && String(ululeRow.access_token_id) === String(row.id)
       const sameEmail = String(ululeRow.email || "").trim().toLowerCase() === String(row.email || "").trim().toLowerCase()
       return sameId || sameEmail

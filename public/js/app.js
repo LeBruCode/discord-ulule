@@ -1304,8 +1304,9 @@ function renderRows(rows) {
    if (["soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"].includes(brevoStatusKey)) {
    rowBadges.push(renderSmartBadge(t("badge_attention"), { kind: "warn" }))
   }
-   const supporterName = escapeHtml(String(row.ulule_supporter_name || "").trim())
-   const ululeRewards = Array.isArray(row.ulule_reward_names)
+   const isUluleImport = row.import_source === "ulule"
+   const supporterName = isUluleImport ? escapeHtml(String(row.ulule_supporter_name || "").trim()) : ""
+   const ululeRewards = isUluleImport && Array.isArray(row.ulule_reward_names)
     ? row.ulule_reward_names
       .map((value) => formatUluleRewardName(value, ""))
       .filter(Boolean)

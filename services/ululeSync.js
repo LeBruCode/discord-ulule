@@ -209,7 +209,7 @@ async function saveUluleImport(entry) {
 async function findAccessTokenByEmail(email) {
   const { data, error } = await supabase
     .from(ACCESS_TOKENS_TABLE)
-    .select("id,discord_id")
+    .select("id,discord_id,import_source")
     .eq("email", email)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -363,18 +363,20 @@ async function processEligibleOrder(order, item, { allowInvite = true } = {}) {
 
   const existing = await findAccessTokenByEmail(email)
   if (existing?.id) {
-    await saveUluleImport({
-      email,
-      orderId,
-      rewardId,
-      rewardName,
-      supporterFirstName: supporter.firstName,
-      supporterLastName: supporter.lastName,
-      supporterFullName: supporter.fullName,
-      orderCreatedAt,
-      accessTokenId: existing.id,
-      outcome: "existing_in_base"
-    })
+    if (existing.import_source === "ulule") {
+      await saveUluleImport({
+        email,
+        orderId,
+        rewardId,
+        rewardName,
+        supporterFirstName: supporter.firstName,
+        supporterLastName: supporter.lastName,
+        supporterFullName: supporter.fullName,
+        orderCreatedAt,
+        accessTokenId: existing.id,
+        outcome: "existing_in_base"
+      })
+    }
     return { inserted: 0, skippedExisting: 1, sent: 0, failed: 0 }
   }
 
