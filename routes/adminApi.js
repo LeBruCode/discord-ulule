@@ -1004,6 +1004,27 @@ function applySendEligibility(rows) {
  })
 }
 
+const KNOWN_ULULE_REWARD_LABELS = {
+  5300152: "PACK RÉGIE",
+  5314639: "PACK RÉGIE",
+  5302261: "PACK SCÉNARISTE",
+  5314642: "PACK SCÉNARISTE",
+  5302262: "PACK MONTAGE",
+  5314645: "PACK MONTAGE",
+  5302314: "PACK STYLISME",
+  5314649: "PACK STYLISME",
+  5304319: "PACK SCRIPTE",
+  5302813: "PACK CLAP (Série 1)",
+  5341221: "PACK CLAP (Série 2)",
+  5302827: "PACK PROJECTION",
+  5305328: "PACK PRODUCTION"
+}
+
+function rewardLabelFromId(rewardId) {
+  const numericId = Number(rewardId || 0)
+  return KNOWN_ULULE_REWARD_LABELS[numericId] || null
+}
+
 function normalizeUluleText(value, fallback = "") {
  if (typeof value === "string") {
   const trimmed = value.trim()
@@ -2104,7 +2125,7 @@ router.get("/list", limitList, async (req, res) => {
     }
 
     for (const ululeRow of ululeRows) {
-    const fallbackName = normalizeUluleText(ululeRow.reward_name, `#${ululeRow.reward_id || "-"}`)
+    const fallbackName = normalizeUluleText(ululeRow.reward_name, rewardLabelFromId(ululeRow.reward_id) || `#${ululeRow.reward_id || "-"}`)
     const matchingRows = ululeRowsOnly.filter((row) => {
       const sameId = ululeRow.access_token_id && String(ululeRow.access_token_id) === String(row.id)
       const sameEmail = String(ululeRow.email || "").trim().toLowerCase() === String(row.email || "").trim().toLowerCase()

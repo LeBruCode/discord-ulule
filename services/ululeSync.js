@@ -19,6 +19,21 @@ const DEFAULT_ELIGIBLE_REWARD_IDS = [
   5300152, 5314639, 5302261, 5314642, 5314645, 5302262, 5314649,
   5302314, 5304319, 5341221, 5302827, 5305328, 5302813
 ]
+const KNOWN_ULULE_REWARD_LABELS = {
+  5300152: "PACK RÉGIE",
+  5314639: "PACK RÉGIE",
+  5302261: "PACK SCÉNARISTE",
+  5314642: "PACK SCÉNARISTE",
+  5302262: "PACK MONTAGE",
+  5314645: "PACK MONTAGE",
+  5302314: "PACK STYLISME",
+  5314649: "PACK STYLISME",
+  5304319: "PACK SCRIPTE",
+  5302813: "PACK CLAP (Série 1)",
+  5341221: "PACK CLAP (Série 2)",
+  5302827: "PACK PROJECTION",
+  5305328: "PACK PRODUCTION"
+}
 const ELIGIBLE_ORDER_STATUSES = new Set([4, 7, "4", "7", "payment-done"])
 
 const ululeSyncState = {
@@ -130,6 +145,11 @@ function normalizeStoredText(value, fallback = null) {
   return fallback
 }
 
+function rewardLabelFromId(rewardId) {
+  const numericId = Number(rewardId || 0)
+  return KNOWN_ULULE_REWARD_LABELS[numericId] || null
+}
+
 function pickSupporterIdentity(user = {}) {
   const firstName = String(user?.first_name || "").trim()
   const lastName = String(user?.last_name || "").trim()
@@ -228,7 +248,7 @@ async function saveUluleImport(entry) {
     email: entry.email,
     order_id: entry.orderId,
     reward_id: entry.rewardId,
-    reward_name: normalizeStoredText(entry.rewardName, null),
+    reward_name: normalizeStoredText(entry.rewardName, rewardLabelFromId(entry.rewardId)),
     supporter_first_name: normalizeStoredText(entry.supporterFirstName, null),
     supporter_last_name: normalizeStoredText(entry.supporterLastName, null),
     supporter_full_name: normalizeStoredText(entry.supporterFullName, null),
@@ -608,7 +628,7 @@ async function listUluleImports(limit = 40, { refundedOnly = false } = {}) {
   if (error) throw error
   return (data || []).map((item) => ({
     ...item,
-    reward_name: normalizeStoredText(item.reward_name, item.reward_id ? `#${item.reward_id}` : null),
+    reward_name: normalizeStoredText(item.reward_name, rewardLabelFromId(item.reward_id) || (item.reward_id ? `#${item.reward_id}` : null)),
     supporter_first_name: normalizeStoredText(item.supporter_first_name, null),
     supporter_last_name: normalizeStoredText(item.supporter_last_name, null),
     supporter_full_name: normalizeStoredText(item.supporter_full_name, null)

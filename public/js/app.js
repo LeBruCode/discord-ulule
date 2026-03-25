@@ -384,6 +384,27 @@ function shortRowId(value) {
  return raw.slice(0, 8)
 }
 
+const KNOWN_ULULE_REWARD_LABELS = {
+  5300152: "PACK RÉGIE",
+  5314639: "PACK RÉGIE",
+  5302261: "PACK SCÉNARISTE",
+  5314642: "PACK SCÉNARISTE",
+  5302262: "PACK MONTAGE",
+  5314645: "PACK MONTAGE",
+  5302314: "PACK STYLISME",
+  5314649: "PACK STYLISME",
+  5304319: "PACK SCRIPTE",
+  5302813: "PACK CLAP (Série 1)",
+  5341221: "PACK CLAP (Série 2)",
+  5302827: "PACK PROJECTION",
+  5305328: "PACK PRODUCTION"
+}
+
+function rewardLabelFromId(rewardId) {
+ const numericId = Number(rewardId || 0)
+ return KNOWN_ULULE_REWARD_LABELS[numericId] || null
+}
+
 function formatUluleOutcome(outcome) {
  const key = `ulule_outcome_${String(outcome || "").trim().toLowerCase()}`
  const translated = t(key)
@@ -425,6 +446,8 @@ function formatUluleRewardName(value, fallbackRewardId = "-") {
   }
  }
 
+ const knownLabel = rewardLabelFromId(fallbackRewardId)
+ if (knownLabel) return knownLabel
  return `#${fallbackRewardId || "-"}`
 }
 
