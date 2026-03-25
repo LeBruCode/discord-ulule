@@ -2771,3 +2771,13 @@ body.daily-ops .mission-copy .panel-copy{
  font-size:12px;
  line-height:1;
 }
+
+
+.ulule-status-panel{
+ max-width:100%;
+}
+
+.ulule-status-stack{
+ display:grid;
+ gap:10px;
+}

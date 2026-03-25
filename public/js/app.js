@@ -910,77 +910,28 @@ async function refreshBrevoStats() {
 function renderUluleStatus(status = {}) {
  const statusNode = document.getElementById("ululeStatus")
  const metaNode = document.getElementById("ululeMeta")
- const syncButton = document.getElementById("ululeSyncBtn")
- if (!statusNode || !metaNode || !syncButton) return
+ if (!statusNode || !metaNode) return
 
- const scannedNode = document.getElementById("ululeSummaryScanned")
- const matchedNode = document.getElementById("ululeSummaryMatched")
- const insertedNode = document.getElementById("ululeSummaryInserted")
- const skippedNode = document.getElementById("ululeSummarySkipped")
- const sentNode = document.getElementById("ululeSummarySent")
- const failedNode = document.getElementById("ululeSummaryFailed")
-
- const schedulerMinutes = Number(status.schedulerIntervalMinutes || 30)
- const rewardCount = Array.isArray(status.eligibleRewardIds) ? status.eligibleRewardIds.length : 0
- const startDate = status.initialStartAt
-  ? new Date(status.initialStartAt).toLocaleDateString("fr-FR")
-  : "-"
- const windowHours = Number(status.inviteWindowHours || 24)
-
- metaNode.innerText = status.initialCatchupDone
-  ? t("ulule_meta_live", {
-   projectId: status.projectId || "-",
-   windowHours,
-   rewardCount
-  })
-  : t("ulule_meta_initial", {
-   projectId: status.projectId || "-",
-   startDate,
-   rewardCount
-  })
-
- if (scannedNode) scannedNode.innerText = String(status.scanned || 0)
- if (matchedNode) matchedNode.innerText = String(status.matched || 0)
- if (insertedNode) insertedNode.innerText = String(status.inserted || 0)
- if (skippedNode) skippedNode.innerText = String(status.skippedExisting || 0)
- if (sentNode) sentNode.innerText = String(status.sent || 0)
- if (failedNode) failedNode.innerText = String(status.failed || 0)
-
- syncButton.disabled = Boolean(status.running)
+ const lastSync = status.lastFinishedAt || status.lastSuccessAt || null
+ const nextSync = status.nextScheduledAt || null
 
  if (status.running) {
-  statusNode.innerText = t("ulule_status_running", {
-   scanned: status.scanned || 0,
-   matched: status.matched || 0,
-   inserted: status.inserted || 0,
-   skipped: status.skippedExisting || 0,
-   sent: status.sent || 0,
-   failed: status.failed || 0,
+  statusNode.innerText = t("ulule_status_running_compact", {
    currentEmail: status.currentEmail || "-"
   })
-  return
- }
-
- if (status.lastError) {
-  statusNode.innerText = t("ulule_status_failed", {
+ } else if (status.lastError) {
+  statusNode.innerText = t("ulule_status_failed_compact", {
    error: status.lastError
   })
-  return
- }
-
- if (status.lastFinishedAt) {
-  statusNode.innerText = t("ulule_status_done", {
-   scanned: status.scanned || 0,
-   matched: status.matched || 0,
-   inserted: status.inserted || 0,
-   skipped: status.skippedExisting || 0,
-   sent: status.sent || 0,
-   failed: status.failed || 0
+ } else {
+  statusNode.innerText = t("ulule_status_last_sync", {
+   date: lastSync ? formatDate(lastSync) : t("ulule_never")
   })
-  return
  }
 
- statusNode.innerText = t("ulule_status_idle", { minutes: schedulerMinutes })
+ metaNode.innerText = t("ulule_status_next_sync", {
+  date: nextSync ? formatDate(nextSync) : t("ulule_pending_schedule")
+ })
 }
 
 function renderUluleImports(items = [], options = {}) {
@@ -2153,8 +2104,7 @@ async function refreshAll() {
   loadList(),
   refreshQueueStatus(),
   refreshDayPulse(),
-  refreshUluleStatus(),
-  loadUluleImports()
+  refreshUluleStatus()
  ])
 
  renderNotificationCenter({
@@ -2178,7 +2128,6 @@ async function refreshAll() {
 
 document.getElementById("importBtn").addEventListener("click", importEmails)
 document.getElementById("sendBtn").addEventListener("click", sendEmails)
-document.getElementById("ululeSyncBtn")?.addEventListener("click", startUluleSync)
 document.getElementById("cockpitModeBtn").addEventListener("click", () => {
  setCockpitMode(!document.body.classList.contains("cockpit-dense"), { reveal: true })
 })

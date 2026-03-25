@@ -50,6 +50,7 @@ const ululeSyncState = {
   lastStartedAt: null,
   lastFinishedAt: null,
   lastSuccessAt: null,
+  nextScheduledAt: null,
   inviteCutoffAt: ULULE_INITIAL_SYNC_AT,
   initialCatchupDone: false
 }
@@ -644,14 +645,21 @@ function startUluleSyncScheduler() {
     return
   }
 
+  const scheduleNextRunAt = (delayMs) => {
+    ululeSyncState.nextScheduledAt = new Date(Date.now() + delayMs).toISOString()
+  }
+
   const runScheduled = async () => {
     try {
       await runUluleSync({ reason: "scheduled" })
     } catch (error) {
       console.error("ulule scheduled sync error", errorMessage(error))
+    } finally {
+      scheduleNextRunAt(ULULE_SYNC_INTERVAL_MS)
     }
   }
 
+  scheduleNextRunAt(20 * 1000)
   setTimeout(runScheduled, 20 * 1000)
   setInterval(runScheduled, ULULE_SYNC_INTERVAL_MS)
   console.log("Ulule sync scheduler ready")
