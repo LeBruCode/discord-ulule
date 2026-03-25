@@ -575,9 +575,10 @@ function syncCollapseButtons() {
 function getFilters() {
  const search = document.getElementById("search").value.trim()
  const status = document.getElementById("status").value
+ const source = document.getElementById("source")?.value || "all"
  const brevoStatus = document.getElementById("brevoStatus").value
  const sort = document.getElementById("sort").value
- return { search, status, brevoStatus, sort }
+ return { search, status, source, brevoStatus, sort }
 }
 
 function setLoading(value) {
@@ -1178,9 +1179,14 @@ function renderRows(rows) {
    const checked = selectedIds.has(id) ? "checked" : ""
    const rowBadges = []
    rowBadges.push(
-    row.used
+   row.used
      ? renderSmartBadge(t("badge_active"), { kind: "good", icon: row.discord_id ? "discord" : "spark" })
      : renderSmartBadge(t("badge_unactivated"), { kind: "pending" })
+   )
+   rowBadges.push(
+    renderSmartBadge(row.import_source === "ulule" ? t("source_ulule") : t("source_manual"), {
+     kind: row.import_source === "ulule" ? "pending" : "neutral"
+    })
    )
    if (row.discord_id) {
     rowBadges.push(renderSmartBadge(t("badge_discord_joined"), { kind: "good", icon: "discord" }))
@@ -1221,12 +1227,13 @@ function renderRows(rows) {
 }
 
 async function loadList() {
- const { search, status, brevoStatus, sort } = getFilters()
+ const { search, status, source, brevoStatus, sort } = getFilters()
  const params = new URLSearchParams({
   page: String(page),
   limit: String(limit),
   search,
   status,
+  source,
   brevoStatus,
   sort
  })
@@ -2140,6 +2147,10 @@ for (const button of document.querySelectorAll(".collapse-toggle")) {
  button.addEventListener("click", () => toggleCollapsible(button.dataset.target, button))
 }
 document.getElementById("status").addEventListener("change", async () => {
+ page = 1
+ await loadList()
+})
+document.getElementById("source").addEventListener("change", async () => {
  page = 1
  await loadList()
 })

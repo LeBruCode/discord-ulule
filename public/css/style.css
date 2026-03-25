@@ -1049,7 +1049,7 @@ textarea{
 
 .filter-row{
  display:grid;
- grid-template-columns:minmax(240px,1.35fr) repeat(4, minmax(160px,.6fr));
+ grid-template-columns:minmax(240px,1.35fr) repeat(5, minmax(150px,.58fr));
  gap:10px;
 }
 

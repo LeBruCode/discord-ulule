@@ -975,11 +975,12 @@ function normalizeListFilters(input = {}) {
  return {
   search: typeof input.search === "string" ? input.search.trim() : "",
   status: typeof input.status === "string" ? input.status : "all",
-  brevoStatus: typeof input.brevoStatus === "string" ? input.brevoStatus.trim().toLowerCase() : "all"
+  brevoStatus: typeof input.brevoStatus === "string" ? input.brevoStatus.trim().toLowerCase() : "all",
+  source: typeof input.source === "string" ? input.source.trim().toLowerCase() : "all"
  }
 }
 
-function applyListFilters(query, { search = "", status = "all", brevoStatus = "all" }) {
+function applyListFilters(query, { search = "", status = "all", brevoStatus = "all", source = "all" }) {
  if (search) query = query.ilike("email", `%${search}%`)
  if (status === "todo") query = query.or(`used.eq.false,used.is.null,brevo_status.eq.request,brevo_status.eq.queued,brevo_status.eq.sent,brevo_status.eq.soft_bounce,brevo_status.eq.hard_bounce,brevo_status.eq.blocked,brevo_status.eq.error,brevo_status.eq.deferred,brevo_status.eq.invalid,brevo_status.eq.spam`)
  if (status === "clean") query = query.or(`used.eq.true,brevo_status.eq.delivered,brevo_status.eq.opened,brevo_status.eq.unique_opened,brevo_status.eq.click,brevo_status.eq.unique_clicked`)
@@ -988,6 +989,8 @@ function applyListFilters(query, { search = "", status = "all", brevoStatus = "a
  if (status === "activated") query = query.eq("used", true)
  if (status === "unactivated") query = query.or("used.eq.false,used.is.null")
  if (brevoStatus && brevoStatus !== "all") query = query.eq("brevo_status", brevoStatus)
+ if (source === "manual") query = query.eq("import_source", "manual")
+ if (source === "ulule") query = query.eq("import_source", "ulule")
  return query
 }
 
@@ -1138,7 +1141,8 @@ async function processImportQueue(emails) {
     email,
     token: token(),
     used: false,
-    email_sent: false
+    email_sent: false,
+    import_source: "manual"
    }))
 
    importQueueState.currentEmail = chunk[chunk.length - 1] || null
@@ -1159,7 +1163,8 @@ async function processImportQueue(emails) {
      email,
      token: token(),
      used: false,
-     email_sent: false
+     email_sent: false,
+     import_source: "manual"
     })
 
     importQueueState.processed += 1
@@ -1986,12 +1991,13 @@ router.get("/list", limitList, async (req, res) => {
   const search = typeof req.query.search === "string" ? req.query.search : ""
   const status = req.query.status || "all"
   const brevoStatus = typeof req.query.brevoStatus === "string" ? req.query.brevoStatus.trim().toLowerCase() : "all"
+  const source = typeof req.query.source === "string" ? req.query.source.trim().toLowerCase() : "all"
   const sort = typeof req.query.sort === "string" ? req.query.sort : "last_import_desc"
 
   let query = supabase
    .from("access_tokens")
    .select("*", { count: "exact" })
-  query = applyListFilters(query, { search, status, brevoStatus })
+  query = applyListFilters(query, { search, status, brevoStatus, source })
 
   if (sort === "last_import_asc") {
    query = query.order("created_at", { ascending: true })

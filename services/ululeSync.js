@@ -199,7 +199,8 @@ async function createAccessToken(email) {
       email,
       token: token(),
       used: false,
-      email_sent: false
+      email_sent: false,
+      import_source: "ulule"
     })
     .select("id,email,token")
     .maybeSingle()
