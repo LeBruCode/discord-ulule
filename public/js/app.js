@@ -378,6 +378,12 @@ function formatDate(value) {
  return date.toLocaleString("fr-FR")
 }
 
+function shortRowId(value) {
+ const raw = String(value || "").trim()
+ if (!raw) return "-"
+ return raw.slice(0, 8)
+}
+
 function formatUluleOutcome(outcome) {
  const key = `ulule_outcome_${String(outcome || "").trim().toLowerCase()}`
  const translated = t(key)
@@ -1186,6 +1192,8 @@ function renderRows(rows) {
    const email = escapeHtml(row.email || "")
    const sentAt = escapeHtml(formatDate(row.email_sent_at))
    const usedAt = escapeHtml(formatDate(row.used_at))
+   const importedAt = escapeHtml(formatDate(row.created_at))
+   const importMeta = escapeHtml(t("row_import_meta", { date: importedAt, id: shortRowId(id) }))
    const brevoStatusKey = String(row.brevo_status || "").trim().toLowerCase()
    const brevoStatus = escapeHtml(formatBrevoStatus(brevoStatusKey))
    const excluded = row.resend_excluded === true
@@ -1222,7 +1230,7 @@ function renderRows(rows) {
     : renderSmartBadge(t("badge_unactivated"), { kind: "pending" })
    return `<tr>
     <td class="select-col"><input class="row-select" type="checkbox" data-id="${id}" ${checked}></td>
-    <td class="email-cell" title="${email}"><div class="email-main">${email}</div><div class="row-badges">${rowBadges.join("")}</div></td>
+    <td class="email-cell" title="${email}"><div class="email-main">${email}</div><div class="email-submeta">${importMeta}</div><div class="row-badges">${rowBadges.join("")}</div></td>
     <td class="status-cell">${sentBadge}</td>
     <td class="status-cell">${activatedBadge}</td>
     <td class="datetime-cell">${sentAt}</td>

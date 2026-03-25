@@ -1384,6 +1384,16 @@ td:nth-child(7){
  color:#ecf3ff;
 }
 
+.email-submeta{
+ margin-top:4px;
+ color:#89a2ca;
+ font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+ font-size:11px;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+
 .row-badges{
  display:flex;
  flex-wrap:wrap;
