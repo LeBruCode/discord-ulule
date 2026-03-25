@@ -193,7 +193,7 @@ async function saveUluleImport(entry) {
 async function findAccessTokenByEmail(email) {
   const { data, error } = await supabase
     .from(ACCESS_TOKENS_TABLE)
-    .select("id,discord_id")
+    .select("id,email,token,discord_id,email_sent,email_sent_at,brevo_status,brevo_message_id")
     .eq("email", email)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -343,6 +343,45 @@ async function processEligibleOrder(order, item) {
 
   const existing = await findAccessTokenByEmail(email)
   if (existing?.id) {
+    const alreadySentOrTriggered =
+      existing.email_sent === true ||
+      Boolean(existing.email_sent_at) ||
+      Boolean(existing.brevo_status) ||
+      Boolean(existing.brevo_message_id)
+
+    if (!alreadySentOrTriggered) {
+      try {
+        await queueInvitation(existing)
+        await saveUluleImport({
+          email,
+          orderId,
+          rewardId,
+          rewardName,
+          orderCreatedAt,
+          accessTokenId: existing.id,
+          outcome: "existing_unsent_invited"
+        })
+        return { inserted: 0, skippedExisting: 0, sent: 1, failed: 0 }
+      } catch (error) {
+        await supabase
+          .from(ACCESS_TOKENS_TABLE)
+          .update({ email_error: errorMessage(error) })
+          .eq("id", existing.id)
+
+        await saveUluleImport({
+          email,
+          orderId,
+          rewardId,
+          rewardName,
+          orderCreatedAt,
+          accessTokenId: existing.id,
+          outcome: "existing_unsent_send_failed",
+          lastError: errorMessage(error)
+        })
+        return { inserted: 0, skippedExisting: 0, sent: 0, failed: 1 }
+      }
+    }
+
     await saveUluleImport({
       email,
       orderId,
