@@ -2030,69 +2030,63 @@ router.get("/list", limitList, async (req, res) => {
    supporterNamesByRowId.set(String(row.id), "")
   }
 
-  if (rowIds.length || rowEmails.length) {
-   const ululeRows = []
-   const selectWithSupporter = "access_token_id,email,reward_name,reward_id,supporter_full_name,supporter_first_name,supporter_last_name"
-   const selectLegacy = "access_token_id,email,reward_name,reward_id"
-   const readUluleRows = async (column, values) => {
-    let response = await supabase
-     .from("ulule_imports")
-     .select(selectWithSupporter)
-     .in(column, values)
-
-    if (response.error && /supporter_(full_name|first_name|last_name)/i.test(String(response.error.message || ""))) {
-     response = await supabase
+  try {
+   if (rowIds.length || rowEmails.length) {
+    const ululeRows = []
+    const selectWithSupporter = "access_token_id,email,reward_name,reward_id,supporter_full_name,supporter_first_name,supporter_last_name"
+    const selectLegacy = "access_token_id,email,reward_name,reward_id"
+    const readUluleRows = async (column, values) => {
+     let response = await supabase
       .from("ulule_imports")
-      .select(selectLegacy)
+      .select(selectWithSupporter)
       .in(column, values)
+
+     if (response.error && /supporter_(full_name|first_name|last_name)/i.test(String(response.error.message || ""))) {
+      response = await supabase
+       .from("ulule_imports")
+       .select(selectLegacy)
+       .in(column, values)
+     }
+
+     return response
     }
 
-    return response
-   }
-
-   if (rowIds.length) {
-    const { data: byAccessTokenRows, error: byAccessTokenError } = await readUluleRows("access_token_id", rowIds)
-
-    if (byAccessTokenError) {
-     console.error("list route ulule rewards by access token error", byAccessTokenError)
-     return res.status(500).json({ error: "server error" })
+    if (rowIds.length) {
+     const { data: byAccessTokenRows, error: byAccessTokenError } = await readUluleRows("access_token_id", rowIds)
+     if (byAccessTokenError) throw byAccessTokenError
+     ululeRows.push(...(byAccessTokenRows || []))
     }
 
-    ululeRows.push(...(byAccessTokenRows || []))
-   }
-
-   if (rowEmails.length) {
-    const { data: byEmailRows, error: byEmailError } = await readUluleRows("email", rowEmails)
-
-    if (byEmailError) {
-     console.error("list route ulule rewards by email error", byEmailError)
-     return res.status(500).json({ error: "server error" })
+    if (rowEmails.length) {
+     const { data: byEmailRows, error: byEmailError } = await readUluleRows("email", rowEmails)
+     if (byEmailError) throw byEmailError
+     ululeRows.push(...(byEmailRows || []))
     }
 
-    ululeRows.push(...(byEmailRows || []))
-   }
+    for (const ululeRow of ululeRows) {
+     const fallbackName = typeof ululeRow.reward_name === "string" && ululeRow.reward_name.trim()
+      ? ululeRow.reward_name.trim()
+      : `#${ululeRow.reward_id || "-"}`
+     const matchingRows = rows.filter((row) => {
+      const sameId = ululeRow.access_token_id && String(ululeRow.access_token_id) === String(row.id)
+      const sameEmail = String(ululeRow.email || "").trim().toLowerCase() === String(row.email || "").trim().toLowerCase()
+      return sameId || sameEmail
+     })
+     const supporterName = String(
+      ululeRow.supporter_full_name ||
+      [ululeRow.supporter_first_name, ululeRow.supporter_last_name].filter(Boolean).join(" ")
+     ).trim()
 
-   for (const ululeRow of ululeRows) {
-    const fallbackName = typeof ululeRow.reward_name === "string" && ululeRow.reward_name.trim()
-     ? ululeRow.reward_name.trim()
-     : `#${ululeRow.reward_id || "-"}`
-    const matchingRows = rows.filter((row) => {
-     const sameId = ululeRow.access_token_id && String(ululeRow.access_token_id) === String(row.id)
-     const sameEmail = String(ululeRow.email || "").trim().toLowerCase() === String(row.email || "").trim().toLowerCase()
-     return sameId || sameEmail
-    })
-    const supporterName = String(
-     ululeRow.supporter_full_name ||
-     [ululeRow.supporter_first_name, ululeRow.supporter_last_name].filter(Boolean).join(" ")
-    ).trim()
-
-    for (const matchingRow of matchingRows) {
-     rewardNamesByRowId.get(String(matchingRow.id))?.add(fallbackName)
-     if (supporterName && !supporterNamesByRowId.get(String(matchingRow.id))) {
-      supporterNamesByRowId.set(String(matchingRow.id), supporterName)
+     for (const matchingRow of matchingRows) {
+      rewardNamesByRowId.get(String(matchingRow.id))?.add(fallbackName)
+      if (supporterName && !supporterNamesByRowId.get(String(matchingRow.id))) {
+       supporterNamesByRowId.set(String(matchingRow.id), supporterName)
+      }
      }
     }
    }
+  } catch (ululeEnrichmentError) {
+   console.error("list route ulule enrichment fallback", ululeEnrichmentError)
   }
 
   const enrichedRows = rows.map((row) => ({
