@@ -435,10 +435,9 @@ async function runUluleSync({ reason = "manual" } = {}) {
     const cutoff = initialStartAt
 
     let url = buildOrdersUrl(projectId)
-    let reachedCutoff = false
     let pageGuard = 0
 
-    while (url && !reachedCutoff && pageGuard < 200) {
+    while (url && pageGuard < 200) {
       pageGuard += 1
       const payload = await fetchUluleJson(url)
       const orders = Array.isArray(payload?.orders) ? payload.orders : []
@@ -446,19 +445,18 @@ async function runUluleSync({ reason = "manual" } = {}) {
 
       for (const order of orders) {
         const orderCreatedAt = order?.created_at ? new Date(order.created_at) : null
-        if (orderCreatedAt && orderCreatedAt < cutoff) {
-          reachedCutoff = true
-          break
-        }
-
         const eligibleItems = getEligibleItems(order)
         if (!eligibleItems.length) continue
+        const isRefunded = order?.refunded === true
+        const isRecentOrder = !(orderCreatedAt && orderCreatedAt < cutoff)
+
+        if (!isRefunded && !isRecentOrder) continue
 
         ululeSyncState.scanned += 1
 
         for (const item of eligibleItems) {
           ululeSyncState.matched += 1
-          const result = order?.refunded === true
+          const result = isRefunded
             ? await revokeRefundedAccess(order, item)
             : isEligibleOrderStatus(order)
               ? await processEligibleOrder(order, item)
@@ -470,7 +468,6 @@ async function runUluleSync({ reason = "manual" } = {}) {
         }
       }
 
-      if (reachedCutoff) break
       url = buildOrdersUrl(projectId, payload?.meta?.next || "")
       if (!payload?.meta?.next) break
     }
