@@ -90,6 +90,19 @@ function pickRewardName(reward = {}) {
   return String(description || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
 }
 
+function pickSupporterIdentity(user = {}) {
+  const firstName = String(user?.first_name || "").trim()
+  const lastName = String(user?.last_name || "").trim()
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim()
+  const fallbackFullName = String(user?.name || user?.username || user?.screenname || "").trim()
+
+  return {
+    firstName: firstName || null,
+    lastName: lastName || null,
+    fullName: fullName || fallbackFullName || null
+  }
+}
+
 function isEligibleOrderStatus(order) {
   const status = order?.status
   return ELIGIBLE_ORDER_STATUSES.has(status)
@@ -176,6 +189,9 @@ async function saveUluleImport(entry) {
     order_id: entry.orderId,
     reward_id: entry.rewardId,
     reward_name: entry.rewardName || null,
+    supporter_first_name: entry.supporterFirstName || null,
+    supporter_last_name: entry.supporterLastName || null,
+    supporter_full_name: entry.supporterFullName || null,
     order_created_at: entry.orderCreatedAt || null,
     access_token_id: entry.accessTokenId || null,
     outcome: entry.outcome,
@@ -319,12 +335,13 @@ async function revokeRefundedAccess(order, item) {
   }
 }
 
-async function processEligibleOrder(order, item) {
+async function processEligibleOrder(order, item, { allowInvite = true } = {}) {
   const email = normalizeEmail(order?.user?.email)
   const orderId = Number(order?.id || 0)
   const orderCreatedAt = order?.created_at || null
   const rewardId = item.rewardId
   const rewardName = item.rewardName
+  const supporter = pickSupporterIdentity(order?.user)
 
   if (!email) {
     await saveUluleImport({
@@ -332,6 +349,9 @@ async function processEligibleOrder(order, item) {
       orderId,
       rewardId,
       rewardName,
+      supporterFirstName: supporter.firstName,
+      supporterLastName: supporter.lastName,
+      supporterFullName: supporter.fullName,
       orderCreatedAt,
       outcome: "missing_email",
       lastError: "missing email on Ulule order"
@@ -348,11 +368,18 @@ async function processEligibleOrder(order, item) {
       orderId,
       rewardId,
       rewardName,
+      supporterFirstName: supporter.firstName,
+      supporterLastName: supporter.lastName,
+      supporterFullName: supporter.fullName,
       orderCreatedAt,
       accessTokenId: existing.id,
       outcome: "existing_in_base"
     })
     return { inserted: 0, skippedExisting: 1, sent: 0, failed: 0 }
+  }
+
+  if (!allowInvite) {
+    return { inserted: 0, skippedExisting: 0, sent: 0, failed: 0 }
   }
 
   let accessTokenRow = null
@@ -364,6 +391,9 @@ async function processEligibleOrder(order, item) {
       orderId,
       rewardId,
       rewardName,
+      supporterFirstName: supporter.firstName,
+      supporterLastName: supporter.lastName,
+      supporterFullName: supporter.fullName,
       orderCreatedAt,
       outcome: "insert_failed",
       lastError: errorMessage(error)
@@ -378,6 +408,9 @@ async function processEligibleOrder(order, item) {
       orderId,
       rewardId,
       rewardName,
+      supporterFirstName: supporter.firstName,
+      supporterLastName: supporter.lastName,
+      supporterFullName: supporter.fullName,
       orderCreatedAt,
       accessTokenId: accessTokenRow.id,
       outcome: "inserted_and_sent"
@@ -394,6 +427,9 @@ async function processEligibleOrder(order, item) {
       orderId,
       rewardId,
       rewardName,
+      supporterFirstName: supporter.firstName,
+      supporterLastName: supporter.lastName,
+      supporterFullName: supporter.fullName,
       orderCreatedAt,
       accessTokenId: accessTokenRow.id,
       outcome: "send_failed",
@@ -468,7 +504,7 @@ async function runUluleSync({ reason = "manual" } = {}) {
           const result = isRefunded
             ? await revokeRefundedAccess(order, item)
             : isEligibleOrderStatus(order)
-              ? await processEligibleOrder(order, item)
+              ? await processEligibleOrder(order, item, { allowInvite: isRecentOrder })
               : { inserted: 0, skippedExisting: 0, sent: 0, failed: 0 }
           ululeSyncState.inserted += result.inserted
           ululeSyncState.skippedExisting += result.skippedExisting

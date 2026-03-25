@@ -1304,6 +1304,7 @@ function renderRows(rows) {
    if (["soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"].includes(brevoStatusKey)) {
    rowBadges.push(renderSmartBadge(t("badge_attention"), { kind: "warn" }))
   }
+   const supporterName = escapeHtml(String(row.ulule_supporter_name || "").trim())
    const ululeRewards = Array.isArray(row.ulule_reward_names)
     ? row.ulule_reward_names
       .map((value) => formatUluleRewardName(value, ""))
@@ -1320,7 +1321,7 @@ function renderRows(rows) {
     : renderSmartBadge(t("badge_unactivated"), { kind: "pending" })
    return `<tr>
     <td class="select-col"><input class="row-select" type="checkbox" data-id="${id}" ${checked}></td>
-    <td class="email-cell" title="${email}"><div class="email-main">${email}</div><div class="email-submeta">${importMeta}</div><div class="row-badges">${rowBadges.join("")}</div>${ululeRewardsMarkup}</td>
+    <td class="email-cell" title="${email}">${supporterName ? `<div class="email-person-name">${supporterName}</div>` : ""}<div class="email-main">${email}</div><div class="email-submeta">${importMeta}</div><div class="row-badges">${rowBadges.join("")}</div>${ululeRewardsMarkup}</td>
     <td class="status-cell">${sentBadge}</td>
     <td class="status-cell">${activatedBadge}</td>
     <td class="datetime-cell">${sentAt}</td>

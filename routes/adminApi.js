@@ -2023,9 +2023,11 @@ router.get("/list", limitList, async (req, res) => {
   const rowIds = rows.map((row) => row.id).filter(Boolean)
   const rowEmails = rows.map((row) => String(row.email || "").trim().toLowerCase()).filter(Boolean)
   const rewardNamesByRowId = new Map()
+  const supporterNamesByRowId = new Map()
 
   for (const row of rows) {
    rewardNamesByRowId.set(String(row.id), new Set())
+   supporterNamesByRowId.set(String(row.id), "")
   }
 
   if (rowIds.length || rowEmails.length) {
@@ -2034,7 +2036,7 @@ router.get("/list", limitList, async (req, res) => {
    if (rowIds.length) {
     const { data: byAccessTokenRows, error: byAccessTokenError } = await supabase
      .from("ulule_imports")
-     .select("access_token_id,email,reward_name,reward_id")
+     .select("access_token_id,email,reward_name,reward_id,supporter_full_name,supporter_first_name,supporter_last_name")
      .in("access_token_id", rowIds)
 
     if (byAccessTokenError) {
@@ -2048,7 +2050,7 @@ router.get("/list", limitList, async (req, res) => {
    if (rowEmails.length) {
     const { data: byEmailRows, error: byEmailError } = await supabase
      .from("ulule_imports")
-     .select("access_token_id,email,reward_name,reward_id")
+     .select("access_token_id,email,reward_name,reward_id,supporter_full_name,supporter_first_name,supporter_last_name")
      .in("email", rowEmails)
 
     if (byEmailError) {
@@ -2068,16 +2070,24 @@ router.get("/list", limitList, async (req, res) => {
      const sameEmail = String(ululeRow.email || "").trim().toLowerCase() === String(row.email || "").trim().toLowerCase()
      return sameId || sameEmail
     })
+    const supporterName = String(
+     ululeRow.supporter_full_name ||
+     [ululeRow.supporter_first_name, ululeRow.supporter_last_name].filter(Boolean).join(" ")
+    ).trim()
 
     for (const matchingRow of matchingRows) {
      rewardNamesByRowId.get(String(matchingRow.id))?.add(fallbackName)
+     if (supporterName && !supporterNamesByRowId.get(String(matchingRow.id))) {
+      supporterNamesByRowId.set(String(matchingRow.id), supporterName)
+     }
     }
    }
   }
 
   const enrichedRows = rows.map((row) => ({
    ...row,
-   ulule_reward_names: Array.from(rewardNamesByRowId.get(String(row.id)) || [])
+   ulule_reward_names: Array.from(rewardNamesByRowId.get(String(row.id)) || []),
+   ulule_supporter_name: supporterNamesByRowId.get(String(row.id)) || ""
   }))
 
   return res.json({ data: enrichedRows, total: count })
