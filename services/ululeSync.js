@@ -19,6 +19,7 @@ const DEFAULT_ELIGIBLE_REWARD_IDS = [
   5300152, 5314639, 5302261, 5314642, 5314645, 5302262, 5314649,
   5302314, 5304319, 5341221, 5302827, 5305328, 5302813
 ]
+const ELIGIBLE_ORDER_STATUSES = new Set([4, 7, "4", "7", "payment-done"])
 
 const ululeSyncState = {
   running: false,
@@ -87,15 +88,23 @@ function pickRewardName(reward = {}) {
   return String(description || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
 }
 
+function isEligibleOrderStatus(order) {
+  const status = order?.status
+  return ELIGIBLE_ORDER_STATUSES.has(status)
+}
+
 function getEligibleItems(order) {
   const eligibleIds = new Set(getEligibleRewardIds())
   return (Array.isArray(order?.items) ? order.items : [])
     .map((item) => {
-      const rewardId = Number(item?.reward_id || item?.reward?.id || 0)
-      if (!eligibleIds.has(rewardId)) return null
+      const parentRewardId = Number(item?.reward?.parent?.id || 0)
+      const variantRewardId = Number(item?.reward_id || item?.reward?.id || 0)
+      const matchedRewardId = parentRewardId || variantRewardId
+      if (!eligibleIds.has(matchedRewardId)) return null
       return {
-        rewardId,
-        rewardName: pickRewardName(item?.reward || {}),
+        rewardId: matchedRewardId,
+        rewardVariantId: variantRewardId || null,
+        rewardName: pickRewardName(item?.reward?.parent || item?.reward || {}),
         quantity: Number(item?.quantity || 1) || 1
       }
     })
@@ -316,7 +325,7 @@ function buildOrdersUrl(projectId, next = "") {
   if (next) {
     return next.startsWith("http") ? next : `${ULULE_API_BASE}/projects/${projectId}/orders${next}`
   }
-  return `${ULULE_API_BASE}/projects/${projectId}/orders?limit=20&status=payment-done&show_anonymous=true`
+  return `${ULULE_API_BASE}/projects/${projectId}/orders?limit=20&show_anonymous=true`
 }
 
 async function runUluleSync({ reason = "manual" } = {}) {
@@ -364,6 +373,10 @@ async function runUluleSync({ reason = "manual" } = {}) {
         if (orderCreatedAt && orderCreatedAt < cutoff) {
           reachedCutoff = true
           break
+        }
+
+        if (!isEligibleOrderStatus(order) || order?.refunded === true) {
+          continue
         }
 
         ululeSyncState.scanned += 1
