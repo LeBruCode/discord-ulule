@@ -1302,8 +1302,16 @@ function renderRows(rows) {
     rowBadges.push(renderSmartBadge(t("badge_pending"), { kind: "pending" }))
    }
    if (["soft_bounce", "hard_bounce", "blocked", "error", "deferred", "invalid", "spam"].includes(brevoStatusKey)) {
-    rowBadges.push(renderSmartBadge(t("badge_attention"), { kind: "warn" }))
-   }
+   rowBadges.push(renderSmartBadge(t("badge_attention"), { kind: "warn" }))
+  }
+   const ululeRewards = Array.isArray(row.ulule_reward_names)
+    ? row.ulule_reward_names
+      .map((value) => formatUluleRewardName(value, ""))
+      .filter(Boolean)
+    : []
+   const ululeRewardsMarkup = ululeRewards.length
+    ? `<div class="ulule-reward-list">${ululeRewards.map((reward) => `<span class="ulule-reward-pill">${escapeHtml(reward)}</span>`).join("")}</div>`
+    : ""
    const sentBadge = row.email_sent
     ? renderSmartBadge(t("badge_sent"), { kind: "good" })
     : renderSmartBadge(t("badge_unsent"), { kind: "neutral" })
@@ -1312,7 +1320,7 @@ function renderRows(rows) {
     : renderSmartBadge(t("badge_unactivated"), { kind: "pending" })
    return `<tr>
     <td class="select-col"><input class="row-select" type="checkbox" data-id="${id}" ${checked}></td>
-    <td class="email-cell" title="${email}"><div class="email-main">${email}</div><div class="email-submeta">${importMeta}</div><div class="row-badges">${rowBadges.join("")}</div></td>
+    <td class="email-cell" title="${email}"><div class="email-main">${email}</div><div class="email-submeta">${importMeta}</div><div class="row-badges">${rowBadges.join("")}</div>${ululeRewardsMarkup}</td>
     <td class="status-cell">${sentBadge}</td>
     <td class="status-cell">${activatedBadge}</td>
     <td class="datetime-cell">${sentAt}</td>

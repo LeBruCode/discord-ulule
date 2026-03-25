@@ -226,7 +226,6 @@
 <div class="action-block">
 <p id="filtersLabel" class="action-label">Filtres</p>
 <div class="filter-row">
-<input id="search" placeholder="Cherche un e-mail, un doute, un héros.">
 <select id="status">
 <option id="statusAllOption" value="all">Tous</option>
 <option id="statusTodoOption" value="todo">À traiter</option>
@@ -307,14 +306,18 @@
 </div>
 </section>
 
-<section class="panel ulule-panel">
+<section class="panel ulule-panel collapsible-panel">
 <div class="panel-head compact-head">
 <div>
 <h2 id="ululeTitle">Ulule</h2>
 <p id="ululeCopy" class="panel-copy">On remonte ici les contributeurs éligibles depuis Ulule, on évite les doublons de base, puis on envoie l'invitation automatiquement.</p>
 </div>
+<div class="panel-head-actions">
 <button id="ululeSyncBtn" type="button" class="ghost">Synchroniser Ulule</button>
+<button id="ululeCollapseBtn" type="button" class="ghost collapse-toggle" data-target="ululePanelBody" aria-expanded="true">Refermer</button>
 </div>
+</div>
+<div id="ululePanelBody" class="collapsible-body">
 <p id="ululeStatus" class="panel-copy">Sync Ulule prête.</p>
 <p id="ululeMeta" class="mono-note">Projet 216296</p>
 <div class="ulule-summary-grid">
@@ -332,6 +335,7 @@
 <div class="ulule-list-wrap">
 <strong id="ululeRefundsTitle">Contributeurs remboursés encore liés à Discord</strong>
 <div id="ululeRefundsList" class="ulule-import-list"></div>
+</div>
 </div>
 </section>
 
@@ -371,6 +375,9 @@
 
 <section class="panel">
 <h2 id="listTitle">Qui a quoi, et qui rame encore</h2>
+<div class="list-toolbar">
+<input id="search" type="search" placeholder="Cherche un e-mail, un doute, un héros.">
+</div>
 <div class="table-wrap">
 <table>
 <colgroup>

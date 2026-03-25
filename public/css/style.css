@@ -1012,6 +1012,21 @@ textarea{
   gap:10px;
 }
 
+.panel-head-actions{
+ display:flex;
+ align-items:center;
+ gap:10px;
+ flex-wrap:wrap;
+}
+
+.list-toolbar{
+ margin:0 0 14px;
+}
+
+.list-toolbar input{
+ width:min(460px, 100%);
+}
+
 .action-layout{
  display:grid;
  gap:14px;
@@ -2269,6 +2284,27 @@ body.daily-ops .mission-copy .panel-copy{
  color:#9eb2d2;
  font-size:13px;
  background:rgba(9,15,25,.55);
+}
+
+.ulule-reward-list{
+ display:flex;
+ flex-wrap:wrap;
+ gap:8px;
+ margin-top:10px;
+}
+
+.ulule-reward-pill{
+ display:inline-flex;
+ align-items:center;
+ min-height:28px;
+ padding:0 10px;
+ border-radius:999px;
+ border:1px solid rgba(63,102,160,.4);
+ background:rgba(13,24,43,.82);
+ color:#cfe2ff;
+ font-size:12px;
+ font-weight:700;
+ line-height:1.2;
 }
 
 .panel,

@@ -2019,7 +2019,68 @@ router.get("/list", limitList, async (req, res) => {
    return res.status(500).json({ error: "server error" })
   }
 
-  return res.json({ data, total: count })
+  const rows = Array.isArray(data) ? data : []
+  const rowIds = rows.map((row) => row.id).filter(Boolean)
+  const rowEmails = rows.map((row) => String(row.email || "").trim().toLowerCase()).filter(Boolean)
+  const rewardNamesByRowId = new Map()
+
+  for (const row of rows) {
+   rewardNamesByRowId.set(String(row.id), new Set())
+  }
+
+  if (rowIds.length || rowEmails.length) {
+   const ululeRows = []
+
+   if (rowIds.length) {
+    const { data: byAccessTokenRows, error: byAccessTokenError } = await supabase
+     .from("ulule_imports")
+     .select("access_token_id,email,reward_name,reward_id")
+     .in("access_token_id", rowIds)
+
+    if (byAccessTokenError) {
+     console.error("list route ulule rewards by access token error", byAccessTokenError)
+     return res.status(500).json({ error: "server error" })
+    }
+
+    ululeRows.push(...(byAccessTokenRows || []))
+   }
+
+   if (rowEmails.length) {
+    const { data: byEmailRows, error: byEmailError } = await supabase
+     .from("ulule_imports")
+     .select("access_token_id,email,reward_name,reward_id")
+     .in("email", rowEmails)
+
+    if (byEmailError) {
+     console.error("list route ulule rewards by email error", byEmailError)
+     return res.status(500).json({ error: "server error" })
+    }
+
+    ululeRows.push(...(byEmailRows || []))
+   }
+
+   for (const ululeRow of ululeRows) {
+    const fallbackName = typeof ululeRow.reward_name === "string" && ululeRow.reward_name.trim()
+     ? ululeRow.reward_name.trim()
+     : `#${ululeRow.reward_id || "-"}`
+    const matchingRows = rows.filter((row) => {
+     const sameId = ululeRow.access_token_id && String(ululeRow.access_token_id) === String(row.id)
+     const sameEmail = String(ululeRow.email || "").trim().toLowerCase() === String(row.email || "").trim().toLowerCase()
+     return sameId || sameEmail
+    })
+
+    for (const matchingRow of matchingRows) {
+     rewardNamesByRowId.get(String(matchingRow.id))?.add(fallbackName)
+    }
+   }
+  }
+
+  const enrichedRows = rows.map((row) => ({
+   ...row,
+   ulule_reward_names: Array.from(rewardNamesByRowId.get(String(row.id)) || [])
+  }))
+
+  return res.json({ data: enrichedRows, total: count })
  } catch (error) {
   console.error("list route unhandled error", error)
   return res.status(500).json({ error: "server error" })
