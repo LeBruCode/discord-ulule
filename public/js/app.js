@@ -875,12 +875,19 @@ function renderUluleStatus(status = {}) {
  const startDate = status.initialStartAt
   ? new Date(status.initialStartAt).toLocaleDateString("fr-FR")
   : "-"
+ const windowHours = Number(status.inviteWindowHours || 24)
 
- metaNode.innerText = t("ulule_meta", {
-  projectId: status.projectId || "-",
-  startDate,
-  rewardCount
- })
+ metaNode.innerText = status.initialCatchupDone
+  ? t("ulule_meta_live", {
+   projectId: status.projectId || "-",
+   windowHours,
+   rewardCount
+  })
+  : t("ulule_meta_initial", {
+   projectId: status.projectId || "-",
+   startDate,
+   rewardCount
+  })
 
  if (scannedNode) scannedNode.innerText = String(status.scanned || 0)
  if (matchedNode) matchedNode.innerText = String(status.matched || 0)

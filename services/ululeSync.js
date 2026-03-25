@@ -34,7 +34,9 @@ const ululeSyncState = {
   reason: "idle",
   lastStartedAt: null,
   lastFinishedAt: null,
-  lastSuccessAt: null
+  lastSuccessAt: null,
+  inviteCutoffAt: ULULE_INITIAL_SYNC_AT,
+  initialCatchupDone: false
 }
 
 let schedulerStarted = false
@@ -431,8 +433,15 @@ async function runUluleSync({ reason = "manual" } = {}) {
   ululeSyncState.lastFinishedAt = null
 
   try {
+    const storedSettings = await readSyncSettings()
     const initialStartAt = new Date(ULULE_INITIAL_SYNC_AT)
-    const cutoff = initialStartAt
+    const initialCatchupDone = Boolean(storedSettings?.lastSuccessAt)
+    const cutoff = initialCatchupDone
+      ? new Date(Date.now() - (24 * 60 * 60 * 1000))
+      : initialStartAt
+
+    ululeSyncState.initialCatchupDone = initialCatchupDone
+    ululeSyncState.inviteCutoffAt = cutoff.toISOString()
 
     let url = buildOrdersUrl(projectId)
     let pageGuard = 0
@@ -473,11 +482,13 @@ async function runUluleSync({ reason = "manual" } = {}) {
     }
 
     ululeSyncState.lastSuccessAt = new Date().toISOString()
+    ululeSyncState.initialCatchupDone = true
     await writeSyncSettings({
       lastSuccessAt: ululeSyncState.lastSuccessAt,
       projectId,
       eligibleRewardIds: getEligibleRewardIds(),
-      initialStartAt: ULULE_INITIAL_SYNC_AT
+      initialStartAt: ULULE_INITIAL_SYNC_AT,
+      inviteWindowHours: 24
     })
 
     return { started: true, state: getUluleSyncStatus() }
@@ -497,6 +508,7 @@ function getUluleSyncStatus() {
     projectId: getUluleProjectId(),
     eligibleRewardIds: getEligibleRewardIds(),
     initialStartAt: ULULE_INITIAL_SYNC_AT,
+    inviteWindowHours: 24,
     schedulerIntervalMinutes: ULULE_SYNC_INTERVAL_MS / 60000
   }
 }
