@@ -272,6 +272,8 @@ async function revokeRefundedAccess(order, item) {
   }
 
   try {
+    const hadDiscordAccess = Boolean(existing.discord_id)
+
     if (existing.discord_id) {
       await removeDiscordMemberFromGuild(existing.discord_id)
     }
@@ -297,7 +299,7 @@ async function revokeRefundedAccess(order, item) {
       rewardName,
       orderCreatedAt,
       accessTokenId: existing.id,
-      outcome: "refunded_revoked"
+      outcome: hadDiscordAccess ? "refunded_discord_revoked" : "refunded_local_only"
     })
     return { inserted: 0, skippedExisting: 1, sent: 0, failed: 0 }
   } catch (error) {
@@ -308,7 +310,7 @@ async function revokeRefundedAccess(order, item) {
       rewardName,
       orderCreatedAt,
       accessTokenId: existing.id,
-      outcome: "refunded_remove_failed",
+      outcome: "refunded_discord_remove_failed",
       lastError: errorMessage(error)
     })
     return { inserted: 0, skippedExisting: 0, sent: 0, failed: 1 }
@@ -511,7 +513,7 @@ async function listUluleImports(limit = 40, { refundedOnly = false } = {}) {
     .limit(safeLimit)
 
   if (refundedOnly) {
-    query = query.in("outcome", ["refunded_revoked", "refunded_no_access", "refunded_remove_failed"])
+    query = query.in("outcome", ["refunded_discord_revoked", "refunded_discord_remove_failed"])
   }
 
   const { data, error } = await query
