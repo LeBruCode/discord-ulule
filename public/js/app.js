@@ -639,6 +639,33 @@ function syncCollapseButtons() {
  }
 }
 
+function updateSentAtSortHeader(sortValue = null) {
+ const button = document.getElementById("sortSentAtBtn")
+ const icon = document.getElementById("sortSentAtIcon")
+ if (!button || !icon) return
+ const currentSort = sortValue || document.getElementById("sort")?.value || "last_import_desc"
+ const isDesc = currentSort === "email_sent_desc"
+ const isAsc = currentSort == "email_sent_asc"
+ button.classList.toggle("is-active", isDesc || isAsc)
+ if (isDesc) {
+  icon.textContent = "↓"
+ } else if (isAsc) {
+  icon.textContent = "↑"
+ } else {
+  icon.textContent = "↕"
+ }
+}
+
+function toggleSentAtSort() {
+ const sortSelect = document.getElementById("sort")
+ if (!sortSelect) return
+ const currentSort = sortSelect.value
+ sortSelect.value = currentSort === "email_sent_desc" ? "email_sent_asc" : "email_sent_desc"
+ page = 1
+ updateSentAtSortHeader(sortSelect.value)
+ refreshAll()
+}
+
 function getFilters() {
  const search = document.getElementById("search").value.trim()
  const status = document.getElementById("status").value
@@ -1382,6 +1409,7 @@ async function loadList() {
   const payload = await response.json()
   total = Number(payload.total) || 0
   renderRows(Array.isArray(payload.data) ? payload.data : [])
+  updateSentAtSortHeader(sort)
   updatePaginationMeta()
  } catch (error) {
   console.error("load list error", error)
@@ -2286,7 +2314,11 @@ document.getElementById("brevoStatus").addEventListener("change", async () => {
 })
 document.getElementById("sort").addEventListener("change", async () => {
  page = 1
+ updateSentAtSortHeader(document.getElementById("sort").value)
  await loadList()
+})
+document.getElementById("sortSentAtBtn")?.addEventListener("click", () => {
+ toggleSentAtSort()
 })
 document.getElementById("perPage").addEventListener("change", async (event) => {
  limit = Math.min(Math.max(Number(event.target.value) || 100, 1), 200)

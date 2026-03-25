@@ -2738,3 +2738,36 @@ body.daily-ops .mission-copy .panel-copy{
 @media (max-width:900px){
  .chart-range-tabs{justify-content:flex-start;}
 }
+
+.sortable-th{
+ padding:0 !important;
+}
+
+.th-sort-btn{
+ width:100%;
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:8px;
+ padding:14px 12px;
+ border:0;
+ background:transparent;
+ color:inherit;
+ font:inherit;
+ font-weight:700;
+ cursor:pointer;
+}
+
+.th-sort-btn:hover{
+ color:var(--text-strong);
+}
+
+.th-sort-btn.is-active{
+ color:var(--accent);
+}
+
+.th-sort-icon{
+ opacity:.82;
+ font-size:12px;
+ line-height:1;
+}
