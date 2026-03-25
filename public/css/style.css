@@ -324,9 +324,10 @@ body{
 .container{
  position:relative;
  z-index:1;
- max-width:1480px;
+ width:min(1880px, calc(100vw - 24px));
+ max-width:none;
  margin:0 auto;
- padding:28px;
+ padding:clamp(18px, 2vw, 32px);
 }
 
 .eyebrow{
