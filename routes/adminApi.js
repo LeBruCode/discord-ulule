@@ -1004,6 +1004,45 @@ function applySendEligibility(rows) {
  })
 }
 
+function normalizeUluleText(value, fallback = "") {
+ if (typeof value === "string") {
+  const trimmed = value.trim()
+  if (trimmed) return trimmed
+ }
+
+ if (value && typeof value === "object") {
+  const directCandidates = [
+   value.title_fr,
+   value.title_en,
+   value.title,
+   value.name,
+   value.label,
+   value.fr,
+   value.en,
+   value.value
+  ]
+
+  for (const candidate of directCandidates) {
+   if (typeof candidate === "string" && candidate.trim()) {
+    return candidate.trim()
+   }
+  }
+
+  const description = value.description || value.description_fr || value.description_en || null
+  if (typeof description === "string" && description.trim()) {
+   return description.trim()
+  }
+  if (description && typeof description === "object") {
+   const localized = description.fr || description.en || Object.values(description).find((entry) => typeof entry === "string" && entry.trim())
+   if (typeof localized === "string" && localized.trim()) {
+    return localized.trim()
+   }
+  }
+ }
+
+ return fallback
+}
+
 async function fetchFilteredRows(filters, { select = "*", limit = 1000, orderAscending = true } = {}) {
  let query = supabase
   .from("access_tokens")
@@ -2065,18 +2104,19 @@ router.get("/list", limitList, async (req, res) => {
     }
 
     for (const ululeRow of ululeRows) {
-     const fallbackName = typeof ululeRow.reward_name === "string" && ululeRow.reward_name.trim()
-      ? ululeRow.reward_name.trim()
-      : `#${ululeRow.reward_id || "-"}`
+    const fallbackName = normalizeUluleText(ululeRow.reward_name, `#${ululeRow.reward_id || "-"}`)
     const matchingRows = ululeRowsOnly.filter((row) => {
       const sameId = ululeRow.access_token_id && String(ululeRow.access_token_id) === String(row.id)
       const sameEmail = String(ululeRow.email || "").trim().toLowerCase() === String(row.email || "").trim().toLowerCase()
       return sameId || sameEmail
      })
-     const supporterName = String(
-      ululeRow.supporter_full_name ||
-      [ululeRow.supporter_first_name, ululeRow.supporter_last_name].filter(Boolean).join(" ")
-     ).trim()
+    const supporterName = normalizeUluleText(
+     ululeRow.supporter_full_name,
+     [normalizeUluleText(ululeRow.supporter_first_name), normalizeUluleText(ululeRow.supporter_last_name)]
+      .filter(Boolean)
+      .join(" ")
+      .trim()
+    )
 
      for (const matchingRow of matchingRows) {
       rewardNamesByRowId.get(String(matchingRow.id))?.add(fallbackName)
