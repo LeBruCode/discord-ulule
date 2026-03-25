@@ -393,7 +393,7 @@ function formatUluleOutcome(outcome) {
 function formatUluleRewardName(value, fallbackRewardId = "-") {
  if (typeof value === "string") {
   const trimmed = value.trim()
-  if (trimmed) return trimmed
+  if (trimmed && trimmed.toLowerCase() !== "[object object]") return trimmed
  }
 
  if (value && typeof value === "object") {
