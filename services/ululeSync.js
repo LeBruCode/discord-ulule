@@ -502,13 +502,19 @@ function getUluleSyncStatus() {
   }
 }
 
-async function listUluleImports(limit = 40) {
+async function listUluleImports(limit = 40, { refundedOnly = false } = {}) {
   const safeLimit = Math.min(Math.max(Number(limit) || 40, 1), 100)
-  const { data, error } = await supabase
+  let query = supabase
     .from(ULULE_IMPORTS_TABLE)
     .select("id,email,order_id,reward_id,reward_name,order_created_at,access_token_id,outcome,last_error,created_at,last_seen_at")
     .order("last_seen_at", { ascending: false })
     .limit(safeLimit)
+
+  if (refundedOnly) {
+    query = query.in("outcome", ["refunded_revoked", "refunded_no_access", "refunded_remove_failed"])
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return data || []

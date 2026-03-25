@@ -888,12 +888,17 @@ function renderUluleStatus(status = {}) {
  statusNode.innerText = t("ulule_status_idle", { minutes: schedulerMinutes })
 }
 
-function renderUluleImports(items = []) {
- const listNode = document.getElementById("ululeImportsList")
+function renderUluleImports(items = [], options = {}) {
+ const {
+  targetId = "ululeImportsList",
+  emptyKey = "ulule_empty"
+ } = options
+
+ const listNode = document.getElementById(targetId)
  if (!listNode) return
 
  if (!Array.isArray(items) || !items.length) {
-  listNode.innerHTML = `<div class="mini-empty">${escapeHtml(t("ulule_empty"))}</div>`
+  listNode.innerHTML = `<div class="mini-empty">${escapeHtml(t(emptyKey))}</div>`
   return
  }
 
@@ -944,15 +949,47 @@ async function refreshUluleStatus() {
 
 async function loadUluleImports() {
  try {
-  const response = await fetch("/admin/api/ulule/imports?limit=40")
-  const payload = await response.json()
-  if (!response.ok) throw new Error(payload.error || "ulule imports request failed")
-  renderUluleImports(payload.items || [])
-  return payload.items || []
+  const [importsResponse, refundsResponse] = await Promise.all([
+   fetch("/admin/api/ulule/imports?limit=40"),
+   fetch("/admin/api/ulule/imports?limit=20&refunded=1")
+  ])
+  const [importsPayload, refundsPayload] = await Promise.all([
+   importsResponse.json(),
+   refundsResponse.json()
+  ])
+
+  if (!importsResponse.ok) {
+   throw new Error(importsPayload.error || "ulule imports request failed")
+  }
+
+  if (!refundsResponse.ok) {
+   throw new Error(refundsPayload.error || "ulule refunds request failed")
+  }
+
+  renderUluleImports(importsPayload.items || [], {
+   targetId: "ululeImportsList",
+   emptyKey: "ulule_empty"
+  })
+  renderUluleImports(refundsPayload.items || [], {
+   targetId: "ululeRefundsList",
+   emptyKey: "ulule_refunds_empty"
+  })
+
+  return {
+   imports: importsPayload.items || [],
+   refunds: refundsPayload.items || []
+  }
  } catch (error) {
   console.error("ulule imports load error", error)
-  renderUluleImports([])
-  return []
+  renderUluleImports([], {
+   targetId: "ululeImportsList",
+   emptyKey: "ulule_empty"
+  })
+  renderUluleImports([], {
+   targetId: "ululeRefundsList",
+   emptyKey: "ulule_refunds_empty"
+  })
+  return { imports: [], refunds: [] }
  }
 }
 

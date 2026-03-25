@@ -1761,7 +1761,8 @@ router.get("/ulule/status", limitList, async (req, res) => {
 router.get("/ulule/imports", limitList, async (req, res) => {
  try {
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 40, 1), 100)
-  const items = await listUluleImports(limit)
+  const refundedOnly = String(req.query.refunded || "").trim() === "1"
+  const items = await listUluleImports(limit, { refundedOnly })
   return res.json({ items })
  } catch (error) {
   console.error("ulule imports route error", error)
