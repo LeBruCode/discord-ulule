@@ -390,6 +390,44 @@ function formatUluleOutcome(outcome) {
  return translated === key ? String(outcome || "-") : translated
 }
 
+function formatUluleRewardName(value, fallbackRewardId = "-") {
+ if (typeof value === "string") {
+  const trimmed = value.trim()
+  if (trimmed) return trimmed
+ }
+
+ if (value && typeof value === "object") {
+  const directCandidates = [
+   value.title_fr,
+   value.title_en,
+   value.title,
+   value.name,
+   value.label,
+   value.fr,
+   value.en
+  ]
+
+  for (const candidate of directCandidates) {
+   if (typeof candidate === "string" && candidate.trim()) {
+    return candidate.trim()
+   }
+  }
+
+  const description = value.description || value.description_fr || value.description_en || null
+  if (typeof description === "string" && description.trim()) {
+   return description.trim()
+  }
+  if (description && typeof description === "object") {
+   const localized = description.fr || description.en || Object.values(description).find((entry) => typeof entry === "string" && entry.trim())
+   if (typeof localized === "string" && localized.trim()) {
+    return localized.trim()
+   }
+  }
+ }
+
+ return `#${fallbackRewardId || "-"}`
+}
+
 function formatBrevoStatus(value) {
  const status = String(value || "").trim().toLowerCase()
  const labels = {
@@ -905,7 +943,7 @@ function renderUluleImports(items = [], options = {}) {
  listNode.innerHTML = items.map((item) => {
   const outcomeClass = String(item.outcome || "neutral").replace(/[^a-z0-9_]+/gi, "-")
   const orderId = escapeHtml(String(item.order_id || "-"))
-  const rewardName = escapeHtml(item.reward_name || `#${item.reward_id || "-"}`)
+  const rewardName = escapeHtml(formatUluleRewardName(item.reward_name, item.reward_id))
   const email = escapeHtml(item.email || "—")
   const seenAt = escapeHtml(formatDate(item.last_seen_at || item.created_at))
   const outcome = escapeHtml(formatUluleOutcome(item.outcome))
