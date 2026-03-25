@@ -73,6 +73,7 @@ function buildSessionStore() {
  const pool = new pg.Pool({
   connectionString,
   max: 5,
+  family: 4,
   ssl: shouldUseSessionSsl(connectionString) ? { rejectUnauthorized: false } : false
  })
 
