@@ -63,10 +63,29 @@ function shouldUseSessionSsl(connectionString) {
  return connectionString.includes("supabase.co") || connectionString.includes("sslmode=require")
 }
 
+function getSessionDatabaseHost(connectionString) {
+ if (!connectionString) return ""
+ try {
+  return new URL(connectionString).hostname || ""
+ } catch {
+  return ""
+ }
+}
+
+function isDirectSupabaseDatabaseHost(connectionString) {
+ const host = getSessionDatabaseHost(connectionString)
+ return /^db\.[a-z0-9-]+\.supabase\.co$/i.test(host)
+}
+
 function buildSessionStore() {
  const connectionString = getSessionDatabaseUrl()
  if (!connectionString) {
   console.warn("Session store fallback: SESSION_DATABASE_URL/DATABASE_URL missing, using MemoryStore")
+  return undefined
+ }
+
+ if (isDirectSupabaseDatabaseHost(connectionString)) {
+  console.warn("Session store fallback: direct Supabase DB host detected, using MemoryStore until a pooler-compatible SESSION_DATABASE_URL is configured")
   return undefined
  }
 
