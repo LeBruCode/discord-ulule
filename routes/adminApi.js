@@ -2062,6 +2062,12 @@ router.get("/list", limitList, async (req, res) => {
 
   if (sort === "last_import_asc") {
    query = query.order("created_at", { ascending: true })
+  } else if (sort === "email_sent_desc") {
+   query = query.order("email_sent_at", { ascending: false, nullsFirst: false })
+   query = query.order("created_at", { ascending: false })
+  } else if (sort === "email_sent_asc") {
+   query = query.order("email_sent_at", { ascending: true, nullsFirst: false })
+   query = query.order("created_at", { ascending: true })
   } else if (sort === "email_asc") {
    query = query.order("email", { ascending: true })
   } else if (sort === "email_desc") {
