@@ -1181,6 +1181,12 @@ button.ghost{
  gap:14px;
 }
 
+.ulule-summary-grid{
+ display:grid;
+ grid-template-columns:repeat(6, minmax(120px, 1fr));
+ gap:10px;
+}
+
 .ulule-list-wrap{
  display:grid;
  gap:10px;

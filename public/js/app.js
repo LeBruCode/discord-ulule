@@ -819,6 +819,13 @@ function renderUluleStatus(status = {}) {
  const syncButton = document.getElementById("ululeSyncBtn")
  if (!statusNode || !metaNode || !syncButton) return
 
+ const scannedNode = document.getElementById("ululeSummaryScanned")
+ const matchedNode = document.getElementById("ululeSummaryMatched")
+ const insertedNode = document.getElementById("ululeSummaryInserted")
+ const skippedNode = document.getElementById("ululeSummarySkipped")
+ const sentNode = document.getElementById("ululeSummarySent")
+ const failedNode = document.getElementById("ululeSummaryFailed")
+
  const schedulerMinutes = Number(status.schedulerIntervalMinutes || 30)
  const rewardCount = Array.isArray(status.eligibleRewardIds) ? status.eligibleRewardIds.length : 0
  const startDate = status.initialStartAt
@@ -830,6 +837,13 @@ function renderUluleStatus(status = {}) {
   startDate,
   rewardCount
  })
+
+ if (scannedNode) scannedNode.innerText = String(status.scanned || 0)
+ if (matchedNode) matchedNode.innerText = String(status.matched || 0)
+ if (insertedNode) insertedNode.innerText = String(status.inserted || 0)
+ if (skippedNode) skippedNode.innerText = String(status.skippedExisting || 0)
+ if (sentNode) sentNode.innerText = String(status.sent || 0)
+ if (failedNode) failedNode.innerText = String(status.failed || 0)
 
  syncButton.disabled = Boolean(status.running)
 
