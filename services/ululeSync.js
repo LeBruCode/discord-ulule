@@ -1,0 +1,455 @@
+import crypto from "crypto"
+import { execFile } from "child_process"
+import { promisify } from "util"
+import { supabase } from "./supabase.js"
+import { sendMail } from "./mailer.js"
+
+const execFileAsync = promisify(execFile)
+const APP_SETTINGS_TABLE = "app_settings"
+const ULULE_SYNC_STATE_KEY = "ulule_sync_state"
+const ULULE_IMPORTS_TABLE = "ulule_imports"
+const ACCESS_TOKENS_TABLE = "access_tokens"
+const ULULE_DEFAULT_PROJECT_ID = "216296"
+const ULULE_INITIAL_SYNC_AT = "2026-03-15T00:00:00.000Z"
+const ULULE_SYNC_INTERVAL_MS = 30 * 60 * 1000
+const ULULE_SYNC_OVERLAP_MS = 2 * 60 * 60 * 1000
+const ULULE_API_BASE = "https://api.ulule.com/v1"
+const ULULE_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+const DEFAULT_ELIGIBLE_REWARD_IDS = [
+  5300152, 5314639, 5302261, 5314642, 5314645, 5302262, 5314649,
+  5302314, 5304319, 5341221, 5302827, 5305328, 5302813
+]
+
+const ululeSyncState = {
+  running: false,
+  currentEmail: null,
+  scanned: 0,
+  matched: 0,
+  inserted: 0,
+  skippedExisting: 0,
+  sent: 0,
+  failed: 0,
+  lastError: null,
+  reason: "idle",
+  lastStartedAt: null,
+  lastFinishedAt: null,
+  lastSuccessAt: null
+}
+
+let schedulerStarted = false
+
+function token() {
+  return crypto.randomBytes(32).toString("hex")
+}
+
+function errorMessage(error) {
+  return error?.message || "unknown error"
+}
+
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase()
+}
+
+function getUluleProjectId() {
+  return String(process.env.ULULE_PROJECT_ID || ULULE_DEFAULT_PROJECT_ID).trim()
+}
+
+function getUluleApiKey() {
+  return String(process.env.ULULE_API_KEY || "").trim()
+}
+
+function getEligibleRewardIds() {
+  const raw = String(process.env.ULULE_ELIGIBLE_REWARD_IDS || "").trim()
+  if (!raw) return [...DEFAULT_ELIGIBLE_REWARD_IDS]
+  return raw
+    .split(",")
+    .map((value) => parseInt(value.trim(), 10))
+    .filter((value) => Number.isFinite(value))
+}
+
+function pickRewardName(reward = {}) {
+  const directCandidates = [
+    reward?.title_fr,
+    reward?.title_en,
+    reward?.title,
+    reward?.name,
+    reward?.label
+  ]
+  for (const candidate of directCandidates) {
+    if (candidate) return String(candidate).trim()
+  }
+
+  const description = reward?.description || reward?.description_fr || reward?.description_en || ""
+  if (typeof description === "object" && description) {
+    return String(description.fr || description.en || Object.values(description).find(Boolean) || "").trim()
+  }
+
+  return String(description || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+}
+
+function getEligibleItems(order) {
+  const eligibleIds = new Set(getEligibleRewardIds())
+  return (Array.isArray(order?.items) ? order.items : [])
+    .map((item) => {
+      const rewardId = Number(item?.reward_id || item?.reward?.id || 0)
+      if (!eligibleIds.has(rewardId)) return null
+      return {
+        rewardId,
+        rewardName: pickRewardName(item?.reward || {}),
+        quantity: Number(item?.quantity || 1) || 1
+      }
+    })
+    .filter(Boolean)
+}
+
+async function fetchUluleJson(url) {
+  const apiKey = getUluleApiKey()
+  if (!apiKey) throw new Error("ULULE_API_KEY is missing")
+
+  const { stdout } = await execFileAsync("curl", [
+    "-sS",
+    "-w",
+    "\n%{http_code}",
+    url,
+    "-H", "Accept: application/json",
+    "-H", `Authorization: APIKey ${apiKey}`,
+    "-H", `User-Agent: ${ULULE_USER_AGENT}`
+  ], { maxBuffer: 1024 * 1024 * 5 })
+
+  const newlineIndex = stdout.lastIndexOf("\n")
+  const body = newlineIndex >= 0 ? stdout.slice(0, newlineIndex) : stdout
+  const status = parseInt(newlineIndex >= 0 ? stdout.slice(newlineIndex + 1).trim() : "0", 10)
+
+  if (!Number.isFinite(status) || status >= 400) {
+    throw new Error(`Ulule request failed (${status || "unknown"}): ${String(body || "").slice(0, 240)}`)
+  }
+
+  return JSON.parse(body)
+}
+
+async function readSyncSettings() {
+  try {
+    const { data, error } = await supabase
+      .from(APP_SETTINGS_TABLE)
+      .select("value")
+      .eq("key", ULULE_SYNC_STATE_KEY)
+      .maybeSingle()
+
+    if (error) throw error
+    return data?.value && typeof data.value === "object" ? data.value : {}
+  } catch (error) {
+    console.warn("ulule sync settings read error", errorMessage(error))
+    return {}
+  }
+}
+
+async function writeSyncSettings(value) {
+  try {
+    const { error } = await supabase
+      .from(APP_SETTINGS_TABLE)
+      .upsert({
+        key: ULULE_SYNC_STATE_KEY,
+        value,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "key" })
+
+    if (error) throw error
+  } catch (error) {
+    console.warn("ulule sync settings write error", errorMessage(error))
+  }
+}
+
+async function saveUluleImport(entry) {
+  const payload = {
+    email: entry.email,
+    order_id: entry.orderId,
+    reward_id: entry.rewardId,
+    reward_name: entry.rewardName || null,
+    order_created_at: entry.orderCreatedAt || null,
+    access_token_id: entry.accessTokenId || null,
+    outcome: entry.outcome,
+    last_error: entry.lastError || null,
+    last_seen_at: new Date().toISOString()
+  }
+
+  const { error } = await supabase
+    .from(ULULE_IMPORTS_TABLE)
+    .upsert(payload, { onConflict: "order_id,reward_id,email" })
+
+  if (error) throw error
+}
+
+async function findAccessTokenByEmail(email) {
+  const { data, error } = await supabase
+    .from(ACCESS_TOKENS_TABLE)
+    .select("id")
+    .eq("email", email)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  return data || null
+}
+
+async function createAccessToken(email) {
+  const { data, error } = await supabase
+    .from(ACCESS_TOKENS_TABLE)
+    .insert({
+      email,
+      token: token(),
+      used: false,
+      email_sent: false
+    })
+    .select("id,email,token")
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
+async function queueInvitation(accessTokenRow) {
+  const sendResponse = await sendMail(accessTokenRow.email, accessTokenRow.token, { accessTokenId: accessTokenRow.id })
+  const messageId = String(sendResponse?.messageId || sendResponse?.message_id || "").trim() || null
+
+  const { error } = await supabase
+    .from(ACCESS_TOKENS_TABLE)
+    .update({
+      email_sent: false,
+      email_sent_at: null,
+      brevo_message_id: messageId,
+      brevo_status: "queued",
+      brevo_event_at: new Date().toISOString(),
+      email_error: null
+    })
+    .eq("id", accessTokenRow.id)
+
+  if (error) throw error
+}
+
+async function processEligibleOrder(order, item) {
+  const email = normalizeEmail(order?.user?.email)
+  const orderId = Number(order?.id || 0)
+  const orderCreatedAt = order?.created_at || null
+  const rewardId = item.rewardId
+  const rewardName = item.rewardName
+
+  if (!email) {
+    await saveUluleImport({
+      email: "",
+      orderId,
+      rewardId,
+      rewardName,
+      orderCreatedAt,
+      outcome: "missing_email",
+      lastError: "missing email on Ulule order"
+    })
+    return { inserted: 0, skippedExisting: 0, sent: 0, failed: 1 }
+  }
+
+  ululeSyncState.currentEmail = email
+
+  const existing = await findAccessTokenByEmail(email)
+  if (existing?.id) {
+    await saveUluleImport({
+      email,
+      orderId,
+      rewardId,
+      rewardName,
+      orderCreatedAt,
+      accessTokenId: existing.id,
+      outcome: "existing_in_base"
+    })
+    return { inserted: 0, skippedExisting: 1, sent: 0, failed: 0 }
+  }
+
+  let accessTokenRow = null
+  try {
+    accessTokenRow = await createAccessToken(email)
+  } catch (error) {
+    await saveUluleImport({
+      email,
+      orderId,
+      rewardId,
+      rewardName,
+      orderCreatedAt,
+      outcome: "insert_failed",
+      lastError: errorMessage(error)
+    })
+    return { inserted: 0, skippedExisting: 0, sent: 0, failed: 1 }
+  }
+
+  try {
+    await queueInvitation(accessTokenRow)
+    await saveUluleImport({
+      email,
+      orderId,
+      rewardId,
+      rewardName,
+      orderCreatedAt,
+      accessTokenId: accessTokenRow.id,
+      outcome: "inserted_and_sent"
+    })
+    return { inserted: 1, skippedExisting: 0, sent: 1, failed: 0 }
+  } catch (error) {
+    await supabase
+      .from(ACCESS_TOKENS_TABLE)
+      .update({ email_error: errorMessage(error) })
+      .eq("id", accessTokenRow.id)
+
+    await saveUluleImport({
+      email,
+      orderId,
+      rewardId,
+      rewardName,
+      orderCreatedAt,
+      accessTokenId: accessTokenRow.id,
+      outcome: "send_failed",
+      lastError: errorMessage(error)
+    })
+    return { inserted: 1, skippedExisting: 0, sent: 0, failed: 1 }
+  }
+}
+
+function buildOrdersUrl(projectId, next = "") {
+  if (next) {
+    return next.startsWith("http") ? next : `${ULULE_API_BASE}/projects/${projectId}/orders${next}`
+  }
+  return `${ULULE_API_BASE}/projects/${projectId}/orders?limit=20&status=payment-done&show_anonymous=true`
+}
+
+async function runUluleSync({ reason = "manual" } = {}) {
+  if (ululeSyncState.running) {
+    return { started: false, state: getUluleSyncStatus() }
+  }
+
+  const projectId = getUluleProjectId()
+  if (!projectId) throw new Error("ULULE_PROJECT_ID is missing")
+  if (!getUluleApiKey()) throw new Error("ULULE_API_KEY is missing")
+
+  ululeSyncState.running = true
+  ululeSyncState.currentEmail = null
+  ululeSyncState.scanned = 0
+  ululeSyncState.matched = 0
+  ululeSyncState.inserted = 0
+  ululeSyncState.skippedExisting = 0
+  ululeSyncState.sent = 0
+  ululeSyncState.failed = 0
+  ululeSyncState.lastError = null
+  ululeSyncState.reason = reason
+  ululeSyncState.lastStartedAt = new Date().toISOString()
+  ululeSyncState.lastFinishedAt = null
+
+  try {
+    const settings = await readSyncSettings()
+    const initialStartAt = new Date(ULULE_INITIAL_SYNC_AT)
+    const lastSuccessAt = settings?.lastSuccessAt ? new Date(settings.lastSuccessAt) : null
+    const cutoff = lastSuccessAt
+      ? new Date(Math.max(initialStartAt.getTime(), lastSuccessAt.getTime() - ULULE_SYNC_OVERLAP_MS))
+      : initialStartAt
+
+    let url = buildOrdersUrl(projectId)
+    let reachedCutoff = false
+    let pageGuard = 0
+
+    while (url && !reachedCutoff && pageGuard < 200) {
+      pageGuard += 1
+      const payload = await fetchUluleJson(url)
+      const orders = Array.isArray(payload?.orders) ? payload.orders : []
+      if (!orders.length) break
+
+      for (const order of orders) {
+        const orderCreatedAt = order?.created_at ? new Date(order.created_at) : null
+        if (orderCreatedAt && orderCreatedAt < cutoff) {
+          reachedCutoff = true
+          break
+        }
+
+        ululeSyncState.scanned += 1
+        const eligibleItems = getEligibleItems(order)
+        if (!eligibleItems.length) continue
+
+        for (const item of eligibleItems) {
+          ululeSyncState.matched += 1
+          const result = await processEligibleOrder(order, item)
+          ululeSyncState.inserted += result.inserted
+          ululeSyncState.skippedExisting += result.skippedExisting
+          ululeSyncState.sent += result.sent
+          ululeSyncState.failed += result.failed
+        }
+      }
+
+      if (reachedCutoff) break
+      url = buildOrdersUrl(projectId, payload?.meta?.next || "")
+      if (!payload?.meta?.next) break
+    }
+
+    ululeSyncState.lastSuccessAt = new Date().toISOString()
+    await writeSyncSettings({
+      lastSuccessAt: ululeSyncState.lastSuccessAt,
+      projectId,
+      eligibleRewardIds: getEligibleRewardIds(),
+      initialStartAt: ULULE_INITIAL_SYNC_AT
+    })
+
+    return { started: true, state: getUluleSyncStatus() }
+  } catch (error) {
+    ululeSyncState.lastError = errorMessage(error)
+    throw error
+  } finally {
+    ululeSyncState.running = false
+    ululeSyncState.currentEmail = null
+    ululeSyncState.lastFinishedAt = new Date().toISOString()
+  }
+}
+
+function getUluleSyncStatus() {
+  return {
+    ...ululeSyncState,
+    projectId: getUluleProjectId(),
+    eligibleRewardIds: getEligibleRewardIds(),
+    initialStartAt: ULULE_INITIAL_SYNC_AT,
+    schedulerIntervalMinutes: ULULE_SYNC_INTERVAL_MS / 60000
+  }
+}
+
+async function listUluleImports(limit = 40) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 40, 1), 100)
+  const { data, error } = await supabase
+    .from(ULULE_IMPORTS_TABLE)
+    .select("id,email,order_id,reward_id,reward_name,order_created_at,access_token_id,outcome,last_error,created_at,last_seen_at")
+    .order("last_seen_at", { ascending: false })
+    .limit(safeLimit)
+
+  if (error) throw error
+  return data || []
+}
+
+function startUluleSyncScheduler() {
+  if (schedulerStarted) return
+  schedulerStarted = true
+
+  if (!getUluleApiKey()) {
+    console.log("Ulule sync scheduler disabled: ULULE_API_KEY missing")
+    return
+  }
+
+  const runScheduled = async () => {
+    try {
+      await runUluleSync({ reason: "scheduled" })
+    } catch (error) {
+      console.error("ulule scheduled sync error", errorMessage(error))
+    }
+  }
+
+  setTimeout(runScheduled, 20 * 1000)
+  setInterval(runScheduled, ULULE_SYNC_INTERVAL_MS)
+  console.log("Ulule sync scheduler ready")
+}
+
+export {
+  getUluleSyncStatus,
+  listUluleImports,
+  runUluleSync,
+  startUluleSyncScheduler
+}

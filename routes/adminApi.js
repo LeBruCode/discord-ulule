@@ -7,6 +7,7 @@ import vm from "vm"
 import { supabase } from "../services/supabase.js"
 import { sendMail } from "../services/mailer.js"
 import { getTransactionalEmailDetail, getTransactionalEmails, normalizeBrevoEventStatus } from "../services/brevo.js"
+import { getUluleSyncStatus, listUluleImports, runUluleSync } from "../services/ululeSync.js"
 
 const router = express.Router()
 const UUID_V4_OR_V7_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -1740,6 +1741,36 @@ router.get("/brevo-stats", limitList, async (req, res) => {
  } catch (error) {
   console.error("brevo stats route error", error)
   return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.get("/ulule/status", limitList, async (req, res) => {
+ try {
+  return res.json({ status: getUluleSyncStatus() })
+ } catch (error) {
+  console.error("ulule status route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.get("/ulule/imports", limitList, async (req, res) => {
+ try {
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 40, 1), 100)
+  const items = await listUluleImports(limit)
+  return res.json({ items })
+ } catch (error) {
+  console.error("ulule imports route error", error)
+  return res.status(500).json({ error: "server error" })
+ }
+})
+
+router.post("/ulule/sync", limitReconcile, async (req, res) => {
+ try {
+  const result = await runUluleSync({ reason: "manual" })
+  return res.json(result)
+ } catch (error) {
+  console.error("ulule sync route error", error)
+  return res.status(500).json({ error: errorMessage(error) })
  }
 })
 

@@ -18,6 +18,7 @@ let supportMatch = null
 const COCKPIT_MODE_KEY = "dashboard-cockpit-mode"
 const NOTIFICATION_STORE_KEY = "dashboard-notifications"
 let activationChartRange = "14"
+let ululeSyncPollTimer = null
 const COPY_ENTRY_GROUPS = {
  landing: {
   label: "Page publique",
@@ -375,6 +376,12 @@ function formatDate(value) {
  const date = new Date(value)
  if (Number.isNaN(date.getTime())) return "-"
  return date.toLocaleString("fr-FR")
+}
+
+function formatUluleOutcome(outcome) {
+ const key = `ulule_outcome_${String(outcome || "").trim().toLowerCase()}`
+ const translated = t(key)
+ return translated === key ? String(outcome || "-") : translated
 }
 
 function formatBrevoStatus(value) {
@@ -802,6 +809,181 @@ async function refreshBrevoStats() {
   }
  } catch (error) {
   console.error("brevo stats error", error)
+ }
+}
+
+function renderUluleStatus(status = {}) {
+ const statusNode = document.getElementById("ululeStatus")
+ const metaNode = document.getElementById("ululeMeta")
+ const syncButton = document.getElementById("ululeSyncBtn")
+ if (!statusNode || !metaNode || !syncButton) return
+
+ const schedulerMinutes = Number(status.schedulerIntervalMinutes || 30)
+ const rewardCount = Array.isArray(status.eligibleRewardIds) ? status.eligibleRewardIds.length : 0
+ const startDate = status.initialStartAt
+  ? new Date(status.initialStartAt).toLocaleDateString("fr-FR")
+  : "-"
+
+ metaNode.innerText = t("ulule_meta", {
+  projectId: status.projectId || "-",
+  startDate,
+  rewardCount
+ })
+
+ syncButton.disabled = Boolean(status.running)
+
+ if (status.running) {
+  statusNode.innerText = t("ulule_status_running", {
+   scanned: status.scanned || 0,
+   matched: status.matched || 0,
+   inserted: status.inserted || 0,
+   skipped: status.skippedExisting || 0,
+   sent: status.sent || 0,
+   failed: status.failed || 0,
+   currentEmail: status.currentEmail || "-"
+  })
+  return
+ }
+
+ if (status.lastError) {
+  statusNode.innerText = t("ulule_status_failed", {
+   error: status.lastError
+  })
+  return
+ }
+
+ if (status.lastFinishedAt) {
+  statusNode.innerText = t("ulule_status_done", {
+   scanned: status.scanned || 0,
+   matched: status.matched || 0,
+   inserted: status.inserted || 0,
+   skipped: status.skippedExisting || 0,
+   sent: status.sent || 0,
+   failed: status.failed || 0
+  })
+  return
+ }
+
+ statusNode.innerText = t("ulule_status_idle", { minutes: schedulerMinutes })
+}
+
+function renderUluleImports(items = []) {
+ const listNode = document.getElementById("ululeImportsList")
+ if (!listNode) return
+
+ if (!Array.isArray(items) || !items.length) {
+  listNode.innerHTML = `<div class="mini-empty">${escapeHtml(t("ulule_empty"))}</div>`
+  return
+ }
+
+ listNode.innerHTML = items.map((item) => {
+  const outcomeClass = String(item.outcome || "neutral").replace(/[^a-z0-9_]+/gi, "-")
+  const orderId = escapeHtml(String(item.order_id || "-"))
+  const rewardName = escapeHtml(item.reward_name || `#${item.reward_id || "-"}`)
+  const email = escapeHtml(item.email || "—")
+  const seenAt = escapeHtml(formatDate(item.last_seen_at || item.created_at))
+  const outcome = escapeHtml(formatUluleOutcome(item.outcome))
+  const error = item.last_error ? `<p class="ulule-import-error">${escapeHtml(item.last_error)}</p>` : ""
+
+  return `
+   <article class="ulule-import-item">
+    <div class="ulule-import-main">
+     <div class="ulule-import-topline">
+      <strong>${email}</strong>
+      <span class="ulule-import-badge ulule-outcome-${outcomeClass}">${outcome}</span>
+     </div>
+     <p class="ulule-import-copy">${rewardName}</p>
+     <div class="ulule-import-meta">
+      <span>Commande ${orderId}</span>
+      <span>${seenAt}</span>
+     </div>
+     ${error}
+    </div>
+   </article>
+  `
+ }).join("")
+}
+
+async function refreshUluleStatus() {
+ try {
+  const response = await fetch("/admin/api/ulule/status")
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || "ulule status request failed")
+  renderUluleStatus(payload.status || {})
+  return payload.status || {}
+ } catch (error) {
+  console.error("ulule status refresh error", error)
+  const statusNode = document.getElementById("ululeStatus")
+  if (statusNode) {
+   statusNode.innerText = t("ulule_status_failed", { error: error.message || "server error" })
+  }
+  return null
+ }
+}
+
+async function loadUluleImports() {
+ try {
+  const response = await fetch("/admin/api/ulule/imports?limit=40")
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || "ulule imports request failed")
+  renderUluleImports(payload.items || [])
+  return payload.items || []
+ } catch (error) {
+  console.error("ulule imports load error", error)
+  renderUluleImports([])
+  return []
+ }
+}
+
+function startUluleStatusPolling() {
+ if (ululeSyncPollTimer) clearInterval(ululeSyncPollTimer)
+ ululeSyncPollTimer = setInterval(async () => {
+  const status = await refreshUluleStatus()
+  if (!status?.running) {
+   clearInterval(ululeSyncPollTimer)
+   ululeSyncPollTimer = null
+   await loadUluleImports()
+  }
+ }, 2500)
+}
+
+function stopUluleStatusPolling() {
+ if (!ululeSyncPollTimer) return
+ clearInterval(ululeSyncPollTimer)
+ ululeSyncPollTimer = null
+}
+
+async function startUluleSync() {
+ const confirmed = await confirmAction(t("confirm_ulule_sync"))
+ if (!confirmed) return
+
+ try {
+  const response = await fetch("/admin/api/ulule/sync", { method: "POST" })
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || t("alert_ulule_sync_failed"))
+
+  if (payload.started === false) {
+   showToast(t("ulule_status_running", {
+    scanned: payload.state?.scanned || 0,
+    matched: payload.state?.matched || 0,
+    inserted: payload.state?.inserted || 0,
+    skipped: payload.state?.skippedExisting || 0,
+    sent: payload.state?.sent || 0,
+    failed: payload.state?.failed || 0,
+    currentEmail: payload.state?.currentEmail || "-"
+   }), { tone: "info" })
+   startUluleStatusPolling()
+   return
+  }
+
+  showToast(t("alert_ulule_sync_started"), { tone: "success" })
+  pushNotification(t("alert_ulule_sync_started"), { tone: "success" })
+  startUluleStatusPolling()
+  await refreshUluleStatus()
+  await loadUluleImports()
+ } catch (error) {
+  console.error("ulule sync start error", error)
+  showToast(error.message || t("alert_ulule_sync_failed"), { tone: "error" })
  }
 }
 
@@ -1791,7 +1973,7 @@ async function batchDelete() {
 }
 
 async function refreshAll() {
- const [importStatus, brevoSyncStatus, queueStatus] = await Promise.all([
+ const [importStatus, brevoSyncStatus, queueStatus, ululeStatus] = await Promise.all([
   refreshImportStatus(),
   refreshBrevoSyncStatus(),
   refreshStats(),
@@ -1800,7 +1982,9 @@ async function refreshAll() {
   refreshBranding(),
   loadList(),
   refreshQueueStatus(),
-  refreshDayPulse()
+  refreshDayPulse(),
+  refreshUluleStatus(),
+  loadUluleImports()
  ])
 
  renderNotificationCenter({
@@ -1819,6 +2003,12 @@ async function refreshAll() {
  } else {
   stopBrevoSyncPolling()
  }
+
+ if (ululeStatus?.running) {
+  if (!ululeSyncPollTimer) startUluleStatusPolling()
+ } else {
+  stopUluleStatusPolling()
+ }
  syncCollapseButtons()
 }
 
@@ -1827,6 +2017,7 @@ document.getElementById("sendBtn").addEventListener("click", sendEmails)
 document.getElementById("reconcileBtn").addEventListener("click", reconcileSentEmails)
 document.getElementById("brevoSyncBtn").addEventListener("click", startBrevoSync)
 document.getElementById("brevoSyncStopBtn").addEventListener("click", stopBrevoSync)
+document.getElementById("ululeSyncBtn")?.addEventListener("click", startUluleSync)
 document.getElementById("cockpitModeBtn").addEventListener("click", () => {
  setCockpitMode(!document.body.classList.contains("cockpit-dense"), { reveal: true })
 })

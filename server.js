@@ -13,6 +13,7 @@ import statsRoutes from "./routes/stats.js"
 import publicApi from "./routes/publicApi.js"
 import authMiddleware from "./middleware/auth.js"
 import { startDiscordMemberLeaveListener } from "./services/discordBot.js"
+import { startUluleSyncScheduler } from "./services/ululeSync.js"
 import {
  createAdminAuthCookieValue,
  getAdminAuthCookieMaxAgeMs,
@@ -248,4 +249,5 @@ const PORT=process.env.PORT||3000
 app.listen(PORT,()=>{
  console.log("Server running on",PORT)
  startDiscordMemberLeaveListener()
+ startUluleSyncScheduler()
 })
