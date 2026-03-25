@@ -1,3 +1,4 @@
+import axios from "axios"
 import { Client, GatewayIntentBits } from "discord.js"
 import { supabase } from "./supabase.js"
 
@@ -7,6 +8,29 @@ function requiredConfig() {
  const token = process.env.BOT_TOKEN || process.env.DISCORD_BOT_TOKEN
  const guildId = process.env.GUILD_ID || process.env.DISCORD_GUILD_ID
  return { token, guildId }
+}
+
+export async function removeDiscordMemberFromGuild(discordId) {
+ const { token, guildId } = requiredConfig()
+ if (!discordId || !token || !guildId) return { removed: false, skipped: true }
+
+ try {
+  const response = await axios.delete(
+   `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`,
+   {
+    headers: {
+     Authorization: `Bot ${token}`
+    },
+    validateStatus: () => true
+   }
+  )
+
+  if (response.status === 204) return { removed: true, skipped: false }
+  if (response.status === 404) return { removed: false, skipped: true }
+  throw new Error(`Discord remove failed (${response.status})`)
+ } catch (error) {
+  throw new Error(error?.response?.data?.message || error?.message || "Discord remove failed")
+ }
 }
 
 export function startDiscordMemberLeaveListener() {

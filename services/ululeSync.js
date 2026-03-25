@@ -3,6 +3,7 @@ import { execFile } from "child_process"
 import { promisify } from "util"
 import { supabase } from "./supabase.js"
 import { sendMail } from "./mailer.js"
+import { removeDiscordMemberFromGuild } from "./discordBot.js"
 
 const execFileAsync = promisify(execFile)
 const APP_SETTINGS_TABLE = "app_settings"
@@ -12,7 +13,6 @@ const ACCESS_TOKENS_TABLE = "access_tokens"
 const ULULE_DEFAULT_PROJECT_ID = "216296"
 const ULULE_INITIAL_SYNC_AT = "2026-03-15T00:00:00.000Z"
 const ULULE_SYNC_INTERVAL_MS = 30 * 60 * 1000
-const ULULE_SYNC_OVERLAP_MS = 2 * 60 * 60 * 1000
 const ULULE_API_BASE = "https://api.ulule.com/v1"
 const ULULE_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 const DEFAULT_ELIGIBLE_REWARD_IDS = [
@@ -191,7 +191,7 @@ async function saveUluleImport(entry) {
 async function findAccessTokenByEmail(email) {
   const { data, error } = await supabase
     .from(ACCESS_TOKENS_TABLE)
-    .select("id")
+    .select("id,discord_id")
     .eq("email", email)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -235,6 +235,84 @@ async function queueInvitation(accessTokenRow) {
     .eq("id", accessTokenRow.id)
 
   if (error) throw error
+}
+
+async function revokeRefundedAccess(order, item) {
+  const email = normalizeEmail(order?.user?.email)
+  const orderId = Number(order?.id || 0)
+  const orderCreatedAt = order?.created_at || null
+  const rewardId = item.rewardId
+  const rewardName = item.rewardName
+
+  if (!email) {
+    await saveUluleImport({
+      email: "",
+      orderId,
+      rewardId,
+      rewardName,
+      orderCreatedAt,
+      outcome: "missing_email",
+      lastError: "missing email on refunded Ulule order"
+    })
+    return { inserted: 0, skippedExisting: 0, sent: 0, failed: 1 }
+  }
+
+  ululeSyncState.currentEmail = email
+  const existing = await findAccessTokenByEmail(email)
+  if (!existing?.id) {
+    await saveUluleImport({
+      email,
+      orderId,
+      rewardId,
+      rewardName,
+      orderCreatedAt,
+      outcome: "refunded_no_access"
+    })
+    return { inserted: 0, skippedExisting: 1, sent: 0, failed: 0 }
+  }
+
+  try {
+    if (existing.discord_id) {
+      await removeDiscordMemberFromGuild(existing.discord_id)
+    }
+
+    const { error } = await supabase
+      .from(ACCESS_TOKENS_TABLE)
+      .update({
+        token: token(),
+        used: false,
+        used_at: null,
+        discord_id: null,
+        resend_excluded: true,
+        email_error: "Commande Ulule remboursée"
+      })
+      .eq("id", existing.id)
+
+    if (error) throw error
+
+    await saveUluleImport({
+      email,
+      orderId,
+      rewardId,
+      rewardName,
+      orderCreatedAt,
+      accessTokenId: existing.id,
+      outcome: "refunded_revoked"
+    })
+    return { inserted: 0, skippedExisting: 1, sent: 0, failed: 0 }
+  } catch (error) {
+    await saveUluleImport({
+      email,
+      orderId,
+      rewardId,
+      rewardName,
+      orderCreatedAt,
+      accessTokenId: existing.id,
+      outcome: "refunded_remove_failed",
+      lastError: errorMessage(error)
+    })
+    return { inserted: 0, skippedExisting: 0, sent: 0, failed: 1 }
+  }
 }
 
 async function processEligibleOrder(order, item) {
@@ -325,7 +403,7 @@ function buildOrdersUrl(projectId, next = "") {
   if (next) {
     return next.startsWith("http") ? next : `${ULULE_API_BASE}/projects/${projectId}/orders${next}`
   }
-  return `${ULULE_API_BASE}/projects/${projectId}/orders?limit=20&show_anonymous=true`
+  return `${ULULE_API_BASE}/projects/${projectId}/orders?limit=100&show_anonymous=true`
 }
 
 async function runUluleSync({ reason = "manual" } = {}) {
@@ -351,12 +429,8 @@ async function runUluleSync({ reason = "manual" } = {}) {
   ululeSyncState.lastFinishedAt = null
 
   try {
-    const settings = await readSyncSettings()
     const initialStartAt = new Date(ULULE_INITIAL_SYNC_AT)
-    const lastSuccessAt = settings?.lastSuccessAt ? new Date(settings.lastSuccessAt) : null
-    const cutoff = lastSuccessAt
-      ? new Date(Math.max(initialStartAt.getTime(), lastSuccessAt.getTime() - ULULE_SYNC_OVERLAP_MS))
-      : initialStartAt
+    const cutoff = initialStartAt
 
     let url = buildOrdersUrl(projectId)
     let reachedCutoff = false
@@ -375,17 +449,18 @@ async function runUluleSync({ reason = "manual" } = {}) {
           break
         }
 
-        if (!isEligibleOrderStatus(order) || order?.refunded === true) {
-          continue
-        }
-
-        ululeSyncState.scanned += 1
         const eligibleItems = getEligibleItems(order)
         if (!eligibleItems.length) continue
 
+        ululeSyncState.scanned += 1
+
         for (const item of eligibleItems) {
           ululeSyncState.matched += 1
-          const result = await processEligibleOrder(order, item)
+          const result = order?.refunded === true
+            ? await revokeRefundedAccess(order, item)
+            : isEligibleOrderStatus(order)
+              ? await processEligibleOrder(order, item)
+              : { inserted: 0, skippedExisting: 0, sent: 0, failed: 0 }
           ululeSyncState.inserted += result.inserted
           ululeSyncState.skippedExisting += result.skippedExisting
           ululeSyncState.sent += result.sent
