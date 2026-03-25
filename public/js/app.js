@@ -2093,11 +2093,9 @@ async function batchDelete() {
 }
 
 async function refreshAll() {
- const [importStatus, brevoSyncStatus, queueStatus, ululeStatus] = await Promise.all([
+ const [importStatus, queueStatus, ululeStatus] = await Promise.all([
   refreshImportStatus(),
-  refreshBrevoSyncStatus(),
   refreshStats(),
-  refreshBrevoStats(),
   refreshActivationChart(),
   refreshBranding(),
   loadList(),
@@ -2109,19 +2107,13 @@ async function refreshAll() {
 
  renderNotificationCenter({
   queueRunning: Boolean(queueStatus?.running),
-  syncRunning: Boolean(brevoSyncStatus?.running)
+  syncRunning: false
  })
 
  if (importStatus?.running) {
   if (!importPollTimer) startImportPolling()
  } else {
   stopImportPolling()
- }
-
- if (brevoSyncStatus?.running) {
-  if (!brevoSyncPollTimer) startBrevoSyncPolling()
- } else {
-  stopBrevoSyncPolling()
  }
 
  if (ululeStatus?.running) {
@@ -2134,9 +2126,6 @@ async function refreshAll() {
 
 document.getElementById("importBtn").addEventListener("click", importEmails)
 document.getElementById("sendBtn").addEventListener("click", sendEmails)
-document.getElementById("reconcileBtn").addEventListener("click", reconcileSentEmails)
-document.getElementById("brevoSyncBtn").addEventListener("click", startBrevoSync)
-document.getElementById("brevoSyncStopBtn").addEventListener("click", stopBrevoSync)
 document.getElementById("ululeSyncBtn")?.addEventListener("click", startUluleSync)
 document.getElementById("cockpitModeBtn").addEventListener("click", () => {
  setCockpitMode(!document.body.classList.contains("cockpit-dense"), { reveal: true })

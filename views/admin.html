@@ -154,26 +154,6 @@
 </div>
 </aside>
 
-<section class="panel panel-tight">
-<h2 id="brevoTitle">Statuts Brevo</h2>
-<div class="brevo-stats-grid" id="brevoStatsGrid">
-<div class="mini-card"><span id="brevoStatLabel-none">Aucun statut</span><b id="brevoStat-none">0</b></div>
-<div class="mini-card"><span id="brevoStatLabel-request">Requête</span><b id="brevoStat-request">0</b></div>
-<div class="mini-card"><span id="brevoStatLabel-queued">En file</span><b id="brevoStat-queued">0</b></div>
-<div class="mini-card"><span id="brevoStatLabel-sent">Envoyé</span><b id="brevoStat-sent">0</b></div>
-<div class="mini-card"><span id="brevoStatLabel-delivered">Délivré</span><b id="brevoStat-delivered">0</b></div>
-<div class="mini-card"><span id="brevoStatLabel-soft_bounce">Rebond souple</span><b id="brevoStat-soft_bounce">0</b></div>
-<div class="mini-card"><span id="brevoStatLabel-hard_bounce">Rebond dur</span><b id="brevoStat-hard_bounce">0</b></div>
-<div class="mini-card"><span id="brevoStatLabel-blocked">Bloqué</span><b id="brevoStat-blocked">0</b></div>
-<div class="mini-card"><span id="brevoStatLabel-error">Erreur</span><b id="brevoStat-error">0</b></div>
-<div class="mini-card"><span id="brevoStatLabel-deferred">Différé</span><b id="brevoStat-deferred">0</b></div>
-<div class="mini-card"><span id="brevoStatLabel-invalid">Invalide</span><b id="brevoStat-invalid">0</b></div>
-<div class="mini-card"><span id="brevoStatLabel-spam">Spam</span><b id="brevoStat-spam">0</b></div>
-<div class="mini-card"><span id="brevoStatLabel-consolidated">Consolidés</span><b id="brevoStat-consolidated">0</b></div>
-<div class="mini-card"><span id="brevoStatLabel-gap">Écart</span><b id="brevoStat-gap">0</b></div>
-</div>
-</section>
-
 <section class="editor-grid">
 <div class="panel editor-panel collapsible-panel">
 <div class="panel-head">
@@ -191,29 +171,6 @@
 </div>
 </div>
 
-<div class="panel editor-panel collapsible-panel">
-<div class="panel-head">
-<div>
-<h2 id="reconcileTitle">Synchroniser avec Brevo</h2>
-<span id="reconcileTag" class="panel-tag">Sync</span>
-</div>
-<button id="reconcileCollapseBtn" type="button" class="ghost collapse-toggle" data-target="reconcilePanelBody" aria-expanded="false">Ouvrir</button>
-</div>
-<div id="reconcilePanelBody" class="collapsible-body collapsed">
-<p class="panel-copy" id="reconcileCopy">Colle ici les adresses qui ont vraiment reçu ton mail dans Brevo. On remet ça au propre en base, et tu pourras relancer le reste sans prise de tête.</p>
-<textarea id="reconcileEmails" placeholder="Colle ici les e-mails confirmés par Brevo."></textarea>
-<p id="reconcileStatus">Réconciliation: ça roupille</p>
-<div class="sync-block">
-<div class="panel-head sync-head">
-<h3 id="brevoSyncTitle">Resynchronise depuis Brevo</h3>
-<span id="brevoSyncTag" class="panel-tag">Auto</span>
-</div>
-<p class="panel-copy" id="brevoSyncCopy">On va lire les statuts transactionnels réels chez Brevo pour recoller ta base avec ce qui a vraiment été envoyé, délivré ou bloqué.</p>
-<p id="brevoSyncStatus">Resync Brevo: en attente</p>
-<div class="progress" aria-hidden="true"><div id="brevoSyncProgressBar"></div></div>
-</div>
-</div>
-</div>
 </section>
 
 <section class="panel collapsible-panel">
@@ -274,9 +231,6 @@
 <div class="controls controls-primary">
 <button id="importBtn">Lancer l'import</button>
 <button id="sendBtn">Envoyer les e-mails</button>
-<button id="reconcileBtn" type="button" class="ghost">Réconcilier la liste collée</button>
-<button id="brevoSyncBtn" type="button" class="ghost">Resynchroniser depuis Brevo</button>
-<button id="brevoSyncStopBtn" type="button" class="ghost">Stopper la resync</button>
 <button id="selectFilteredBtn" type="button" class="ghost">Sélectionner le filtre</button>
 <button id="exportBtn" type="button" class="ghost">Exporter le filtre</button>
 </div>
